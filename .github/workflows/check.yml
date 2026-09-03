@@ -9,3 +9,4 @@ jobs:
         with: { node-version: 22, cache: npm }
       - run: npm ci
       - run: npm run check
+      - run: npm run build # catches Next-only rules (e.g. "use server" exports) that tsc and tests cannot

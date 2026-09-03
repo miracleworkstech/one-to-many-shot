@@ -4,8 +4,9 @@ import { parseCatalog } from "@/lib/catalog";
 import { importCatalogRows } from "@/lib/import";
 
 // ponytail: a ~300-product export is under 100 KB; this caps a wrong-file upload
-// (and the Haiku work it would trigger) without a row-count knob.
-export const MAX_CSV_BYTES = 2_000_000;
+// (and the Haiku work it would trigger) without a row-count knob. Not exported:
+// a "use server" file may only export async functions.
+const MAX_CSV_BYTES = 2_000_000;
 
 export async function importCatalog(formData: FormData) {
   const file = formData.get("file");

@@ -139,12 +139,11 @@ test("a race with updateIdea during suggestIdeas' await does not clobber the edi
 });
 
 test("the server action refuses a file over the size cap before parsing", async () => {
-  const { importCatalog, MAX_CSV_BYTES } =
-    await import("../lib/actions/import.ts");
+  const { importCatalog } = await import("../lib/actions/import.ts");
   const fd = new FormData();
   fd.set(
     "file",
-    new File([new Uint8Array(MAX_CSV_BYTES + 1)], "huge.csv", {
+    new File([new Uint8Array(2_000_001)], "huge.csv", {
       type: "text/csv",
     }),
   );
