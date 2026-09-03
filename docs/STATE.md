@@ -8,8 +8,8 @@
 **Building, paused between tasks.** Tasks 1 and 2 merged to `main` (PR #1 approved by the
 user). Next action: on the user's go, `git checkout -b task/3-import` and run Task 3
 (import, suggestions, read model, status page) through the implementer/evaluator pair, then
-open a PR and stop. Task 3's manual check wants `ANTHROPIC_API_KEY` in the shell; it runs
-on the template fallback without it.
+open a PR and stop. Task 3's manual check will use the Haiku key from `.env.local`
+via the dev server.
 
 ## Task board
 
@@ -48,7 +48,7 @@ on the template fallback without it.
   Until then, the worker's 402 pause path is what gets exercised.
 - Photo host returns 403 to plain clients, 200 with a browser User-Agent (verified).
 - Codex CLI 0.144.4 installed and logged in (checked 2026-09-03).
-- User will supply their own Anthropic key for Haiku suggestions when testing.
+- `ANTHROPIC_API_KEY` is in `.env.local` as of 2026-09-03 (never read it). `next dev` and `next start` load it; `node --test` does not, so tests run on the template fallback.
 - Deploy target: Railway, volume at `/data`, daily backups. No Railway project created yet.
 - Local Node is 26; better-sqlite3 13 ships prebuilds so no compiler needed. CI pins Node 22.
 - Pre-commit hook active locally (`core.hooksPath=.githooks`). GitHub Actions `check` runs on push.
