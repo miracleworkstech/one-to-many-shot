@@ -21,7 +21,7 @@ for *what*; this file is authoritative for *how*.
 
 ## Invariants
 
-- **Never read, print, modify, or commit `.env.local`.** Never echo API keys into chat or
+- **Never read, print, modify, or commit `.env.local` or `.env`.** Never echo API keys into chat or
   logs. Code loads secrets from the environment; humans never see them in this session.
 - **Keep `DECISIONS.md` current.** After any material choice append an entry:
   Decision / Alternatives / Why (tied to a requirement) / Cost accepted / Revisit trigger.

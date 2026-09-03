@@ -26,7 +26,7 @@ exist. Breaking the code and watching the tests stay green proves they are hollo
    - No `state: string`, `as unknown as`, or non-null `!` on values that can be null in
      production code (the lint-caught escapes are already excluded by step 1).
    - Every SQL state or idea-source literal goes through `st()`, `inStates()`, `src()`.
-   - No `.env.local` read, no key printed or logged.
+   - No `.env.local` or `.env` read, no key printed or logged.
    - Every Luma call path shows cost before the trigger and is bounded by both caps.
    - One responsibility per module per the plan's file structure. A module that gained a
      second reason to change is a finding, even if it works.

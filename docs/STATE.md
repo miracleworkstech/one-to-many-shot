@@ -48,7 +48,7 @@ via the dev server.
   Until then, the worker's 402 pause path is what gets exercised.
 - Photo host returns 403 to plain clients, 200 with a browser User-Agent (verified).
 - Codex CLI 0.144.4 installed and logged in (checked 2026-09-03).
-- `ANTHROPIC_API_KEY` is in `.env.local` as of 2026-09-03 (never read it). `next dev` and `next start` load it; `node --test` does not, so tests run on the template fallback.
+- `ANTHROPIC_API_KEY` is in `.env.local` as of 2026-09-03 (never read it). The user renamed `.env.example` to `.env` (gitignored, placeholder only); Task 8 recreates `.env.example` with the real variable list. `next dev` and `next start` load it; `node --test` does not, so tests run on the template fallback.
 - Deploy target: Railway, volume at `/data`, daily backups. No Railway project created yet.
 - Local Node is 26; better-sqlite3 13 ships prebuilds so no compiler needed. CI pins Node 22.
 - Pre-commit hook active locally (`core.hooksPath=.githooks`). GitHub Actions `check` runs on push.
