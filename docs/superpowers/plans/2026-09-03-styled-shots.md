@@ -109,7 +109,7 @@ Dockerfile, railway.json, .env.example (updated), README section
 **Interfaces:**
 - Produces: `env` object; `lib/types.ts` exporting `CandidateState`, `CANDIDATE_STATES`, `BatchKind`, `BATCH_KINDS`, `ShotIdeaSource`, `Product`, `Candidate`, `Batch`; `db()` returning a `better-sqlite3` Database with schema applied; `storage.saveImage(id, buf)`, `storage.readImage(id)`, `storage.imagePath(id)`.
 
-- [ ] **Step 1: Scaffold**
+- [x] **Step 1: Scaffold**
 
 ```bash
 git checkout -b task/1-scaffold
@@ -122,7 +122,7 @@ If `npm i better-sqlite3` compiles from source (no prebuilt binary for the local
 
 Expected: `package.json`, `app/`, `next.config.ts` exist. If create-next-app refuses a non-empty directory, run it in a temp dir and copy `app/`, `package.json`, `tsconfig.json`, `next.config.ts`, `postcss.config.mjs`, `next-env.d.ts` into the repo root.
 
-- [ ] **Step 2: Scripts, lint rules, formatter, hook, CI, gitignore**
+- [x] **Step 2: Scripts, lint rules, formatter, hook, CI, gitignore**
 
 In `package.json` scripts add:
 ```json
@@ -170,7 +170,7 @@ jobs:
 ```
 Append to `.gitignore`: `data-local/` and `.next/`. Run `npm run format` once so the scaffold is formatted before the first commit.
 
-- [ ] **Step 3: next.config.ts**
+- [x] **Step 3: next.config.ts**
 
 ```ts
 import type { NextConfig } from "next";
@@ -181,7 +181,7 @@ const nextConfig: NextConfig = {
 export default nextConfig;
 ```
 
-- [ ] **Step 4: lib/env.ts**
+- [x] **Step 4: lib/env.ts**
 
 ```ts
 const num = (v: string | undefined, d: number) => (v ? Number(v) : d);
@@ -208,7 +208,7 @@ export function assertProductionEnv() {
 }
 ```
 
-- [ ] **Step 5: Failing test for db**
+- [x] **Step 5: Failing test for db**
 
 `tests/db.test.ts`:
 ```ts
@@ -237,7 +237,7 @@ test("database rejects a state the type union does not know", () => {
 
 Run: `npm test` → Expected: FAIL, cannot find `../lib/db.ts`.
 
-- [ ] **Step 6: lib/types.ts (domain types; the only place a state name is spelled)**
+- [x] **Step 6: lib/types.ts (domain types; the only place a state name is spelled)**
 
 ```ts
 export const CANDIDATE_STATES = ["queued", "processing", "completed", "failed", "approved", "rejected"] as const;
@@ -262,7 +262,7 @@ export interface Candidate {
 }
 ```
 
-- [ ] **Step 7: lib/db.ts**
+- [x] **Step 7: lib/db.ts**
 
 ```ts
 import Database from "better-sqlite3";
@@ -320,7 +320,7 @@ export function db(): Database.Database {
 }
 ```
 
-- [ ] **Step 8: lib/storage.ts**
+- [x] **Step 8: lib/storage.ts**
 
 ```ts
 // ponytail: local disk only. Swap this module for R2/S3 if a second instance or CDN is ever needed (DECISIONS.md D6).
@@ -336,7 +336,7 @@ export const storage = {
 };
 ```
 
-- [ ] **Step 9: Run the full check, commit**
+- [x] **Step 9: Run the full check, commit**
 
 Run: `npm run check` → Expected: typecheck clean, lint clean, tests PASS.
 

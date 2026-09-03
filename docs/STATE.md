@@ -5,17 +5,14 @@
 
 ## Phase
 
-**Pre-build, harness ready.** Plan reviewed by the user (typed unions, failed status, typed
-SQL literals applied). Evaluator skill written and verified against a fixture (baseline
-without skill: no mutation testing; with skill: 6 mutants, 3 survived, structured report).
-Next action: start Task 1 of `docs/superpowers/plans/2026-09-03-styled-shots.md` on the
-user's go.
+**Building.** Task 1 merged to main. Next action: Task 2 (pure domain functions) on branch
+`task/2-domain`.
 
 ## Task board
 
 | Task | Status | Commit | Notes |
 |---|---|---|---|
-| 1 Scaffold, env, db, storage | not started | | |
+| 1 Scaffold, env, db, storage | merged | 08002ed | evaluator PASS, 8 mutants / 3 killed; NaN-cap fix + 3 tests added before merge |
 | 2 Pure domain functions | not started | | |
 | 3 Import, suggestions, read model, status page | not started | | |
 | 4 Luma client, photo fetch | not started | | |
@@ -48,6 +45,8 @@ user's go.
 - Codex CLI 0.144.4 installed and logged in (checked 2026-09-03).
 - User will supply their own Anthropic key for Haiku suggestions when testing.
 - Deploy target: Railway, volume at `/data`, daily backups. No Railway project created yet.
+- Local Node is 26; better-sqlite3 13 ships prebuilds so no compiler needed. CI pins Node 22.
+- Pre-commit hook active locally (`core.hooksPath=.githooks`). GitHub Actions `check` runs on push.
 - Slack incoming webhook: not created yet. Optional; the app runs without it.
 
 ## Open items for the user
