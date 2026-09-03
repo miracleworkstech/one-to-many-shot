@@ -10,7 +10,9 @@ for *what*; this file is authoritative for *how*.
 - **Push back when the user is wrong, and say so plainly.** Don't agree to keep them happy.
 - **Explain before acceptance on money paths.** For budget, generation triggers, and
   approvals: walk through the failure modes and races before writing the code.
-- **Small commits, reasoned messages.**
+- **Small commits, reasoned messages.** One branch per plan task (`task/<n>-<slug>`),
+  fast-forward merged into `main` after the evaluator passes. `npm run check` (typecheck,
+  lint, tests) must be green before every commit.
 - **Prefer simple, explainable, production-credible over clever.** Six-person customer,
   about 300 products, 40-product drops. Build for that scale, name the ceiling.
 

@@ -19,7 +19,7 @@ exist. Breaking the code and watching the tests stay green proves they are hollo
 
 ## Procedure, in order
 
-1. **Run the tests.** `npm test`. Record pass/fail counts. A red suite is an immediate FAIL.
+1. **Run the full check.** `npm run check` (typecheck, lint, tests). Record counts. Any red is an immediate FAIL.
 2. **Interfaces, line by line.** For every line in the task's Interfaces block, find the
    exported symbol, check name, parameter types, return type. Any mismatch is a finding.
 3. **Invariants.** Check each, cite file:line for any breach:
