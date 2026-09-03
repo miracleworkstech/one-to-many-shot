@@ -5,15 +5,18 @@
 
 ## Phase
 
-**Building.** Task 1 merged. Task 2 in PR, awaiting the user's review (D9). Next action after
-approval: fast-forward merge, then Task 3 on `task/3-import` on the user's go.
+**Building, paused between tasks.** Tasks 1 and 2 merged to `main` (PR #1 approved by the
+user). Next action: on the user's go, `git checkout -b task/3-import` and run Task 3
+(import, suggestions, read model, status page) through the implementer/evaluator pair, then
+open a PR and stop. Task 3's manual check wants `ANTHROPIC_API_KEY` in the shell; it runs
+on the template fallback without it.
 
 ## Task board
 
 | Task | Status | Commit | Notes |
 |---|---|---|---|
 | 1 Scaffold, env, db, storage | merged | 08002ed | evaluator PASS, 8 mutants / 3 killed; NaN-cap fix + 3 tests added before merge |
-| 2 Pure domain functions | in PR | | evaluator PASS, 16 mutants / 12 killed; 4 test tightenings + cast fix applied |
+| 2 Pure domain functions | merged | PR #1 | evaluator PASS, 16 mutants / 12 killed; 4 test tightenings + cast fix applied |
 | 3 Import, suggestions, read model, status page | not started | | |
 | 4 Luma client, photo fetch | not started | | |
 | 5 Admission control, worker, notify, analytics | not started | | money paths accepted 2026-09-03 |
