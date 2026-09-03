@@ -26,9 +26,24 @@ for *what*; this file is authoritative for *how*.
 - **No generation without a visible cost and a cap.** Every path that calls Luma shows the
   estimated spend before the trigger and is bounded per run.
 
+## Resuming in a fresh session
+
+Read `docs/STATE.md` first. It holds the task board, the last commit per task, environment
+facts (credits, hosts, keys present), and the next action. Update it at the end of every
+task and after every decision. The plan with checkboxes is
+`docs/superpowers/plans/2026-09-03-styled-shots.md`.
+
+## Execution harness (D8)
+
+One implementer subagent and one evaluator subagent per plan task. The evaluator MUST
+invoke the project skill `evaluating-task` (`.claude/skills/evaluating-task/SKILL.md`):
+mutation testing, interface and invariant checks, the nine anti-patterns, structured
+verdict. Two rounds maximum per task. Codex reviews the full diff after Task 8.
+
 ## Files
 
 - `README.md` — the brief (authoritative).
 - `data/catalog.csv` — the customer's export. Treat as data, quirks included.
 - `ASSUMPTIONS.md`, `DECISIONS.md`, `APPROACH.md`, `video.md` — deliverables.
+- `docs/STATE.md` — resumable progress. `docs/superpowers/plans/` — the task plan.
 - `submit.sh` — packages AI session history and submits. Do not edit.

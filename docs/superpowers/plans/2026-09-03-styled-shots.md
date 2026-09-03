@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 >
-> **Execution style chosen by the user (2026-09-03):** one subagent pair per task, implementer then evaluator, followed by a Codex review as the final pass. Harness details to follow from the user before Task 1 starts.
+> **Execution style chosen by the user (2026-09-03):** one subagent pair per task, implementer then evaluator, followed by a Codex review as the final pass. The evaluator invokes the project skill `evaluating-task`. Progress lives in `docs/STATE.md`. See DECISIONS.md D8.
 
 **Goal:** Turn the catalog sheet's shot ideas into approved, correctly named product images via a phone-first approval page, with generation that never spends without a visible cost and a cap, and every dollar spent attributable to a product, a batch, and an outcome.
 

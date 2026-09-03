@@ -123,14 +123,22 @@ live in `ASSUMPTIONS.md`, not here.
 ## D8 — Execution: implementer + evaluator subagent per task, Codex as final review (2026-09-03)
 
 - **Decision:** Each plan task is built by an implementer subagent, checked by an evaluator
-  subagent against the task's stated interfaces and tests, then reviewed by the user in
-  this session. A Codex review runs over the whole diff as the final pass before deploy.
-  Harness details to be specified by the user before Task 1.
+  subagent that invokes the project skill `evaluating-task`: runs the tests, mutation-tests
+  every branch-bearing function (minimum three mutants per task), checks each Interfaces
+  line, the invariants, the claimed money-path rows, and nine known agent anti-patterns
+  (mock-testing mocks, missing error paths, hardcoded test data, over-mocking, type escape
+  hatches, stale imports, missing cleanup, incomplete UI, accessibility gaps), and reports
+  in a fixed contract. Then reviewed by the user in this session. A Codex review runs over
+  the whole diff as the final pass before deploy. Progress is tracked in `docs/STATE.md` so
+  a fresh session can resume at the next task. Work happens in the main tree, no worktrees
+  (tasks are sequential; a worktree per task adds a merge for no isolation).
 - **Alternatives:** Inline execution in this session. Single subagent per task without an
   evaluator.
 - **Why:** Fresh context per task keeps each subagent focused on one responsibility, the
   evaluator catches drift from the plan's interfaces, and a second model as reviewer is a
-  genuinely independent check.
+  genuinely independent check. Mutation testing is required because a baseline run of an
+  evaluator without the skill (2026-09-03, on a fixture with deliberate gaps) found the
+  static problems but never broke the code to see whether the tests noticed.
 - **Cost accepted:** More tokens and wall-clock than inline. Reasoning is spread across
   subagent transcripts, so this session's log must summarise what each pair concluded.
 - **Revisit trigger:** A task where the evaluator and implementer loop more than twice; then
