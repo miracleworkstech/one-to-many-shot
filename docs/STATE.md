@@ -5,8 +5,11 @@
 
 ## Phase
 
-**Pre-build.** Plan approved in principle; harness being finalised. Next action: start Task 1
-of `docs/superpowers/plans/2026-09-03-styled-shots.md` once the user gives the go.
+**Pre-build, harness ready.** Plan reviewed by the user (typed unions, failed status, typed
+SQL literals applied). Evaluator skill written and verified against a fixture (baseline
+without skill: no mutation testing; with skill: 6 mutants, 3 survived, structured report).
+Next action: start Task 1 of `docs/superpowers/plans/2026-09-03-styled-shots.md` on the
+user's go.
 
 ## Task board
 
