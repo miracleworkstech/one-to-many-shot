@@ -102,13 +102,14 @@ added later without changing the schema.
 
 ## Build order (one working day)
 
-1. Smoke test: one real `image_edit` on HG-002. Verifies photo fetch, base64 path, quality.
-2. Supabase schema, storage bucket, env.
+1. Smoke test: one real `image_edit` on HG-002. Done: photo fetch needs a browser UA;
+   Luma account had zero credits (402), credits requested.
+2. Next.js app, SQLite schema, storage module, env.
 3. CSV import + status page + suggested ideas.
-4. Tick + generation.
+4. Poll loop + generation, with the budget guardrails.
 5. Review page (phone-first).
 6. Slack webhook, CSV export, zip export.
-7. Deploy, docs, video.
+7. Deploy to Railway, docs, video.
 
 ## Key decisions and tradeoffs *(fill after build)*
 
