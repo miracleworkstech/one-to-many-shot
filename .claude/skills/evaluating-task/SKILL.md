@@ -19,12 +19,12 @@ exist. Breaking the code and watching the tests stay green proves they are hollo
 
 ## Procedure, in order
 
-1. **Run the full check.** `npm run check` (typecheck, lint, tests). Record counts. Any red is an immediate FAIL.
+1. **Run the full check.** `npm run check` (typecheck, lint, format, tests). Record counts. Any red is an immediate FAIL. Lint already rejects `any` and `@ts-` comments; jsx-a11y rejects images without `alt` and controls without names. Do not re-check what the check just proved.
 2. **Interfaces, line by line.** For every line in the task's Interfaces block, find the
    exported symbol, check name, parameter types, return type. Any mismatch is a finding.
 3. **Invariants.** Check each, cite file:line for any breach:
-   - No `state: string`, `as any`, `as unknown as`, `@ts-ignore`, `@ts-expect-error`, or
-     non-null `!` on values that can be null in production code.
+   - No `state: string`, `as unknown as`, or non-null `!` on values that can be null in
+     production code (the lint-caught escapes are already excluded by step 1).
    - Every SQL state or idea-source literal goes through `st()`, `inStates()`, `src()`.
    - No `.env.local` read, no key printed or logged.
    - Every Luma call path shows cost before the trigger and is bounded by both caps.
@@ -60,11 +60,11 @@ exist. Breaking the code and watching the tests stay green proves they are hollo
 | 2 | Missing error paths | Happy path only; `catch {}`; errors logged and forgotten; fetch status unchecked | Silent stalls, lost money, no banner |
 | 3 | Hardcoded test data | Tests only use magic strings that never resemble `data/catalog.csv` | Passes on `"x"`, fails on `"Salt + Pepper Cellar Set"` |
 | 4 | Over-mocking | DB, fs, or fetch all mocked so nothing real is exercised | Integration bugs invisible; prefer the real SQLite in a temp dir |
-| 5 | Type escape hatches | `as any`, `as unknown as`, `!`, `@ts-ignore` | Compiler no longer owns the invariant |
+| 5 | Type escape hatches | `as unknown as`, `!` on nullable values, `as X` on a value the code never validated | Compiler no longer owns the invariant (lint already blocks `any` and `@ts-` comments) |
 | 6 | Stale imports | Importing types from `db.ts` instead of `types.ts`; old `lib/actions.ts` path | Wrong module, wrong coupling, silent drift |
 | 7 | Missing cleanup | Temp dirs, open DB handles, `setInterval` in tests, worker started in test | Leaks, flaky runs, hung test process |
 | 8 | Incomplete UI | No loading, error, or empty state; a list with zero rows renders nothing | Ellie sees a blank page and assumes it broke |
-| 9 | Accessibility gaps | Buttons without text or `aria-label`, images without `alt`, inputs without labels, tap targets under 44 px | Unusable on a phone, the primary device |
+| 9 | Accessibility gaps | Tap targets under 44 px, contrast below 4.5:1, focus order, state conveyed by colour alone (lint already blocks missing `alt` and unnamed controls) | Unusable on a phone, the primary device |
 
 ## Output contract
 
@@ -91,7 +91,7 @@ invariant breach, patterns 2 or 5 present. Otherwise PASS with non-blocking find
 - "The tests look thorough" without having broken anything.
 - "This is a simple task, mutation testing is overkill."
 - "The implementer said they tested it manually."
-- "I'll note the `as any` as minor." It is blocking.
+- "I'll note the `as unknown as` as minor." It is blocking.
 - Reporting a PASS with an empty mutants line.
 
 All of these mean: go back to step 5.

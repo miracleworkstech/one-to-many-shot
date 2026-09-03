@@ -33,9 +33,10 @@ user's go.
 2. Evaluator subagent: invokes the `evaluating-task` skill (`.claude/skills/evaluating-task`),
    runs tests, mutation-tests, checks interfaces and invariants, reports in the contract.
 3. Loop cap two rounds. A third means the plan is wrong; fix the plan with the user first.
-4. Main session runs `npm run check`, commits with the plan's message, fast-forward merges
-   into `main`, deletes the branch, pushes, updates this file and the plan checkboxes,
-   appends to DECISIONS.md if a material choice was made, summarises the pair's result.
+4. Main session commits with the plan's message (the pre-commit hook runs `npm run check`),
+   fast-forward merges into `main`, deletes the branch, pushes (CI re-runs the check),
+   updates this file and the plan checkboxes, appends to DECISIONS.md if a material choice
+   was made, summarises the pair's result.
 5. After Task 8: Codex review over the full diff, findings to the user, then deploy.
 
 ## Environment facts

@@ -26,7 +26,8 @@
 - **No stringly-typed states.** `CandidateState`, `BatchKind`, `ProductStatus` live in `lib/types.ts` as unions derived from const arrays. Functions take and return the union, never `string`. The schema's `check (state in (...))` constraints are generated from the same arrays, so the database rejects what the compiler would. Adding a state fails the compiler and the constraint until every site is updated.
 - **Single responsibility:** each module below has one reason to change. When a module grows a second responsibility during a task, split it in that task and say so in the commit message. Pages render; `lib/queries.ts` reads; actions mutate; the worker advances generation; `analytics` counts money.
 - **Branch per task.** Before a task starts: `git checkout -b task/<n>-<slug>` from `main`. The implementer and evaluator work on that branch. After the evaluator passes and the main session has run `npm run check` green, fast-forward merge into `main` (`git checkout main && git merge --ff-only task/<n>-<slug>`), delete the branch, push `main`. A task that fails twice stays on its branch while the plan is fixed.
-- **`npm run check` must be green before every commit**: `tsc --noEmit`, `eslint .`, and the tests. The evaluator runs it too. `@typescript-eslint/no-explicit-any` is an error, so pattern 5 fails the build, not just the review.
+- **`npm run check`** is `tsc --noEmit`, `eslint .`, `prettier --check .`, and the tests. A pre-commit hook (`.githooks/pre-commit`, enabled by `npm run prepare`) runs it, and GitHub Actions runs it on every push. Never commit with `--no-verify`. `@typescript-eslint/no-explicit-any` and `ban-ts-comment` are errors, so most of pattern 5 fails the build, not just the review.
+- **Fail fast in production.** `assertProductionEnv()` in `lib/env.ts` throws at server start (called from `instrumentation.ts`, not at build) if `LUMA_AGENTS_API_KEY` or `ACCESS_TOKEN` is missing.
 - Commit after every task with a reasoned message ending in `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
 - Append to `DECISIONS.md` when a task makes a material choice not already logged.
 
@@ -88,7 +89,10 @@ lib/
     generate.ts              generateNext, generateSku, tryAgain, resumeWorker
     review.ts                decide, updateIdea
 middleware.ts                shared-token gate
-instrumentation.ts           starts the worker once per process
+instrumentation.ts           asserts production env, starts the worker once per process
+.githooks/pre-commit         runs npm run check (enabled by npm run prepare)
+.github/workflows/check.yml  npm ci && npm run check on push and pull request
+.prettierrc, .prettierignore default Prettier, docs and data excluded
 tests/
   db.test.ts, catalog.test.ts, status.test.ts, prompt.test.ts, names.test.ts,
   enqueue.test.ts, analytics.test.ts
@@ -100,7 +104,7 @@ Dockerfile, railway.json, .env.example (updated), README section
 ### Task 1: Scaffold, env, database, storage
 
 **Files:**
-- Create: Next.js app via `create-next-app`, `lib/env.ts`, `lib/types.ts`, `lib/db.ts`, `lib/storage.ts`, `next.config.ts` (modify), `.gitignore` (modify), `tests/db.test.ts`
+- Create: Next.js app via `create-next-app`, `lib/env.ts`, `lib/types.ts`, `lib/db.ts`, `lib/storage.ts`, `next.config.ts` (modify), `.gitignore` (modify), `tests/db.test.ts`, `.githooks/pre-commit`, `.github/workflows/check.yml`, `.prettierrc`, `.prettierignore`
 
 **Interfaces:**
 - Produces: `env` object; `lib/types.ts` exporting `CandidateState`, `CANDIDATE_STATES`, `BatchKind`, `BATCH_KINDS`, `ShotIdeaSource`, `Product`, `Candidate`, `Batch`; `db()` returning a `better-sqlite3` Database with schema applied; `storage.saveImage(id, buf)`, `storage.readImage(id)`, `storage.imagePath(id)`.
@@ -111,27 +115,60 @@ Dockerfile, railway.json, .env.example (updated), README section
 git checkout -b task/1-scaffold
 npx --yes create-next-app@15 . --ts --tailwind --app --no-src-dir --eslint --import-alias "@/*" --use-npm
 npm i better-sqlite3 csv-parse csv-stringify fflate @anthropic-ai/sdk
-npm i -D @types/better-sqlite3 tsx
+npm i -D @types/better-sqlite3 tsx prettier
 ```
 
 If `npm i better-sqlite3` compiles from source (no prebuilt binary for the local Node major) and fails for lack of build tools, switch to Node 22 LTS (`nvm use 22`) and retry; the Docker image pins Node 22 regardless.
 
 Expected: `package.json`, `app/`, `next.config.ts` exist. If create-next-app refuses a non-empty directory, run it in a temp dir and copy `app/`, `package.json`, `tsconfig.json`, `next.config.ts`, `postcss.config.mjs`, `next-env.d.ts` into the repo root.
 
-- [ ] **Step 2: Scripts, lint rule, gitignore**
+- [ ] **Step 2: Scripts, lint rules, formatter, hook, CI, gitignore**
 
 In `package.json` scripts add:
 ```json
 "test": "node --import tsx --test tests/*.test.ts",
 "typecheck": "tsc --noEmit",
 "lint": "eslint .",
-"check": "npm run typecheck && npm run lint && npm test"
+"format": "prettier --write .",
+"format:check": "prettier --check .",
+"check": "npm run typecheck && npm run lint && npm run format:check && npm test",
+"prepare": "git config core.hooksPath .githooks || true"
 ```
 In `eslint.config.mjs` (generated by create-next-app, flat config), add a final entry:
 ```js
-{ rules: { "@typescript-eslint/no-explicit-any": "error" } }
+{ rules: { "@typescript-eslint/no-explicit-any": "error", "@typescript-eslint/ban-ts-comment": "error" } }
 ```
-Append to `.gitignore`: `data-local/` and `.next/`.
+`.prettierrc`: `{}` (defaults). `.prettierignore`:
+```
+.next
+node_modules
+data-local
+scratch
+dist
+data
+*.md
+package-lock.json
+```
+`.githooks/pre-commit` (make it executable with `git update-index --chmod=+x .githooks/pre-commit`):
+```sh
+#!/bin/sh
+npm run check
+```
+Run `npm run prepare` once locally. `.github/workflows/check.yml`:
+```yaml
+name: check
+on: [push, pull_request]
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm run check
+```
+Append to `.gitignore`: `data-local/` and `.next/`. Run `npm run format` once so the scaffold is formatted before the first commit.
 
 - [ ] **Step 3: next.config.ts**
 
@@ -162,6 +199,13 @@ export const env = {
   lumaConcurrency: num(process.env.LUMA_CONCURRENCY, 4),
   tickMs: num(process.env.WORKER_TICK_MS, 5000),
 };
+
+/** Call at server start, never at build: Next sets NODE_ENV=production during `next build` too. */
+export function assertProductionEnv() {
+  if (process.env.NODE_ENV !== "production") return;
+  for (const k of ["LUMA_AGENTS_API_KEY", "ACCESS_TOKEN"] as const)
+    if (!process.env[k]) throw new Error(`Missing required env var ${k}`);
+}
 ```
 
 - [ ] **Step 5: Failing test for db**
@@ -303,6 +347,8 @@ Single-process app per D6. Products, batches (one per trigger),
 candidates (one per image, carries its cost), and a settings row for the
 worker pause reason. State enums live once in lib/types.ts and are
 mirrored as CHECK constraints. All image I/O goes through lib/storage.ts.
+Quality gates: typecheck, lint (no-explicit-any, ban-ts-comment),
+prettier, tests, via pre-commit hook and GitHub Actions.
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ```
@@ -1047,6 +1093,8 @@ export function startWorker() {
 ```ts
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
+    const { assertProductionEnv } = await import("./lib/env");
+    assertProductionEnv();
     const { startWorker } = await import("./lib/worker");
     startWorker();
   }
@@ -1477,7 +1525,7 @@ Railway: new project from the GitHub repo, add a volume mounted at `/data`, set 
 
 - [ ] **Step 5: README run section, commit**
 
-Append to `README.md` a short "Running it" section: env vars, `npm run dev`, `npm test`, deploy notes, the team link format. Then:
+Append to `README.md` a short "Running it" section: env vars, `npm install && npm run prepare` (enables the pre-commit hook), `npm run dev`, `npm run check`, deploy notes, the team link format. Then:
 
 ```bash
 git add -A && git commit -m "deploy: shared-link gate, Dockerfile, Railway config, env example
