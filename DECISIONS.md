@@ -72,3 +72,30 @@ live in `ASSUMPTIONS.md`, not here.
   learn now.
 - **Cost accepted:** A few cents and twenty minutes.
 - **Revisit trigger:** n/a.
+
+## D6 — One long-running Node service on Railway, SQLite + volume for images (2026-09-03)
+
+- **Decision:** Next.js in a single always-on Node process on Railway. SQLite (better-sqlite3,
+  WAL mode) and images both live on one mounted volume. An in-process loop polls Luma.
+  Scheduled daily Railway volume backups. Luma output requested as JPEG to keep candidates
+  around half a megabyte. All disk access goes through one small storage module.
+- **Alternatives:** (A) Vercel + Supabase: serverless functions, managed Postgres and
+  Storage, pg_cron calling a tick endpoint. (C) Cloudflare Workers + D1 + R2 with cron
+  triggers. (B2) Hybrid: SQLite on the volume, images in R2 from day one.
+- **Why:** The Luma Agents API has no callbacks, so something must poll; a long-lived
+  process makes that one `setInterval` instead of three triggers across two vendors. The
+  customer is six people and about 300 products and will never need a second instance. One
+  vendor, one process, one env file is the right operational surface for a team with no
+  engineer on staff. Files on a disk match their mental model of "a folder", and the zip
+  export is a directory walk.
+- **Cost accepted:** Single instance by construction (Railway volumes cannot attach to
+  replicas). Images served by the app, not a CDN. 5 GB on Hobby (50 GB Pro, live resize).
+  Restore is a few clicks, not automatic failover; worst case with daily backups is one day
+  of approvals, and approved files also exist in Drive after each export. About $5/month.
+- **Scaling plan, in order:** (1) volume past 60 percent: prune rejected candidates older
+  than 30 days, then resize or move to Pro. (2) Site wants to hotlink images, or a second
+  instance is needed: move images to R2 or S3 with a one-off copy job and swap the storage
+  module. (3) Only if concurrent writers ever matter: SQLite to Postgres. Nothing in the
+  schema or routes assumes a single machine except the storage module.
+- **Revisit trigger:** Volume past 60 percent, a request to serve images straight to the
+  storefront, or headcount that makes a second instance plausible.

@@ -37,16 +37,21 @@ The workflow, end to end:
 
 ## Architecture
 
-- **Next.js** (App Router, server actions, one route handler for the tick) on **Vercel**.
-- **Supabase**: Postgres for two tables, Storage for approved and candidate images,
-  `pg_cron` + `pg_net` to call the tick endpoint once a minute so generation advances even
-  when nobody has the page open.
-- **Luma Agents API** (`uni-1`, `image_edit`) for generation. Polled, because this API has no
-  callbacks. Reference photo is fetched by our server with a browser user agent and sent
-  inline as base64, because the customer's photo host returns 403 to plain script clients.
-- **Claude** (Haiku) for suggested shot ideas on blank rows, batched per import, one call
-  for all blank rows. Template fallback per category if no key is configured.
+- **One Node process** running **Next.js** (App Router, server actions) on **Railway**,
+  always on. No serverless, no cron service.
+- **SQLite** (better-sqlite3, WAL mode) for two tables and **a mounted volume** for images.
+  Both on the same volume, backed up daily by Railway's scheduled volume backups.
+- **An in-process poll loop** advances generation: submit queued candidates, check
+  processing ones, download completed images. It starts with the process and resumes from
+  the database on restart. This exists because the Luma Agents API has no callbacks.
+- **Luma Agents API** (`uni-1`, `image_edit`, JPEG output) for generation. The reference
+  photo is fetched by our server with a browser user agent and sent inline as base64,
+  because the customer's photo host returns 403 to plain script clients.
+- **Claude** (Haiku) for suggested shot ideas on blank rows, one batched call per import.
+  Category-template fallback when no key is configured.
 - **Slack** incoming webhook for the batch-ready message. Skipped silently if unset.
+- **One storage module** owns every disk read and write, so moving images to object
+  storage later is a one-file change. See D6 in `DECISIONS.md` for the scaling order.
 
 ### Data model
 
@@ -65,13 +70,13 @@ Product status is derived, never stored:
 `no_idea` → `idea_ready` → `generating` → `in_review` → `done` (2+ approved) or
 `needs_more` (fewer than 2 approved, nothing pending).
 
-### The tick
+### The poll loop
 
-`POST /api/tick` is idempotent and cheap. Each call: submit up to K queued candidates
-(respecting Luma's concurrency 429s), check every processing one, download completed images
-into storage, mark failures with the reason. Triggered three ways: after a generate action
-(via `waitUntil`, so the first results land in about a minute), on status page load, and by
-`pg_cron` every minute. Any one of the three keeps the pipeline moving.
+Every few seconds: submit up to K queued candidates (K bounded by Luma's concurrency
+limit, backing off on 429), poll each processing one, download completed images to the
+volume, mark failures with the reason. A 402 (budget exhausted) pauses all submissions and
+raises a banner on the status page rather than retrying. State lives in SQLite, so a
+restart mid-batch loses nothing.
 
 ### Access
 
