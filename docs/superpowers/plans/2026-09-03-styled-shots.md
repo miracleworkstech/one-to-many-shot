@@ -23,6 +23,7 @@
 - Access: one shared token `ACCESS_TOKEN`; links are `${APP_URL}/?k=<token>`.
 - Approved filename: `<SKU>-<first three idea words slugged>-<nn>.jpg`, e.g. `HG-002-morning-kitchen-counter-01.jpg`.
 - Product status is derived, never stored.
+- **No stringly-typed states.** `CandidateState`, `BatchKind`, `ProductStatus` live in `lib/types.ts` as unions derived from const arrays. Functions take and return the union, never `string`. The schema's `check (state in (...))` constraints are generated from the same arrays, so the database rejects what the compiler would. Adding a state fails the compiler and the constraint until every site is updated.
 - **Single responsibility:** each module below has one reason to change. When a module grows a second responsibility during a task, split it in that task and say so in the commit message. Pages render; `lib/queries.ts` reads; actions mutate; the worker advances generation; `analytics` counts money.
 - Commit after every task with a reasoned message ending in `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
 - Append to `DECISIONS.md` when a task makes a material choice not already logged.
@@ -63,7 +64,8 @@ components/
   SpendPanel.tsx             renders analytics.spendSummary + recent batches
 lib/
   env.ts                     typed env with defaults
-  db.ts                      SQLite open + schema + row types
+  types.ts                   domain types and enums (the only place a state name is spelled)
+  db.ts                      SQLite open + schema (check constraints mirror types.ts)
   storage.ts                 the only module that touches image files
   catalog.ts                 CSV parse + validate (pure)
   status.ts                  derived product status (pure)
@@ -96,10 +98,10 @@ Dockerfile, railway.json, .env.example (updated), README section
 ### Task 1: Scaffold, env, database, storage
 
 **Files:**
-- Create: Next.js app via `create-next-app`, `lib/env.ts`, `lib/db.ts`, `lib/storage.ts`, `next.config.ts` (modify), `.gitignore` (modify), `tests/db.test.ts`
+- Create: Next.js app via `create-next-app`, `lib/env.ts`, `lib/types.ts`, `lib/db.ts`, `lib/storage.ts`, `next.config.ts` (modify), `.gitignore` (modify), `tests/db.test.ts`
 
 **Interfaces:**
-- Produces: `env` object; `db()` returning a `better-sqlite3` Database with schema applied; `Product`, `Candidate`, `Batch`, `CandidateState`, `BatchKind` types; `storage.saveImage(id, buf)`, `storage.readImage(id)`, `storage.imagePath(id)`.
+- Produces: `env` object; `lib/types.ts` exporting `CandidateState`, `CANDIDATE_STATES`, `BatchKind`, `BATCH_KINDS`, `ShotIdeaSource`, `Product`, `Candidate`, `Batch`; `db()` returning a `better-sqlite3` Database with schema applied; `storage.saveImage(id, buf)`, `storage.readImage(id)`, `storage.imagePath(id)`.
 
 - [ ] **Step 1: Scaffold**
 
@@ -165,21 +167,28 @@ test("schema applies and settings row exists", () => {
   for (const t of ["products", "candidates", "batches", "settings"]) assert.ok(tables.includes(t), t);
   assert.equal((d.prepare("select count(*) as n from settings").get() as any).n, 1);
 });
+test("database rejects a state the type union does not know", () => {
+  const d = db();
+  d.prepare("insert into products (sku,name,photo_url) values ('T','t','https://x/a.jpg')").run();
+  const b = d.prepare("insert into batches (kind) values ('next')").run().lastInsertRowid;
+  assert.throws(() => d.prepare("insert into candidates (sku,batch_id,prompt,state) values ('T',?,'p','aproved')").run(b), /CHECK/);
+  assert.throws(() => d.prepare("insert into batches (kind) values ('bogus')").run(), /CHECK/);
+});
 ```
 
 Run: `npm test` → Expected: FAIL, cannot find `../lib/db.ts`.
 
-- [ ] **Step 6: lib/db.ts**
+- [ ] **Step 6: lib/types.ts (domain types; the only place a state name is spelled)**
 
 ```ts
-import Database from "better-sqlite3";
-import fs from "node:fs";
-import path from "node:path";
-import { env } from "./env";
+export const CANDIDATE_STATES = ["queued", "processing", "completed", "failed", "approved", "rejected"] as const;
+export type CandidateState = (typeof CANDIDATE_STATES)[number];
 
-export type ShotIdeaSource = "sheet" | "suggested" | "edited";
-export type CandidateState = "queued" | "processing" | "completed" | "failed" | "approved" | "rejected";
-export type BatchKind = "next" | "product" | "retry";
+export const BATCH_KINDS = ["next", "product", "retry"] as const;
+export type BatchKind = (typeof BATCH_KINDS)[number];
+
+export const SHOT_IDEA_SOURCES = ["sheet", "suggested", "edited"] as const;
+export type ShotIdeaSource = (typeof SHOT_IDEA_SOURCES)[number];
 
 export interface Product {
   sku: string; name: string; category: string; color: string; material: string; price: string;
@@ -192,23 +201,35 @@ export interface Candidate {
   cost_usd: number; failure_reason: string | null; attempts: number; decided_by: string | null;
   created_at: string; decided_at: string | null;
 }
+```
+
+- [ ] **Step 7: lib/db.ts**
+
+```ts
+import Database from "better-sqlite3";
+import fs from "node:fs";
+import path from "node:path";
+import { env } from "./env";
+import { CANDIDATE_STATES, BATCH_KINDS, SHOT_IDEA_SOURCES } from "./types";
+
+const list = (xs: readonly string[]) => xs.map(x => `'${x}'`).join(",");
 
 const SCHEMA = `
 create table if not exists products (
   sku text primary key, name text not null, category text not null default '',
   color text not null default '', material text not null default '', price text not null default '',
-  photo_url text not null, shot_idea text, shot_idea_source text, notes text not null default '',
-  priority integer not null default 0,
+  photo_url text not null, shot_idea text, shot_idea_source text check (shot_idea_source is null or shot_idea_source in (${list(SHOT_IDEA_SOURCES)})),
+  notes text not null default '', priority integer not null default 0,
   imported_at text not null default (datetime('now')), updated_at text not null default (datetime('now'))
 );
 create table if not exists batches (
-  id integer primary key autoincrement, kind text not null, estimated_usd real not null default 0,
+  id integer primary key autoincrement, kind text not null check (kind in (${list(BATCH_KINDS)})), estimated_usd real not null default 0,
   created_at text not null default (datetime('now'))
 );
 create table if not exists candidates (
   id integer primary key autoincrement, sku text not null references products(sku),
   batch_id integer not null references batches(id),
-  prompt text not null, luma_generation_id text, state text not null default 'queued',
+  prompt text not null, luma_generation_id text, state text not null default 'queued' check (state in (${list(CANDIDATE_STATES)})),
   cost_usd real not null default 0, failure_reason text, attempts integer not null default 0,
   decided_by text, created_at text not null default (datetime('now')), decided_at text
 );
@@ -235,7 +256,7 @@ export function db(): Database.Database {
 }
 ```
 
-- [ ] **Step 7: lib/storage.ts**
+- [ ] **Step 8: lib/storage.ts**
 
 ```ts
 // ponytail: local disk only. Swap this module for R2/S3 if a second instance or CDN is ever needed (DECISIONS.md D6).
@@ -251,7 +272,7 @@ export const storage = {
 };
 ```
 
-- [ ] **Step 8: Run tests, commit**
+- [ ] **Step 9: Run tests, commit**
 
 Run: `npm test` → Expected: PASS.
 
@@ -260,7 +281,8 @@ git add -A && git commit -m "scaffold: next app, sqlite schema, storage module
 
 Single-process app per D6. Products, batches (one per trigger),
 candidates (one per image, carries its cost), and a settings row for the
-worker pause reason. All image I/O goes through lib/storage.ts.
+worker pause reason. State enums live once in lib/types.ts and are
+mirrored as CHECK constraints. All image I/O goes through lib/storage.ts.
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ```
@@ -315,7 +337,8 @@ test("priority from notes", () => {
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { productStatus } from "../lib/status.ts";
-const c = (...states: string[]) => states.map(state => ({ state }));
+import type { CandidateState } from "../lib/types.ts";
+const c = (...states: CandidateState[]) => states.map(state => ({ state }));
 test("status ladder", () => {
   assert.equal(productStatus(false, []), "no_idea");
   assert.equal(productStatus(true, []), "idea_ready");
@@ -323,7 +346,12 @@ test("status ladder", () => {
   assert.equal(productStatus(true, c("completed", "completed")), "in_review");
   assert.equal(productStatus(true, c("approved", "rejected")), "needs_more");
   assert.equal(productStatus(true, c("approved", "approved", "processing")), "done");
-  assert.equal(productStatus(true, c("failed", "failed")), "needs_more");
+});
+test("failures are visible, not folded into needs_more", () => {
+  assert.equal(productStatus(true, c("failed", "failed")), "failed");        // nothing for a human to judge
+  assert.equal(productStatus(true, c("failed", "rejected")), "needs_more");  // Ellie saw one; she can try again
+  assert.equal(productStatus(true, c("failed", "approved")), "needs_more");  // partial success
+  assert.equal(productStatus(true, c("failed", "queued")), "generating");
 });
 ```
 
@@ -405,21 +433,25 @@ export function parseCatalog(text: string): { rows: CatalogRow[]; errors: string
 - [ ] **Step 3: lib/status.ts**
 
 ```ts
-export type ProductStatus = "no_idea" | "idea_ready" | "generating" | "in_review" | "done" | "needs_more";
+import type { CandidateState } from "./types";
+
+export const PRODUCT_STATUSES = ["no_idea", "idea_ready", "generating", "in_review", "done", "needs_more", "failed"] as const;
+export type ProductStatus = (typeof PRODUCT_STATUSES)[number];
 export const DONE_AT = 2; // approved images that make a product "done" (brief: 2–3)
 
-export function productStatus(hasIdea: boolean, candidates: { state: string }[]): ProductStatus {
-  const n = (s: string) => candidates.filter(c => c.state === s).length;
+export function productStatus(hasIdea: boolean, candidates: { state: CandidateState }[]): ProductStatus {
+  const n = (s: CandidateState) => candidates.filter(c => c.state === s).length;
   if (n("approved") >= DONE_AT) return "done";
   if (n("queued") + n("processing") > 0) return "generating";
   if (n("completed") > 0) return "in_review";
+  if (candidates.length > 0 && n("failed") === candidates.length) return "failed";
   if (candidates.length > 0) return "needs_more";
   return hasIdea ? "idea_ready" : "no_idea";
 }
 
 export const STATUS_LABEL: Record<ProductStatus, string> = {
   no_idea: "Needs an idea", idea_ready: "Ready to generate", generating: "Generating",
-  in_review: "Waiting for review", done: "Done", needs_more: "Needs more",
+  in_review: "Waiting for review", done: "Done", needs_more: "Needs more", failed: "Generation failed",
 };
 ```
 
@@ -515,14 +547,15 @@ export async function suggestIdeas(products: P[]): Promise<Map<string, string>> 
 - [ ] **Step 2: lib/queries.ts (read model; grows in Tasks 6 and 7)**
 
 ```ts
-import { db, type Product, type Candidate } from "./db";
+import { db } from "./db";
+import type { Product, Candidate, CandidateState } from "./types";
 import { productStatus, type ProductStatus } from "./status";
 
 export function overview() {
   const d = db();
   const products = d.prepare("select * from products order by priority desc, sku").all() as Product[];
   const cands = d.prepare("select sku, state from candidates").all() as Pick<Candidate, "sku" | "state">[];
-  const bySku = new Map<string, { state: string }[]>();
+  const bySku = new Map<string, { state: CandidateState }[]>();
   for (const c of cands) bySku.set(c.sku, [...(bySku.get(c.sku) ?? []), c]);
   const rows = products.map(p => ({ p, status: productStatus(!!p.shot_idea, bySku.get(p.sku) ?? []) }));
   const counts = {} as Record<ProductStatus, number>;
@@ -537,7 +570,8 @@ export function overview() {
 ```ts
 "use server";
 import { revalidatePath } from "next/cache";
-import { db, type Product } from "@/lib/db";
+import { db } from "@/lib/db";
+import type { Product } from "@/lib/types";
 import { parseCatalog } from "@/lib/catalog";
 import { suggestIdeas } from "@/lib/suggest";
 
@@ -807,7 +841,8 @@ Run: `npm test` → Expected: FAIL, missing modules.
 - [ ] **Step 2: lib/enqueue.ts (admission control)**
 
 ```ts
-import { db, type Product, type BatchKind } from "./db";
+import { db } from "./db";
+import type { Product, BatchKind } from "./types";
 import { env } from "./env";
 import { buildPrompt } from "./prompt";
 
@@ -847,7 +882,8 @@ export function nextSkus(n: number): string[] {
 - [ ] **Step 3: lib/analytics.ts (money reporting)**
 
 ```ts
-import { db, type Batch } from "./db";
+import { db } from "./db";
+import type { Batch } from "./types";
 
 export function spendSummary() {
   const r = db().prepare(`select
@@ -915,7 +951,8 @@ export async function notifyIfBatchReady() {
 - [ ] **Step 5: lib/worker.ts (advance generation only)**
 
 ```ts
-import { db, type Candidate } from "./db";
+import { db } from "./db";
+import type { Candidate } from "./types";
 import { env } from "./env";
 import { storage } from "./storage";
 import { fetchPhoto } from "./photos";
@@ -1114,7 +1151,7 @@ export async function decide(formData: FormData) {
 
 - [ ] **Step 2: productDetail query**
 
-Append to `lib/queries.ts`:
+Append to `lib/queries.ts` (Product and Candidate are already imported from `./types`):
 ```ts
 export function productDetail(sku: string) {
   const d = db();
@@ -1450,4 +1487,6 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - **Single responsibility check:** `worker.ts` no longer decides when to notify (`notify.ts` does) and no longer computes money (`analytics.ts` does). Pages hold no SQL (`queries.ts`). Actions are split by concern. `export.ts` only formats. `slack.ts` only transports. `enqueue.ts` is admission control and nothing else.
 - **Deviation from APPROACH.md, deliberate:** images are downloaded at *completion*, not at approval. Rejected candidates stay on disk; pruning is in the D6 scaling plan, not v1. Cost is recorded at *submission*, not completion. Update APPROACH.md wording in T9.
 - **Placeholder scan:** none.
+- **Stringly-typed check:** no function signature in this plan takes `state: string`. Every comparison against a state name is against the `CandidateState` union or a `ProductStatus` member, and the schema's CHECK constraints are generated from the same const arrays, so the two cannot drift.
+- **Failed products:** `failed` is its own status with its own count on the status page. The review page's generate button already shows for any non-generating status, so a failed product has a one-tap retry; the failure reason is on each card.
 - **Type consistency:** `enqueue(skus, kind, opts?)` returns `{ batchId?, queued, skipped, estimatedUsd, refused? }` and is consumed as such in T5 actions and tests; `BatchKind` values `next | product | retry` match `enqueue` call sites; `decide` takes FormData in T6 and the review page posts `id`, `sku`, `state`; `productStatus(hasIdea, candidates)` signature matches T2, T3, T6, T7; `storage.readImage` returns `Buffer | null` in T1 and is checked in T6 and T7; `spendSummary` field names match the analytics test and `SpendPanel`.
