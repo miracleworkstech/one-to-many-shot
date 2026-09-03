@@ -52,6 +52,8 @@ via the dev server.
 - Deploy target: Railway, volume at `/data`, daily backups. No Railway project created yet.
 - Local Node is 26; better-sqlite3 13 ships prebuilds so no compiler needed. CI pins Node 22.
 - Pre-commit hook active locally (`core.hooksPath=.githooks`). GitHub Actions `check` runs on push.
+- This Windows machine has a small paging file; it has killed a pre-commit hook mid-run twice
+  (no lint output, exit 1). Rerun the commit; never bypass the hook.
 - Slack incoming webhook: not created yet. Optional; the app runs without it.
 
 ## Open items for the user
