@@ -38,8 +38,11 @@ export async function importCatalogRows(
   const setIdea = d.prepare(
     `update products set shot_idea=?, shot_idea_source=${src("suggested")} where sku=? and shot_idea is null`,
   );
-  d.transaction(() => {
-    for (const [sku, idea] of ideas) setIdea.run(idea, sku);
+  // Count rows actually written, not ideas proposed: a concurrent edit can win.
+  const suggested = d.transaction(() => {
+    let n = 0;
+    for (const [sku, idea] of ideas) n += setIdea.run(idea, sku).changes;
+    return n;
   })();
-  return { imported: rows.length, suggested: ideas.size };
+  return { imported: rows.length, suggested };
 }

@@ -43,7 +43,8 @@ task and after every decision. The plan with checkboxes is
 One implementer subagent and one evaluator subagent per plan task. The evaluator MUST
 invoke the project skill `evaluating-task` (`.claude/skills/evaluating-task/SKILL.md`):
 mutation testing, interface and invariant checks, the nine anti-patterns, structured
-verdict. Two rounds maximum per task. Codex reviews the full diff after Task 8.
+verdict. Two rounds maximum per task. Codex reviews each task's diff before the PR
+(findings go to the user in the PR and the recap), and the full diff again after Task 8.
 
 ## Files
 

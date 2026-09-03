@@ -131,10 +131,26 @@ test("a race with updateIdea during suggestIdeas' await does not clobber the edi
       .run();
     return new Map(products.map((p) => [p.sku, "should never land"]));
   };
-  await importCatalogRows(rows, raceSuggest);
+  const result = await importCatalogRows(rows, raceSuggest);
   const after_ = product("HG-003");
   assert.equal(after_.shot_idea, "a hand-picked idea");
   assert.equal(after_.shot_idea_source, "edited");
+  assert.equal(result.suggested, 0, "reports rows written, not ideas proposed");
+});
+
+test("the server action refuses a file over the size cap before parsing", async () => {
+  const { importCatalog, MAX_CSV_BYTES } =
+    await import("../lib/actions/import.ts");
+  const fd = new FormData();
+  fd.set(
+    "file",
+    new File([new Uint8Array(MAX_CSV_BYTES + 1)], "huge.csv", {
+      type: "text/csv",
+    }),
+  );
+  const result = await importCatalog(fd);
+  assert.equal(result.imported, 0);
+  assert.match(result.errors[0] ?? "", /limit is 2 MB/);
 });
 
 test("an existing 'edited' idea is not overwritten by suggestions", async () => {
