@@ -99,3 +99,39 @@ live in `ASSUMPTIONS.md`, not here.
   schema or routes assumes a single machine except the storage module.
 - **Revisit trigger:** Volume past 60 percent, a request to serve images straight to the
   storefront, or headcount that makes a second instance plausible.
+
+## D7 — Cost ledger: every image carries its cost, every trigger is a batch (2026-09-03)
+
+- **Decision:** `candidates.cost_usd` is written the moment Luma accepts a job (state becomes
+  `processing`). A `batches` table records each trigger ("generate next N", "this product",
+  "try again") with its estimate. `lib/analytics.ts` reports spend by outcome (approved,
+  rejected or failed, pending), cost per approved image, approval rate, and estimate versus
+  actual per batch. The CSV export carries spend per product. Two caps: images in flight
+  (`MAX_IMAGES_IN_FLIGHT`, 40) and total spend (`MAX_TOTAL_SPEND_USD`, 25).
+- **Alternatives:** Record cost at completion only. A separate ledger table per API call.
+  No batch concept, just candidates.
+- **Why:** Maya's "every image costs money, so don't burn our budget" is a total, not a
+  per-batch number, and "where things stand" includes what it cost. Recording at
+  acceptance is when money is committed; a failed generation still counts as spent because
+  Luma's refund behaviour on failures is undocumented (conservative). Batches make the
+  question "what did that tap cost" answerable.
+- **Cost accepted:** Spend may be overstated by failed generations that Luma does not bill.
+  One more table.
+- **Revisit trigger:** Luma documents refunds on failures, or the team wants spend by
+  person or by month, which is a query on the same data, not a schema change.
+
+## D8 — Execution: implementer + evaluator subagent per task, Codex as final review (2026-09-03)
+
+- **Decision:** Each plan task is built by an implementer subagent, checked by an evaluator
+  subagent against the task's stated interfaces and tests, then reviewed by the user in
+  this session. A Codex review runs over the whole diff as the final pass before deploy.
+  Harness details to be specified by the user before Task 1.
+- **Alternatives:** Inline execution in this session. Single subagent per task without an
+  evaluator.
+- **Why:** Fresh context per task keeps each subagent focused on one responsibility, the
+  evaluator catches drift from the plan's interfaces, and a second model as reviewer is a
+  genuinely independent check.
+- **Cost accepted:** More tokens and wall-clock than inline. Reasoning is spread across
+  subagent transcripts, so this session's log must summarise what each pair concluded.
+- **Revisit trigger:** A task where the evaluator and implementer loop more than twice; then
+  the task is under-specified and the plan gets fixed first.

@@ -1,10 +1,12 @@
 # Styled Shots Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+>
+> **Execution style chosen by the user (2026-09-03):** one subagent pair per task, implementer then evaluator, followed by a Codex review as the final pass. Harness details to follow from the user before Task 1 starts.
 
-**Goal:** Turn the catalog sheet's shot ideas into approved, correctly named product images via a phone-first approval page, with generation that never spends without a visible cost and a cap.
+**Goal:** Turn the catalog sheet's shot ideas into approved, correctly named product images via a phone-first approval page, with generation that never spends without a visible cost and a cap, and every dollar spent attributable to a product, a batch, and an outcome.
 
-**Architecture:** One Next.js process on Railway. SQLite (better-sqlite3, WAL) and images on a mounted volume, all disk access through `lib/storage.ts`. An in-process worker polls Luma because the Agents API has no callbacks. Pure domain functions (`catalog`, `status`, `prompt`, `names`) are tested; I/O modules are thin.
+**Architecture:** One Next.js process on Railway. SQLite (better-sqlite3, WAL) and images on a mounted volume, all disk access through `lib/storage.ts`. An in-process worker polls Luma because the Agents API has no callbacks. Pure domain functions (`catalog`, `status`, `prompt`, `names`) and the two money modules (`enqueue`, `analytics`) are tested; I/O modules are thin.
 
 **Tech Stack:** Next.js 15 (App Router, server actions, TypeScript, Tailwind), better-sqlite3, csv-parse / csv-stringify, fflate (zip), @anthropic-ai/sdk (Haiku suggestions), Node 22, tsx + node:test for tests. Railway with a volume at `/data`.
 
@@ -12,6 +14,8 @@
 
 - Never read, print, or commit `.env.local`. Secrets come from `process.env` only.
 - Every path that calls Luma shows estimated spend before the trigger and is bounded by `MAX_IMAGES_IN_FLIGHT` and `MAX_TOTAL_SPEND_USD`.
+- Cost is recorded on a candidate the moment Luma accepts the job (state becomes `processing`), because that is when money is committed. A generation that later fails keeps its cost (conservative; Luma's refund behaviour on failures is undocumented). A candidate that never reached Luma (photo fetch failed) costs zero.
+- Every candidate belongs to a batch. A batch is one trigger: "generate next N", "generate this product", or "try again".
 - Luma: `POST https://agents.lumalabs.ai/v1/generations` with `{type:"image_edit", model:"uni-1", prompt, source:{data, media_type:"image/jpeg"}, output_format:"jpeg"}`; poll `GET /v1/generations/{id}`; states `queued|processing|completed|failed`; output at `output[0].url`, expires in 1 hour. Cost `LUMA_COST_PER_IMAGE_USD` default `0.0434`.
 - Photo host returns 403 to plain clients: always fetch with a browser User-Agent.
 - Claude model for suggestions: `claude-haiku-4-5` (user's explicit choice).
@@ -19,12 +23,13 @@
 - Access: one shared token `ACCESS_TOKEN`; links are `${APP_URL}/?k=<token>`.
 - Approved filename: `<SKU>-<first three idea words slugged>-<nn>.jpg`, e.g. `HG-002-morning-kitchen-counter-01.jpg`.
 - Product status is derived, never stored.
+- **Single responsibility:** each module below has one reason to change. When a module grows a second responsibility during a task, split it in that task and say so in the commit message. Pages render; `lib/queries.ts` reads; actions mutate; the worker advances generation; `analytics` counts money.
 - Commit after every task with a reasoned message ending in `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
 - Append to `DECISIONS.md` when a task makes a material choice not already logged.
 
 ---
 
-## Money paths: failure modes and races (read before Task 5 and Task 6)
+## Money paths: failure modes and races (accepted by the user 2026-09-03)
 
 | # | Scenario | What happens | Mitigation in this plan |
 |---|---|---|---|
@@ -35,27 +40,30 @@
 | 5 | Luma 429 (rate limit) | Hammering | Stop submitting for this tick, leave candidates queued. Concurrency is capped by `LUMA_CONCURRENCY` (default 4) anyway. |
 | 6 | Luma 5xx or network error on submit | Silent stall | `attempts` incremented; after 5 the candidate is `failed` with the last error, visible on the card with a retry button. |
 | 7 | Result URL expired before download (worker was down > 1 h) | Download 403 | Re-poll the generation on next tick for a fresh URL; candidate stays `processing`. |
-| 8 | Total spend creeps past what Maya expected | Budget surprise | `MAX_TOTAL_SPEND_USD` (default 25): enqueue refuses if spent + in-flight + planned would exceed it. Spent total is on the status page. |
-| 9 | Re-import of a CSV while a batch is running | Approvals or candidates lost | Import upserts products only and never touches candidates. A changed shot idea applies to the *next* generation; existing candidates keep the prompt they were made with. |
+| 8 | Total spend creeps past what Maya expected | Budget surprise | `MAX_TOTAL_SPEND_USD` (default 25): enqueue refuses if spent + in-flight + planned would exceed it. Spent total, per-batch and per-outcome spend are on the status page. |
+| 9 | Re-import of a CSV while a batch is running | Approvals or candidates lost | Import upserts products only and never touches candidates or batches. A changed shot idea applies to the *next* generation; existing candidates keep the prompt they were made with. |
 | 10 | Two people decide the same candidate at once | Conflict | Last write wins, both are humans, the card shows the current state and `decided_by`. No lock. |
-| 11 | "Try again" tapped repeatedly | Each tap costs 2 × $0.0434 | Allowed; cost is shown on the button; bounded by the in-flight cap and spend cap. Per-product cap is a named non-feature. |
-| 12 | Photo host 403/404 for a SKU | Nothing generates, nobody knows why | Fetch failure marks the candidate `failed` with "photo not reachable"; shown on the card. Import does not block on photo reachability. |
+| 11 | "Try again" tapped repeatedly | Each tap costs 2 × $0.0434 | Allowed; cost is shown on the button; bounded by the in-flight cap and spend cap; each tap is its own batch so the spend is visible. Per-product cap is a named non-feature. |
+| 12 | Photo host 403/404 for a SKU | Nothing generates, nobody knows why | Fetch failure marks the candidate `failed` with "photo not reachable" and zero cost; shown on the card. Import does not block on photo reachability. |
 
 ---
 
-## File structure
+## File structure (one responsibility per module)
 
 ```
 app/
   layout.tsx                 shell, viewport meta, Tailwind
-  page.tsx                   status page: counts, banner, upload, generate, product list
-  review/[sku]/page.tsx      phone-first review card
+  page.tsx                   status page: renders overview + spend + forms (no queries inline)
+  review/[sku]/page.tsx      phone-first review card (renders productDetail)
   img/[id]/route.ts          serves a candidate image from the volume
   export/csv/route.ts        updated catalog CSV
   export/zip/route.ts        approved images zip
+components/
+  IdeaForm.tsx               client component: edit a shot idea
+  SpendPanel.tsx             renders analytics.spendSummary + recent batches
 lib/
   env.ts                     typed env with defaults
-  db.ts                      SQLite open + schema + typed row types
+  db.ts                      SQLite open + schema + row types
   storage.ts                 the only module that touches image files
   catalog.ts                 CSV parse + validate (pure)
   status.ts                  derived product status (pure)
@@ -64,14 +72,22 @@ lib/
   photos.ts                  fetch product photo with browser UA
   luma.ts                    Luma Agents API client + typed errors
   suggest.ts                 Haiku shot-idea suggestions + template fallback
-  slack.ts                   incoming webhook
-  worker.ts                  tick(): submit, poll, download, notify; startWorker()
-  actions.ts                 server actions: import, generate, decide, tryAgain, updateIdea, resume
-  export.ts                  csv + zip builders
+  slack.ts                   incoming webhook transport
+  notify.ts                  "batch ready" policy: when to send, what to say
+  enqueue.ts                 admission control: caps, dedupe, batch creation
+  worker.ts                  advance generation: submit, poll, download
+  analytics.ts               money: spend by outcome, by batch, by product
+  queries.ts                 read model for pages and exports
+  export.ts                  CSV and zip formats
+  actions/
+    import.ts                importCatalog
+    generate.ts              generateNext, generateSku, tryAgain, resumeWorker
+    review.ts                decide, updateIdea
 middleware.ts                shared-token gate
 instrumentation.ts           starts the worker once per process
 tests/
-  catalog.test.ts, status.test.ts, prompt.test.ts, names.test.ts, enqueue.test.ts
+  db.test.ts, catalog.test.ts, status.test.ts, prompt.test.ts, names.test.ts,
+  enqueue.test.ts, analytics.test.ts
 Dockerfile, railway.json, .env.example (updated), README section
 ```
 
@@ -83,7 +99,7 @@ Dockerfile, railway.json, .env.example (updated), README section
 - Create: Next.js app via `create-next-app`, `lib/env.ts`, `lib/db.ts`, `lib/storage.ts`, `next.config.ts` (modify), `.gitignore` (modify), `tests/db.test.ts`
 
 **Interfaces:**
-- Produces: `env` object; `db()` returning a `better-sqlite3` Database with schema applied; `Product`, `Candidate`, `CandidateState` types; `storage.saveImage(id, buf)`, `storage.readImage(id)`, `storage.imagePath(id)`.
+- Produces: `env` object; `db()` returning a `better-sqlite3` Database with schema applied; `Product`, `Candidate`, `Batch`, `CandidateState`, `BatchKind` types; `storage.saveImage(id, buf)`, `storage.readImage(id)`, `storage.imagePath(id)`.
 
 - [ ] **Step 1: Scaffold**
 
@@ -93,7 +109,7 @@ npm i better-sqlite3 csv-parse csv-stringify fflate @anthropic-ai/sdk
 npm i -D @types/better-sqlite3 tsx
 ```
 
-Expected: `package.json`, `app/`, `next.config.ts` exist. If create-next-app refuses a non-empty directory, run it in a temp dir and copy `app/`, `package.json`, `tsconfig.json`, `next.config.ts`, `postcss.config.mjs`, `tailwind.config.ts` (if generated), `next-env.d.ts` into the repo root.
+Expected: `package.json`, `app/`, `next.config.ts` exist. If create-next-app refuses a non-empty directory, run it in a temp dir and copy `app/`, `package.json`, `tsconfig.json`, `next.config.ts`, `postcss.config.mjs`, `next-env.d.ts` into the repo root.
 
 - [ ] **Step 2: Test script and gitignore**
 
@@ -146,8 +162,8 @@ const { db } = await import("../lib/db.ts");
 test("schema applies and settings row exists", () => {
   const d = db();
   const tables = d.prepare("select name from sqlite_master where type='table'").all().map((r: any) => r.name);
-  assert.ok(tables.includes("products") && tables.includes("candidates") && tables.includes("settings"));
-  assert.equal(d.prepare("select count(*) as n from settings").get().n, 1);
+  for (const t of ["products", "candidates", "batches", "settings"]) assert.ok(tables.includes(t), t);
+  assert.equal((d.prepare("select count(*) as n from settings").get() as any).n, 1);
 });
 ```
 
@@ -163,14 +179,16 @@ import { env } from "./env";
 
 export type ShotIdeaSource = "sheet" | "suggested" | "edited";
 export type CandidateState = "queued" | "processing" | "completed" | "failed" | "approved" | "rejected";
+export type BatchKind = "next" | "product" | "retry";
 
 export interface Product {
   sku: string; name: string; category: string; color: string; material: string; price: string;
   photo_url: string; shot_idea: string | null; shot_idea_source: ShotIdeaSource | null;
   notes: string; priority: number; imported_at: string; updated_at: string;
 }
+export interface Batch { id: number; kind: BatchKind; estimated_usd: number; created_at: string; }
 export interface Candidate {
-  id: number; sku: string; prompt: string; luma_generation_id: string | null; state: CandidateState;
+  id: number; sku: string; batch_id: number; prompt: string; luma_generation_id: string | null; state: CandidateState;
   cost_usd: number; failure_reason: string | null; attempts: number; decided_by: string | null;
   created_at: string; decided_at: string | null;
 }
@@ -183,14 +201,20 @@ create table if not exists products (
   priority integer not null default 0,
   imported_at text not null default (datetime('now')), updated_at text not null default (datetime('now'))
 );
+create table if not exists batches (
+  id integer primary key autoincrement, kind text not null, estimated_usd real not null default 0,
+  created_at text not null default (datetime('now'))
+);
 create table if not exists candidates (
   id integer primary key autoincrement, sku text not null references products(sku),
+  batch_id integer not null references batches(id),
   prompt text not null, luma_generation_id text, state text not null default 'queued',
   cost_usd real not null default 0, failure_reason text, attempts integer not null default 0,
   decided_by text, created_at text not null default (datetime('now')), decided_at text
 );
 create index if not exists candidates_sku on candidates(sku);
 create index if not exists candidates_state on candidates(state);
+create index if not exists candidates_batch on candidates(batch_id);
 create table if not exists settings (
   id integer primary key check (id = 1), paused_reason text, last_notified_at text
 );
@@ -234,8 +258,9 @@ Run: `npm test` → Expected: PASS.
 ```bash
 git add -A && git commit -m "scaffold: next app, sqlite schema, storage module
 
-Single-process app per D6. Schema is two tables plus a settings row that
-holds the worker pause reason. All image I/O goes through lib/storage.ts.
+Single-process app per D6. Products, batches (one per trigger),
+candidates (one per image, carries its cost), and a settings row for the
+worker pause reason. All image I/O goes through lib/storage.ts.
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ```
@@ -248,7 +273,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - Create: `lib/catalog.ts`, `lib/status.ts`, `lib/prompt.ts`, `lib/names.ts`, `tests/catalog.test.ts`, `tests/status.test.ts`, `tests/prompt.test.ts`, `tests/names.test.ts`
 
 **Interfaces:**
-- Produces: `parseCatalog(text): { rows: CatalogRow[]; errors: string[] }`; `productStatus(hasIdea, candidates): ProductStatus`; `buildPrompt(p, idea): string`; `approvedFilename(sku, idea, n): string`; `isPriority(notes): boolean`.
+- Produces: `parseCatalog(text): { rows: CatalogRow[]; errors: string[] }`; `REQUIRED_HEADERS`; `isPriority(notes)`; `productStatus(hasIdea, candidates): ProductStatus`; `STATUS_LABEL`; `buildPrompt(p, idea): string`; `approvedFilename(sku, idea, n): string`.
 
 - [ ] **Step 1: Failing tests**
 
@@ -403,8 +428,9 @@ export const STATUS_LABEL: Record<ProductStatus, string> = {
 ```ts
 export function buildPrompt(p: { name: string; color: string; material: string; notes: string }, idea: string): string {
   const scene = idea.trim().replace(/[?.]+$/, "");
+  const spec = [p.color, p.material].filter(Boolean).join(", ");
   const parts = [
-    `Place this exact ${p.name}${p.color ? ` (${p.color}` : ""}${p.material ? `${p.color ? ", " : " ("}${p.material}` : ""}${p.color || p.material ? ")" : ""} in this scene: ${scene}.`,
+    `Place this exact ${p.name}${spec ? ` (${spec})` : ""} in this scene: ${scene}.`,
     "Keep the product identical in shape, color, glaze, material, proportions and details. Do not add text, logos or extra copies of the product.",
     "Photorealistic product photography for an e-commerce page, natural light, shallow depth of field.",
   ];
@@ -440,14 +466,14 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 
 ---
 
-### Task 3: Import, suggestions, status page
+### Task 3: Import, suggestions, read model, status page
 
 **Files:**
-- Create: `lib/suggest.ts`, `lib/actions.ts` (import + updateIdea only for now), `app/page.tsx`, `app/layout.tsx` (modify), `components/ProductRow.tsx`
+- Create: `lib/suggest.ts`, `lib/queries.ts`, `lib/actions/import.ts`, `lib/actions/review.ts` (updateIdea only for now), `app/page.tsx`, `app/layout.tsx` (modify)
 
 **Interfaces:**
 - Consumes: `parseCatalog`, `productStatus`, `db`, `env`.
-- Produces: `importCatalog(formData): Promise<{ imported: number; suggested: number; errors: string[] }>`; `updateIdea(sku, idea)`; `suggestIdeas(products): Promise<Map<string,string>>`.
+- Produces: `importCatalog(formData): Promise<{ imported: number; suggested: number; errors: string[] }>`; `updateIdea(sku, idea)`; `suggestIdeas(products): Promise<Map<string,string>>`; `queries.overview(): { rows: {p, status}[]; counts; pausedReason }`.
 
 - [ ] **Step 1: lib/suggest.ts**
 
@@ -486,14 +512,34 @@ export async function suggestIdeas(products: P[]): Promise<Map<string, string>> 
 }
 ```
 
-- [ ] **Step 2: lib/actions.ts (import + idea edit)**
+- [ ] **Step 2: lib/queries.ts (read model; grows in Tasks 6 and 7)**
+
+```ts
+import { db, type Product, type Candidate } from "./db";
+import { productStatus, type ProductStatus } from "./status";
+
+export function overview() {
+  const d = db();
+  const products = d.prepare("select * from products order by priority desc, sku").all() as Product[];
+  const cands = d.prepare("select sku, state from candidates").all() as Pick<Candidate, "sku" | "state">[];
+  const bySku = new Map<string, { state: string }[]>();
+  for (const c of cands) bySku.set(c.sku, [...(bySku.get(c.sku) ?? []), c]);
+  const rows = products.map(p => ({ p, status: productStatus(!!p.shot_idea, bySku.get(p.sku) ?? []) }));
+  const counts = {} as Record<ProductStatus, number>;
+  for (const r of rows) counts[r.status] = (counts[r.status] ?? 0) + 1;
+  const { paused_reason } = d.prepare("select paused_reason from settings").get() as { paused_reason: string | null };
+  return { rows, counts, pausedReason: paused_reason };
+}
+```
+
+- [ ] **Step 3: lib/actions/import.ts**
 
 ```ts
 "use server";
 import { revalidatePath } from "next/cache";
-import { db, type Product } from "./db";
-import { parseCatalog } from "./catalog";
-import { suggestIdeas } from "./suggest";
+import { db, type Product } from "@/lib/db";
+import { parseCatalog } from "@/lib/catalog";
+import { suggestIdeas } from "@/lib/suggest";
 
 export async function importCatalog(formData: FormData) {
   const file = formData.get("file");
@@ -516,6 +562,14 @@ export async function importCatalog(formData: FormData) {
   revalidatePath("/");
   return { imported: rows.length, suggested: ideas.size, errors };
 }
+```
+
+- [ ] **Step 4: lib/actions/review.ts (updateIdea; decide arrives in Task 6)**
+
+```ts
+"use server";
+import { revalidatePath } from "next/cache";
+import { db } from "@/lib/db";
 
 export async function updateIdea(sku: string, idea: string) {
   db().prepare("update products set shot_idea=?, shot_idea_source='edited', updated_at=datetime('now') where sku=?").run(idea.trim() || null, sku);
@@ -523,7 +577,7 @@ export async function updateIdea(sku: string, idea: string) {
 }
 ```
 
-- [ ] **Step 3: app/layout.tsx**
+- [ ] **Step 5: app/layout.tsx**
 
 ```tsx
 import "./globals.css";
@@ -534,37 +588,26 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 }
 ```
 
-- [ ] **Step 4: app/page.tsx (status + import; generate button lands in Task 5)**
+- [ ] **Step 6: app/page.tsx (status + import; generate form and SpendPanel land in Task 5)**
 
 ```tsx
 import Link from "next/link";
-import { db, type Product, type Candidate } from "@/lib/db";
-import { productStatus, STATUS_LABEL, type ProductStatus } from "@/lib/status";
-import { env } from "@/lib/env";
-import { importCatalog } from "@/lib/actions";
+import { overview } from "@/lib/queries";
+import { STATUS_LABEL, type ProductStatus } from "@/lib/status";
+import { importCatalog } from "@/lib/actions/import";
 
 export const dynamic = "force-dynamic";
 
 export default function Home() {
-  const d = db();
-  const products = d.prepare("select * from products order by priority desc, sku").all() as Product[];
-  const cands = d.prepare("select sku, state, cost_usd from candidates").all() as Pick<Candidate, "sku" | "state" | "cost_usd">[];
-  const bySku = new Map<string, typeof cands>();
-  for (const c of cands) bySku.set(c.sku, [...(bySku.get(c.sku) ?? []), c]);
-  const rows = products.map(p => ({ p, status: productStatus(!!p.shot_idea, bySku.get(p.sku) ?? []) }));
-  const counts = rows.reduce((m, r) => (m[r.status] = (m[r.status] ?? 0) + 1, m), {} as Record<ProductStatus, number>);
-  const spent = cands.reduce((s, c) => s + c.cost_usd, 0);
-  const settings = d.prepare("select paused_reason from settings").get() as { paused_reason: string | null };
-
+  const { rows, counts, pausedReason } = overview();
   return (
     <main className="mx-auto max-w-3xl p-4 space-y-6">
       <h1 className="text-2xl font-semibold">Styled shots</h1>
-      {settings.paused_reason && <div className="rounded bg-amber-100 p-3 text-amber-900">Generation paused: {settings.paused_reason}</div>}
+      {pausedReason && <div className="rounded bg-amber-100 p-3 text-amber-900">Generation paused: {pausedReason}</div>}
       <section className="grid grid-cols-2 gap-2 sm:grid-cols-3 text-sm">
         {(Object.keys(STATUS_LABEL) as ProductStatus[]).map(s => (
           <div key={s} className="rounded bg-white p-3 shadow-sm"><div className="text-2xl">{counts[s] ?? 0}</div>{STATUS_LABEL[s]}</div>
         ))}
-        <div className="rounded bg-white p-3 shadow-sm"><div className="text-2xl">${spent.toFixed(2)}</div>spent</div>
       </section>
       <form action={importCatalog} className="rounded bg-white p-3 shadow-sm flex flex-wrap items-center gap-2">
         <input type="file" name="file" accept=".csv,text/csv" required className="text-sm" />
@@ -591,18 +634,18 @@ export default function Home() {
 }
 ```
 
-- [ ] **Step 5: Manual check**
+- [ ] **Step 7: Manual check**
 
 Run: `npm run dev`, open `http://localhost:3000`, import `data/catalog.csv`. Expected: 40 rows, 16 with sheet ideas, 24 marked suggested (templates if no `ANTHROPIC_API_KEY` in the shell; Haiku ideas if set). Re-import: counts unchanged, no duplicates.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
-git add -A && git commit -m "import + suggestions + status page
+git add -A && git commit -m "import + suggestions + read model + status page
 
 CSV upsert by SKU never touches candidates (money path #9). Blank rows get
 a Haiku-suggested idea, labelled, editable, free until generated (D2, D4).
-Status page is one screen: counts, spend, import, exports, product list.
+Pages render what lib/queries.ts reads; no SQL in components.
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ```
@@ -677,17 +720,17 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 
 ---
 
-### Task 5: Enqueue with guardrails, worker, generate action
+### Task 5: Admission control, worker, notify, analytics, generate actions
 
 **Files:**
-- Create: `lib/enqueue.ts`, `lib/worker.ts`, `lib/slack.ts`, `instrumentation.ts`, `tests/enqueue.test.ts`
-- Modify: `lib/actions.ts` (add `generateNext`, `generateSku`, `tryAgain`, `resumeWorker`), `app/page.tsx` (generate form + resume button)
+- Create: `lib/enqueue.ts`, `lib/worker.ts`, `lib/slack.ts`, `lib/notify.ts`, `lib/analytics.ts`, `lib/actions/generate.ts`, `components/SpendPanel.tsx`, `instrumentation.ts`, `tests/enqueue.test.ts`, `tests/analytics.test.ts`
+- Modify: `app/page.tsx` (generate form, resume button, SpendPanel)
 
 **Interfaces:**
 - Consumes: `db`, `env`, `buildPrompt`, `submitEdit`, `getGeneration`, `fetchPhoto`, `storage`.
-- Produces: `enqueue(skus, opts?): { queued: number; skipped: string[]; estimatedUsd: number; refused?: string }`; `tick(): Promise<void>`; `startWorker()`; `notifySlack(text)`.
+- Produces: `enqueue(skus, kind, opts?): { batchId?: number; queued: number; skipped: string[]; estimatedUsd: number; refused?: string }`; `nextSkus(n)`; `tick()`; `startWorker()`; `notifySlack(text)`; `notifyIfBatchReady()`; `spendSummary()`; `recentBatches(limit)`.
 
-- [ ] **Step 1: Failing test for the guardrails (money paths #1, #8)**
+- [ ] **Step 1: Failing tests (money paths #1, #8, and the ledger)**
 
 `tests/enqueue.test.ts`:
 ```ts
@@ -703,44 +746,81 @@ const { enqueue } = await import("../lib/enqueue.ts");
 const d = db();
 for (const sku of ["A", "B", "C"]) d.prepare("insert into products (sku,name,photo_url,shot_idea) values (?,?,?,?)").run(sku, "x", "https://x/a.jpg", "idea");
 
-test("double trigger enqueues once", () => {
-  const first = enqueue(["A"]);
+test("double trigger enqueues once, each trigger is a batch", () => {
+  const first = enqueue(["A"], "product");
   assert.equal(first.queued, 2);
-  const second = enqueue(["A"]);
+  assert.ok(first.batchId);
+  const second = enqueue(["A"], "product");
   assert.equal(second.queued, 0);
   assert.deepEqual(second.skipped, ["A"]);
+  assert.equal(second.batchId, undefined);
+  assert.equal((d.prepare("select count(*) as n from batches").get() as any).n, 1);
 });
 test("in-flight cap refuses", () => {
-  const r = enqueue(["B", "C"]);           // 2 in flight + 4 planned > 4
+  const r = enqueue(["B", "C"], "next");           // 2 in flight + 4 planned > 4
   assert.equal(r.queued, 0);
   assert.match(r.refused!, /in flight/);
 });
 test("spend cap refuses", () => {
   d.prepare("update candidates set state='approved', cost_usd=0.5").run(); // spent 1.00 already
-  const r = enqueue(["B"]);
+  const r = enqueue(["B"], "next");
   assert.equal(r.queued, 0);
   assert.match(r.refused!, /budget/);
 });
 ```
 
-Run: `npm test` → Expected: FAIL, missing `lib/enqueue.ts`.
+`tests/analytics.test.ts`:
+```ts
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs"; import os from "node:os"; import path from "node:path";
+process.env.DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "shots-"));
+const { db } = await import("../lib/db.ts");
+const { spendSummary, recentBatches } = await import("../lib/analytics.ts");
 
-- [ ] **Step 2: lib/enqueue.ts**
+const d = db();
+d.prepare("insert into products (sku,name,photo_url,shot_idea) values ('A','x','https://x/a.jpg','idea')").run();
+const b = d.prepare("insert into batches (kind, estimated_usd) values ('next', 0.16)").run().lastInsertRowid;
+const ins = d.prepare("insert into candidates (sku,batch_id,prompt,state,cost_usd) values ('A',?,'p',?,?)");
+ins.run(b, "approved", 0.04); ins.run(b, "rejected", 0.04); ins.run(b, "failed", 0.04); ins.run(b, "failed", 0);
+
+test("spend by outcome, cost per approved, approval rate", () => {
+  const s = spendSummary();
+  assert.equal(s.spent.toFixed(2), "0.12");
+  assert.equal(s.spentApproved.toFixed(2), "0.04");
+  assert.equal(s.spentWasted.toFixed(2), "0.08");   // rejected + failed
+  assert.equal(s.approved, 1);
+  assert.equal(s.costPerApproved!.toFixed(2), "0.12");
+  assert.equal(s.approvalRate, 0.5);                  // 1 approved of 2 decided
+});
+test("recent batches show estimate vs actual", () => {
+  const [row] = recentBatches(5);
+  assert.equal(row.kind, "next");
+  assert.equal(row.estimated_usd, 0.16);
+  assert.equal(row.actual_usd.toFixed(2), "0.12");
+  assert.equal(row.images, 4);
+});
+```
+
+Run: `npm test` → Expected: FAIL, missing modules.
+
+- [ ] **Step 2: lib/enqueue.ts (admission control)**
 
 ```ts
-import { db, type Product } from "./db";
+import { db, type Product, type BatchKind } from "./db";
 import { env } from "./env";
 import { buildPrompt } from "./prompt";
 
-export function enqueue(skus: string[], opts: { perProduct?: number } = {}) {
+export function enqueue(skus: string[], kind: BatchKind, opts: { perProduct?: number } = {}) {
   const per = opts.perProduct ?? env.candidatesPerProduct;
   const d = db();
   return d.transaction(() => {
     const inFlight = (d.prepare("select count(*) as n from candidates where state in ('queued','processing')").get() as { n: number }).n;
     const spent = (d.prepare("select coalesce(sum(cost_usd),0) as s from candidates").get() as { s: number }).s;
     const busy = new Set((d.prepare("select distinct sku from candidates where state in ('queued','processing')").all() as { sku: string }[]).map(r => r.sku));
-    const targets = (d.prepare(`select * from products where sku in (${skus.map(() => "?").join(",")}) and shot_idea is not null`).all(...skus) as Product[])
-      .filter(p => !busy.has(p.sku));
+    const targets = skus.length
+      ? (d.prepare(`select * from products where sku in (${skus.map(() => "?").join(",")}) and shot_idea is not null`).all(...skus) as Product[]).filter(p => !busy.has(p.sku))
+      : [];
     const skipped = skus.filter(s => !targets.some(p => p.sku === s));
     const planned = targets.length * per;
     const estimatedUsd = planned * env.costPerImage;
@@ -749,9 +829,10 @@ export function enqueue(skus: string[], opts: { perProduct?: number } = {}) {
       return { queued: 0, skipped, estimatedUsd, refused: `${inFlight} images already in flight; adding ${planned} would exceed the ${env.maxInFlight} in-flight cap. Wait for the current batch.` };
     if (spent + inFlight * env.costPerImage + estimatedUsd > env.maxTotalSpend)
       return { queued: 0, skipped, estimatedUsd, refused: `This would take total spend past the $${env.maxTotalSpend} budget cap (spent $${spent.toFixed(2)}). Raise MAX_TOTAL_SPEND_USD to continue.` };
-    const ins = d.prepare("insert into candidates (sku, prompt) values (?, ?)");
-    for (const p of targets) for (let i = 0; i < per; i++) ins.run(p.sku, buildPrompt(p, p.shot_idea!));
-    return { queued: planned, skipped, estimatedUsd };
+    const batchId = Number(d.prepare("insert into batches (kind, estimated_usd) values (?, ?)").run(kind, estimatedUsd).lastInsertRowid);
+    const ins = d.prepare("insert into candidates (sku, batch_id, prompt) values (?, ?, ?)");
+    for (const p of targets) for (let i = 0; i < per; i++) ins.run(p.sku, batchId, buildPrompt(p, p.shot_idea!));
+    return { batchId, queued: planned, skipped, estimatedUsd };
   })();
 }
 
@@ -763,10 +844,46 @@ export function nextSkus(n: number): string[] {
 }
 ```
 
-Run: `npm test` → Expected: PASS.
+- [ ] **Step 3: lib/analytics.ts (money reporting)**
 
-- [ ] **Step 3: lib/slack.ts**
+```ts
+import { db, type Batch } from "./db";
 
+export function spendSummary() {
+  const r = db().prepare(`select
+      coalesce(sum(cost_usd), 0) as spent,
+      coalesce(sum(case when state = 'approved' then cost_usd end), 0) as spentApproved,
+      coalesce(sum(case when state in ('rejected', 'failed') then cost_usd end), 0) as spentWasted,
+      coalesce(sum(case when state in ('completed', 'queued', 'processing') then cost_usd end), 0) as spentPending,
+      coalesce(sum(state = 'approved'), 0) as approved,
+      coalesce(sum(state in ('approved', 'rejected')), 0) as decided,
+      coalesce(sum(cost_usd > 0), 0) as generated
+    from candidates`).get() as { spent: number; spentApproved: number; spentWasted: number; spentPending: number; approved: number; decided: number; generated: number };
+  return {
+    ...r,
+    costPerApproved: r.approved ? r.spent / r.approved : null,
+    approvalRate: r.decided ? r.approved / r.decided : null,
+  };
+}
+
+export function recentBatches(limit = 10) {
+  return db().prepare(`select b.*, count(c.id) as images, coalesce(sum(c.cost_usd), 0) as actual_usd,
+      coalesce(sum(c.state = 'approved'), 0) as approved
+    from batches b left join candidates c on c.batch_id = b.id
+    group by b.id order by b.id desc limit ?`).all(limit) as (Batch & { images: number; actual_usd: number; approved: number })[];
+}
+
+export function spendBySku(): Map<string, number> {
+  const rows = db().prepare("select sku, coalesce(sum(cost_usd),0) as s from candidates group by sku").all() as { sku: string; s: number }[];
+  return new Map(rows.map(r => [r.sku, r.s]));
+}
+```
+
+Run: `npm test` → Expected: enqueue and analytics tests PASS.
+
+- [ ] **Step 4: lib/slack.ts (transport) and lib/notify.ts (policy)**
+
+`lib/slack.ts`:
 ```ts
 import { env } from "./env";
 export async function notifySlack(text: string) {
@@ -776,15 +893,34 @@ export async function notifySlack(text: string) {
 }
 ```
 
-- [ ] **Step 4: lib/worker.ts**
+`lib/notify.ts`:
+```ts
+import { db } from "./db";
+import { env } from "./env";
+import { notifySlack } from "./slack";
+
+/** One message per settled batch: nothing in flight, and something completed since the last message. */
+export async function notifyIfBatchReady() {
+  const d = db();
+  const pending = (d.prepare("select count(*) as n from candidates where state in ('queued','processing')").get() as { n: number }).n;
+  if (pending > 0) return;
+  const s = d.prepare("select last_notified_at from settings").get() as { last_notified_at: string | null };
+  const ready = d.prepare("select count(distinct sku) as n, max(created_at) as latest from candidates where state='completed'").get() as { n: number; latest: string | null };
+  if (!ready.n || !ready.latest || (s.last_notified_at && s.last_notified_at >= ready.latest)) return;
+  await notifySlack(`${ready.n} product${ready.n === 1 ? "" : "s"} ready to review: ${env.appUrl}/?k=${env.accessToken}`);
+  d.prepare("update settings set last_notified_at=datetime('now')").run();
+}
+```
+
+- [ ] **Step 5: lib/worker.ts (advance generation only)**
 
 ```ts
-import { db, type Candidate, type Product } from "./db";
+import { db, type Candidate } from "./db";
 import { env } from "./env";
 import { storage } from "./storage";
 import { fetchPhoto } from "./photos";
 import { submitEdit, getGeneration, LumaBudgetError, LumaRateLimitError } from "./luma";
-import { notifySlack } from "./slack";
+import { notifyIfBatchReady } from "./notify";
 
 const MAX_ATTEMPTS = 5;
 let running = false;
@@ -792,7 +928,7 @@ let running = false;
 export async function tick() {
   if (running) return;            // money path #2: single flight
   running = true;
-  try { await submitQueued(); await pollProcessing(); await maybeNotify(); }
+  try { await submitQueued(); await pollProcessing(); await notifyIfBatchReady(); }
   catch (e) { console.error("tick:", (e as Error).message); }
   finally { running = false; }
 }
@@ -809,12 +945,13 @@ async function submitQueued() {
     try {
       if (!photos.has(c.sku)) photos.set(c.sku, (await fetchPhoto(c.photo_url)).toString("base64"));
     } catch (e) {
-      d.prepare("update candidates set state='failed', failure_reason=? where id=?").run((e as Error).message, c.id); // money path #12
+      d.prepare("update candidates set state='failed', failure_reason=? where id=?").run((e as Error).message, c.id); // money path #12, cost stays 0
       continue;
     }
     try {
       const gid = await submitEdit({ prompt: c.prompt, jpegBase64: photos.get(c.sku)! });
-      d.prepare("update candidates set state='processing', luma_generation_id=?, attempts=attempts+1 where id=?").run(gid, c.id);
+      // Money is committed here, so cost is recorded here (Global Constraints).
+      d.prepare("update candidates set state='processing', luma_generation_id=?, attempts=attempts+1, cost_usd=? where id=?").run(gid, env.costPerImage, c.id);
     } catch (e) {
       if (e instanceof LumaBudgetError) { d.prepare("update settings set paused_reason=?").run("Luma credits exhausted. Top up, then press Resume."); return; }
       if (e instanceof LumaRateLimitError) return;                                   // money path #5
@@ -836,20 +973,9 @@ async function pollProcessing() {
       const res = await fetch(g.url);
       if (!res.ok) { console.warn(`download ${res.status} for ${c.id}, will re-poll`); continue; }  // money path #7
       storage.saveImage(c.id, Buffer.from(await res.arrayBuffer()));
-      d.prepare("update candidates set state='completed', cost_usd=? where id=?").run(env.costPerImage, c.id);
+      d.prepare("update candidates set state='completed' where id=?").run(c.id);
     } catch (e) { console.warn(`poll ${c.id}:`, (e as Error).message); }
   }
-}
-
-async function maybeNotify() {
-  const d = db();
-  const pending = (d.prepare("select count(*) as n from candidates where state in ('queued','processing')").get() as { n: number }).n;
-  if (pending > 0) return;
-  const s = d.prepare("select last_notified_at from settings").get() as { last_notified_at: string | null };
-  const ready = d.prepare("select count(distinct sku) as n, max(created_at) as latest from candidates where state='completed'").get() as { n: number; latest: string | null };
-  if (!ready.n || !ready.latest || (s.last_notified_at && s.last_notified_at >= ready.latest)) return;
-  await notifySlack(`${ready.n} product${ready.n === 1 ? "" : "s"} ready to review: ${env.appUrl}/?k=${env.accessToken}`);
-  d.prepare("update settings set last_notified_at=datetime('now')").run();
 }
 
 export function startWorker() {
@@ -859,7 +985,7 @@ export function startWorker() {
 }
 ```
 
-- [ ] **Step 5: instrumentation.ts**
+- [ ] **Step 6: instrumentation.ts**
 
 ```ts
 export async function register() {
@@ -870,23 +996,23 @@ export async function register() {
 }
 ```
 
-- [ ] **Step 6: Add actions to lib/actions.ts**
+- [ ] **Step 7: lib/actions/generate.ts**
 
-Append:
 ```ts
-import { enqueue, nextSkus } from "./enqueue";
-import { tick } from "./worker";
-import { env } from "./env";
+"use server";
+import { revalidatePath } from "next/cache";
+import { db } from "@/lib/db";
+import { enqueue, nextSkus } from "@/lib/enqueue";
+import { tick } from "@/lib/worker";
+
+function after(sku?: string) { void tick(); revalidatePath("/"); if (sku) revalidatePath(`/review/${sku}`); }
 
 export async function generateNext(formData: FormData) {
-  const n = Number(formData.get("n") ?? 10);
-  const r = enqueue(nextSkus(n));
-  void tick();
-  revalidatePath("/");
-  return r;
+  const n = Math.max(1, Math.min(40, Number(formData.get("n") ?? 10)));
+  const r = enqueue(nextSkus(n), "next"); after(); return r;
 }
 export async function generateSku(sku: string) {
-  const r = enqueue([sku]); void tick(); revalidatePath("/"); revalidatePath(`/review/${sku}`); return r;
+  const r = enqueue([sku], "product"); after(sku); return r;
 }
 export async function tryAgain(sku: string, note: string) {
   if (note.trim()) {
@@ -894,20 +1020,45 @@ export async function tryAgain(sku: string, note: string) {
     const p = d.prepare("select shot_idea from products where sku=?").get(sku) as { shot_idea: string | null };
     d.prepare("update products set shot_idea=?, shot_idea_source='edited' where sku=?").run(`${p.shot_idea ?? ""}, ${note.trim()}`, sku);
   }
-  return generateSku(sku);
+  const r = enqueue([sku], "retry"); after(sku); return r;
 }
 export async function resumeWorker() {
-  db().prepare("update settings set paused_reason=null").run(); void tick(); revalidatePath("/");
+  db().prepare("update settings set paused_reason=null").run(); after();
 }
-export const estimate = (products: number) => products * env.candidatesPerProduct * env.costPerImage;
 ```
 
-- [ ] **Step 7: Status page additions**
-
-In `app/page.tsx`, after the banner, add a resume button when paused and a generate form:
+- [ ] **Step 8: components/SpendPanel.tsx**
 
 ```tsx
-{settings.paused_reason && <form action={resumeWorker}><button className="rounded bg-amber-700 px-3 py-2 text-white text-sm">Resume generation</button></form>}
+import { spendSummary, recentBatches } from "@/lib/analytics";
+const usd = (n: number) => `$${n.toFixed(2)}`;
+export function SpendPanel() {
+  const s = spendSummary(); const batches = recentBatches(5);
+  return (
+    <section className="rounded bg-white p-3 shadow-sm text-sm space-y-2">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div><div className="text-xl">{usd(s.spent)}</div>spent total</div>
+        <div><div className="text-xl">{usd(s.spentApproved)}</div>on approved</div>
+        <div><div className="text-xl">{usd(s.spentWasted)}</div>on rejected or failed</div>
+        <div><div className="text-xl">{s.costPerApproved == null ? "–" : usd(s.costPerApproved)}</div>per approved image{s.approvalRate != null && ` · ${Math.round(s.approvalRate * 100)}% approved`}</div>
+      </div>
+      {batches.length > 0 && (
+        <table className="w-full text-xs text-stone-600"><tbody>
+          {batches.map(b => <tr key={b.id}><td>{b.created_at}</td><td>{b.kind}</td><td>{b.images} images</td><td>est {usd(b.estimated_usd)}</td><td>actual {usd(b.actual_usd)}</td><td>{b.approved} approved</td></tr>)}
+        </tbody></table>
+      )}
+    </section>
+  );
+}
+```
+
+- [ ] **Step 9: Status page additions**
+
+In `app/page.tsx`, import `generateNext`, `resumeWorker` from `@/lib/actions/generate`, `SpendPanel`, and `env`. After the banner add:
+
+```tsx
+{pausedReason && <form action={resumeWorker}><button className="rounded bg-amber-700 px-3 py-2 text-white text-sm">Resume generation</button></form>}
+<SpendPanel />
 <form action={generateNext} className="rounded bg-white p-3 shadow-sm flex flex-wrap items-center gap-2 text-sm">
   <span>Generate the next</span>
   <input type="number" name="n" defaultValue={10} min={1} max={40} className="w-16 rounded border px-2 py-1" />
@@ -917,22 +1068,21 @@ In `app/page.tsx`, after the banner, add a resume button when paused and a gener
 </form>
 ```
 
-Import `generateNext`, `resumeWorker` from `@/lib/actions`.
+- [ ] **Step 10: Manual check with a paused account**
 
-- [ ] **Step 8: Manual check with a paused account**
+Run: `npm run dev` with `LUMA_AGENTS_API_KEY` in the shell (never printed). Click Generate next 1. Expected with zero credits: banner "Luma credits exhausted", candidates stay queued at cost 0, spend panel shows $0.00, no log storm. With credits: two candidates go `processing` (cost recorded) then `completed` within about a minute, images appear under `data-local/images/`, the batch row shows est = actual.
 
-Run: `npm run dev` with `LUMA_AGENTS_API_KEY` in the shell (never printed). Click Generate next 1. Expected with zero credits: banner "Luma credits exhausted", candidates stay queued, no log storm. With credits: two candidates go `processing` then `completed` within about a minute, images appear under `data-local/images/`.
-
-- [ ] **Step 9: Commit**
+- [ ] **Step 11: Commit**
 
 ```bash
-git add -A && git commit -m "generation: guarded enqueue, in-process worker, generate action
+git add -A && git commit -m "generation: admission control, worker, notify policy, spend analytics
 
 Enqueue is one transaction: skips products with work in flight, refuses
-past the in-flight cap and the total spend cap, returns the estimate.
-Worker is single-flight, pauses on 402, backs off on 429, fails a
-candidate after 5 errors, re-polls on expired download URLs. One Slack
-message per settled batch.
+past the in-flight cap and the total spend cap, creates a batch per
+trigger. Cost is recorded when Luma accepts the job. Worker is
+single-flight, pauses on 402, backs off on 429, fails after 5 errors,
+re-polls on expired download URLs. Notify policy lives apart from the
+Slack transport. Spend panel: by outcome, per approved, per batch.
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ```
@@ -943,15 +1093,15 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 
 **Files:**
 - Create: `app/review/[sku]/page.tsx`, `app/img/[id]/route.ts`, `components/IdeaForm.tsx`
-- Modify: `lib/actions.ts` (add `decide`)
+- Modify: `lib/actions/review.ts` (add `decide`), `lib/queries.ts` (add `productDetail`)
 
 **Interfaces:**
 - Consumes: `db`, `storage`, `productStatus`, `generateSku`, `tryAgain`, `updateIdea`.
-- Produces: `decide(candidateId, state: "approved" | "rejected", who: string)`.
+- Produces: `decide(formData)`; `queries.productDetail(sku): { p, cands, status, prev?, next? } | null`.
 
 - [ ] **Step 1: decide action**
 
-Append to `lib/actions.ts`:
+Append to `lib/actions/review.ts`:
 ```ts
 export async function decide(formData: FormData) {
   const id = Number(formData.get("id")); const state = String(formData.get("state")); const sku = String(formData.get("sku"));
@@ -962,7 +1112,22 @@ export async function decide(formData: FormData) {
 }
 ```
 
-- [ ] **Step 2: app/img/[id]/route.ts**
+- [ ] **Step 2: productDetail query**
+
+Append to `lib/queries.ts`:
+```ts
+export function productDetail(sku: string) {
+  const d = db();
+  const p = d.prepare("select * from products where sku=?").get(sku) as Product | undefined;
+  if (!p) return null;
+  const cands = d.prepare("select * from candidates where sku=? order by id desc").all(sku) as Candidate[];
+  const nav = (d.prepare("select sku from products order by priority desc, sku").all() as { sku: string }[]).map(r => r.sku);
+  const i = nav.indexOf(sku);
+  return { p, cands, status: productStatus(!!p.shot_idea, cands), prev: nav[i - 1], next: nav[i + 1] };
+}
+```
+
+- [ ] **Step 3: app/img/[id]/route.ts**
 
 ```ts
 import { storage } from "@/lib/storage";
@@ -973,7 +1138,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
 }
 ```
 
-- [ ] **Step 3: components/IdeaForm.tsx**
+- [ ] **Step 4: components/IdeaForm.tsx**
 
 ```tsx
 "use client";
@@ -990,28 +1155,25 @@ export function IdeaForm({ sku, idea, source, onSave }: { sku: string; idea: str
 }
 ```
 
-- [ ] **Step 4: app/review/[sku]/page.tsx**
+- [ ] **Step 5: app/review/[sku]/page.tsx**
 
 ```tsx
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { db, type Product, type Candidate } from "@/lib/db";
-import { productStatus, STATUS_LABEL } from "@/lib/status";
+import { productDetail } from "@/lib/queries";
+import { STATUS_LABEL } from "@/lib/status";
 import { env } from "@/lib/env";
-import { decide, generateSku, tryAgain, updateIdea } from "@/lib/actions";
+import { decide, updateIdea } from "@/lib/actions/review";
+import { generateSku, tryAgain } from "@/lib/actions/generate";
 import { IdeaForm } from "@/components/IdeaForm";
 
 export const dynamic = "force-dynamic";
 
 export default async function Review({ params }: { params: Promise<{ sku: string }> }) {
   const { sku } = await params;
-  const d = db();
-  const p = d.prepare("select * from products where sku=?").get(sku) as Product | undefined;
-  if (!p) notFound();
-  const cands = d.prepare("select * from candidates where sku=? order by id desc").all(sku) as Candidate[];
-  const status = productStatus(!!p.shot_idea, cands);
-  const nav = d.prepare("select sku from products order by priority desc, sku").all() as { sku: string }[];
-  const i = nav.findIndex(r => r.sku === sku);
+  const detail = productDetail(sku);
+  if (!detail) notFound();
+  const { p, cands, status, prev, next } = detail;
   const perCost = (env.candidatesPerProduct * env.costPerImage).toFixed(2);
 
   return (
@@ -1020,8 +1182,8 @@ export default async function Review({ params }: { params: Promise<{ sku: string
         <Link href="/" className="underline">All products</Link>
         <span className="rounded-full bg-stone-100 px-2 py-1 text-xs">{STATUS_LABEL[status]}</span>
         <div className="space-x-3">
-          {i > 0 && <Link href={`/review/${nav[i - 1].sku}`} className="underline">Prev</Link>}
-          {i < nav.length - 1 && <Link href={`/review/${nav[i + 1].sku}`} className="underline">Next</Link>}
+          {prev && <Link href={`/review/${prev}`} className="underline">Prev</Link>}
+          {next && <Link href={`/review/${next}`} className="underline">Next</Link>}
         </div>
       </div>
       <h1 className="text-xl font-semibold">{p.sku} · {p.name}</h1>
@@ -1068,17 +1230,18 @@ export default async function Review({ params }: { params: Promise<{ sku: string
 }
 ```
 
-- [ ] **Step 5: Manual check on a phone-width viewport**
+- [ ] **Step 6: Manual check on a phone-width viewport**
 
 Run dev, open `/review/HG-002` at 375px wide. Expected: original photo, idea editable, generate button with cost, candidates stack vertically, approve/reject are full-width thumb targets, prev/next work.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add -A && git commit -m "review page: one product per screen, thumb-sized approve/reject
 
-Cost shown on every generate button. Try-again appends the note to the
-idea so the next prompt carries it. Decisions record who decided.
+Cost shown on every generate button. Try-again is its own batch and
+appends the note to the idea so the next prompt carries it. Decisions
+record who decided. Page renders queries.productDetail; no SQL inline.
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ```
@@ -1089,40 +1252,48 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 
 **Files:**
 - Create: `lib/export.ts`, `app/export/csv/route.ts`, `app/export/zip/route.ts`
+- Modify: `lib/queries.ts` (add `approvedByProduct`)
 
 **Interfaces:**
-- Consumes: `db`, `storage`, `approvedFilename`, `productStatus`, `STATUS_LABEL`, `REQUIRED_HEADERS`.
-- Produces: `exportCsv(): string`; `exportZip(): Uint8Array`.
+- Consumes: `db`, `storage`, `approvedFilename`, `productStatus`, `STATUS_LABEL`, `REQUIRED_HEADERS`, `spendBySku`.
+- Produces: `queries.approvedByProduct()`; `exportCsv(): string`; `exportZip(): Uint8Array`.
 
-- [ ] **Step 1: lib/export.ts**
+- [ ] **Step 1: approvedByProduct query**
 
+Append to `lib/queries.ts`:
 ```ts
-import { stringify } from "csv-stringify/sync";
-import { zipSync } from "fflate";
-import { db, type Product, type Candidate } from "./db";
-import { storage } from "./storage";
 import { approvedFilename } from "./names";
-import { productStatus, STATUS_LABEL } from "./status";
-import { REQUIRED_HEADERS } from "./catalog";
-import { env } from "./env";
-
-function approvedByProduct() {
+export function approvedByProduct() {
   const d = db();
   const products = d.prepare("select * from products order by sku").all() as Product[];
   const cands = d.prepare("select * from candidates order by id").all() as Candidate[];
   return products.map(p => {
     const mine = cands.filter(c => c.sku === p.sku);
     const approved = mine.filter(c => c.state === "approved").map((c, i) => ({ c, name: approvedFilename(p.sku, p.shot_idea, i + 1) }));
-    return { p, mine, approved, status: productStatus(!!p.shot_idea, mine), spent: mine.reduce((s, c) => s + c.cost_usd, 0) };
+    return { p, approved, status: productStatus(!!p.shot_idea, mine) };
   });
 }
+```
+
+- [ ] **Step 2: lib/export.ts (formats only)**
+
+```ts
+import { stringify } from "csv-stringify/sync";
+import { zipSync } from "fflate";
+import { storage } from "./storage";
+import { STATUS_LABEL } from "./status";
+import { REQUIRED_HEADERS } from "./catalog";
+import { approvedByProduct } from "./queries";
+import { spendBySku } from "./analytics";
+import { env } from "./env";
 
 export function exportCsv(): string {
-  const rows = approvedByProduct().map(({ p, approved, status, spent }) => ({
+  const spend = spendBySku();
+  const rows = approvedByProduct().map(({ p, approved, status }) => ({
     SKU: p.sku, "Product Name": p.name, Category: p.category, "Color / Finish": p.color, Material: p.material, Price: p.price,
     Photo: p.photo_url, "Shot Idea": p.shot_idea ?? "", Notes: p.notes,
     Status: STATUS_LABEL[status], "Approved Images": approved.map(a => `${env.appUrl}/img/${a.c.id}`).join("; "),
-    "Approved Filenames": approved.map(a => a.name).join("; "), "Spent (USD)": spent.toFixed(2),
+    "Approved Filenames": approved.map(a => a.name).join("; "), "Spent (USD)": (spend.get(p.sku) ?? 0).toFixed(2),
   }));
   return stringify(rows, { header: true, columns: [...REQUIRED_HEADERS, "Status", "Approved Images", "Approved Filenames", "Spent (USD)"] });
 }
@@ -1135,7 +1306,7 @@ export function exportZip(): Uint8Array {
 }
 ```
 
-- [ ] **Step 2: Routes**
+- [ ] **Step 3: Routes**
 
 `app/export/csv/route.ts`:
 ```ts
@@ -1154,15 +1325,16 @@ export async function GET() {
 }
 ```
 
-- [ ] **Step 3: Manual check, commit**
+- [ ] **Step 4: Manual check, commit**
 
 Download both from the status page. Expected: CSV opens in Sheets with the original nine columns first; zip contains `HG-xxx-...-01.jpg` files plus `manifest.csv`.
 
 ```bash
 git add -A && git commit -m "exports: updated catalog CSV and approved-images zip
 
-Original columns preserved and first, status and filenames appended.
-Zip is the Drive hand-off (D3): deterministic names plus a manifest.
+Original columns preserved and first; status, filenames and per-product
+spend appended. Zip is the Drive hand-off (D3): deterministic names plus
+a manifest.
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ```
@@ -1192,8 +1364,10 @@ export function middleware(req: NextRequest) {
   if (req.cookies.get("k")?.value === token) return NextResponse.next();
   return new NextResponse("This page needs the team link. Ask Maya or Ellie for it.", { status: 401 });
 }
-export const config = { matcher: ["/((?!_next|favicon.ico).*)"] };
+export const config = { matcher: ["/((?!_next|favicon.ico|healthz).*)"] };
 ```
+
+Add `app/healthz/route.ts`: `export const GET = () => new Response("ok");`
 
 - [ ] **Step 2: Dockerfile and .dockerignore**
 
@@ -1220,10 +1394,8 @@ CMD ["node", "server.js"]
 
 `railway.json`:
 ```json
-{ "$schema": "https://railway.app/railway.schema.json", "build": { "builder": "DOCKERFILE" }, "deploy": { "restartPolicyType": "ON_FAILURE", "healthcheckPath": "/", "healthcheckTimeout": 60 } }
+{ "$schema": "https://railway.app/railway.schema.json", "build": { "builder": "DOCKERFILE" }, "deploy": { "restartPolicyType": "ON_FAILURE", "healthcheckPath": "/healthz", "healthcheckTimeout": 60 } }
 ```
-
-Note: `next start` is not used; standalone `server.js` is. Health check hits `/` which returns 401 without a cookie; Railway treats any HTTP response as healthy, but if it doesn't, add `/healthz` to the middleware matcher exclusions and a route returning 200.
 
 - [ ] **Step 3: .env.example**
 
@@ -1266,7 +1438,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 **Files:**
 - Modify: `APPROACH.md` (fill every *(fill after build)* section from what shipped), `ASSUMPTIONS.md` (any assumption that changed), `DECISIONS.md` (any material choice made during build), `video.md` (link)
 
-- [ ] Fill APPROACH.md: live URL, key decisions and tradeoffs, road not taken, scope ledger (in / out / next with reasoning), unit economics (dollars: `2 × 0.0434 / approval rate`; minutes: Ellie's seconds per candidate plus Maya's import; at 10× catalog: what changes is the in-flight cap, review time, and volume size, not the code), what breaks first (Ellie's attention at 80 candidates in one batch, then the single instance).
+- [ ] Fill APPROACH.md: live URL, key decisions and tradeoffs, road not taken, scope ledger (in / out / next with reasoning), unit economics from the spend panel's real numbers (dollars: spend ÷ approved; minutes: Ellie's seconds per candidate plus Maya's import; at 10× catalog: what changes is the in-flight cap, review time, and volume size, not the code), what breaks first (Ellie's attention at 80 candidates in one batch, then the single instance).
 - [ ] Record the video, paste the link in `video.md`.
 - [ ] Commit, push, run `./submit.sh`.
 
@@ -1274,7 +1446,8 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 
 ## Self-review
 
-- **Spec coverage:** import (T3), suggestions (T3), generate with cost and caps (T5), Slack one-per-batch (T5), review on phone (T6), approved copied out of Luma before expiry (T5 downloads on completion, not at approval, which is stricter than the design and avoids the 1-hour race), deterministic filenames (T2, T7), CSV and zip export (T7), status page (T3, T5), shared-link access (T8), poll loop restart-safe (T5), 402 pause and resume (T5), deploy on Railway with volume and backups (T8), docs (T9).
-- **Deviation from APPROACH.md, deliberate:** images are downloaded at *completion*, not at approval, so a candidate Ellie looks at tomorrow still exists. Rejected candidates stay on disk; pruning is in the D6 scaling plan, not v1. Update APPROACH.md wording in T9.
+- **Spec coverage:** import (T3), suggestions (T3), generate with cost and caps (T5), cost ledger by outcome, batch and product (T5, T7), Slack one-per-batch (T5), review on phone (T6), approved copied out of Luma before expiry (T5 downloads on completion, stricter than the design draft and avoids the 1-hour race), deterministic filenames (T2, T7), CSV and zip export (T7), status page (T3, T5), shared-link access (T8), poll loop restart-safe (T5), 402 pause and resume (T5), deploy on Railway with volume and backups (T8), docs (T9).
+- **Single responsibility check:** `worker.ts` no longer decides when to notify (`notify.ts` does) and no longer computes money (`analytics.ts` does). Pages hold no SQL (`queries.ts`). Actions are split by concern. `export.ts` only formats. `slack.ts` only transports. `enqueue.ts` is admission control and nothing else.
+- **Deviation from APPROACH.md, deliberate:** images are downloaded at *completion*, not at approval. Rejected candidates stay on disk; pruning is in the D6 scaling plan, not v1. Cost is recorded at *submission*, not completion. Update APPROACH.md wording in T9.
 - **Placeholder scan:** none.
-- **Type consistency:** `enqueue` returns `{ queued, skipped, estimatedUsd, refused? }` in T5 and is consumed as such in T5 actions; `decide` takes FormData in T6 and the review page posts `id`, `sku`, `state`; `productStatus(hasIdea, candidates)` signature matches T2, T3, T6, T7; `storage.readImage` returns `Buffer | null` in T1 and is checked in T6 and T7.
+- **Type consistency:** `enqueue(skus, kind, opts?)` returns `{ batchId?, queued, skipped, estimatedUsd, refused? }` and is consumed as such in T5 actions and tests; `BatchKind` values `next | product | retry` match `enqueue` call sites; `decide` takes FormData in T6 and the review page posts `id`, `sku`, `state`; `productStatus(hasIdea, candidates)` signature matches T2, T3, T6, T7; `storage.readImage` returns `Buffer | null` in T1 and is checked in T6 and T7; `spendSummary` field names match the analytics test and `SpendPanel`.
