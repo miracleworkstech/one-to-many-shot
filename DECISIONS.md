@@ -156,3 +156,30 @@ live in `ASSUMPTIONS.md`, not here.
 - **Cost accepted:** Wall-clock: each task waits on a human. Slightly more ceremony.
 - **Revisit trigger:** Review turnaround becomes the bottleneck on day one; then batch
   low-risk tasks (2, 4, 7) into one PR.
+
+## D10 — Import feedback is a client component; suggestions are chunked and warn, never block (2026-09-03)
+
+- **Decision:** The import form is `components/ImportForm.tsx`, a client component using
+  `useActionState` around a closure that calls `importCatalog(formData)`. It renders the
+  counts and every row-level error from `parseCatalog`. The database work lives in
+  `lib/import.ts` (`importCatalogRows(rows, suggest = suggestIdeas)`) so it is unit-tested
+  against a real SQLite; `lib/actions/import.ts` is request glue only. Haiku suggestions go
+  out in chunks of 50 products; a failed chunk falls back to templates for that chunk and
+  logs a warning. An optional `ANTHROPIC_WORKSPACE_ID` is sent as the
+  `anthropic-workspace-id` header because identity-linked keys are rejected without it.
+- **Alternatives:** Keep the plain `<form action={importCatalog}>` from the plan (silent:
+  a renamed column or a skipped row rendered a byte-identical page). Pass `importCatalog`
+  straight to `useActionState` (needs the `(prevState, formData)` signature, breaking the
+  declared interface). One unchunked Haiku request (truncates mid-JSON near ~150
+  products, templating the whole catalog). Surface "model unreachable" in the UI (widens
+  `suggestIdeas`' return type; deferred).
+- **Why:** Maya must see what an import did (brief: "where do things stand"). Money path
+  #9 needs the upsert testable in isolation. CLAUDE.md says name the ceiling at ~300
+  products.
+- **Cost accepted:** The form has no progressive enhancement: before hydration or with JS
+  off the button is inert (React renders a throwing `javascript:` action for client
+  closures). Every other screen needs JS anyway. When the Anthropic call fails the only
+  signal is a server log line; the page shows template ideas labelled "suggested".
+- **Revisit trigger:** A support question "why are all the ideas the same?" means surface
+  the model-vs-template count in the import result. A slow-phone report of a dead import
+  button means switch `importCatalog` to the `(prevState, formData)` signature.

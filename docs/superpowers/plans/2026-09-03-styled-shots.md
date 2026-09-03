@@ -573,7 +573,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - Consumes: `parseCatalog`, `productStatus`, `db`, `env`.
 - Produces: `importCatalog(formData): Promise<{ imported: number; suggested: number; errors: string[] }>`; `updateIdea(sku, idea)`; `suggestIdeas(products): Promise<Map<string,string>>`; `queries.overview(): { rows: {p, status}[]; counts; pausedReason }`.
 
-- [ ] **Step 1: lib/suggest.ts**
+- [x] **Step 1: lib/suggest.ts**
 
 ```ts
 import Anthropic from "@anthropic-ai/sdk";
@@ -610,7 +610,7 @@ export async function suggestIdeas(products: P[]): Promise<Map<string, string>> 
 }
 ```
 
-- [ ] **Step 2: lib/queries.ts (read model; grows in Tasks 6 and 7)**
+- [x] **Step 2: lib/queries.ts (read model; grows in Tasks 6 and 7)**
 
 ```ts
 import { db } from "./db";
@@ -631,7 +631,7 @@ export function overview() {
 }
 ```
 
-- [ ] **Step 3: lib/actions/import.ts**
+- [x] **Step 3: lib/actions/import.ts**
 
 ```ts
 "use server";
@@ -664,7 +664,7 @@ export async function importCatalog(formData: FormData) {
 }
 ```
 
-- [ ] **Step 4: lib/actions/review.ts (updateIdea; decide arrives in Task 6)**
+- [x] **Step 4: lib/actions/review.ts (updateIdea; decide arrives in Task 6)**
 
 ```ts
 "use server";
@@ -677,7 +677,7 @@ export async function updateIdea(sku: string, idea: string) {
 }
 ```
 
-- [ ] **Step 5: app/layout.tsx**
+- [x] **Step 5: app/layout.tsx**
 
 ```tsx
 import "./globals.css";
@@ -688,7 +688,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 }
 ```
 
-- [ ] **Step 6: app/page.tsx (status + import; generate form and SpendPanel land in Task 5)**
+- [x] **Step 6: app/page.tsx (status + import; generate form and SpendPanel land in Task 5)**
 
 ```tsx
 import Link from "next/link";
@@ -734,11 +734,11 @@ export default function Home() {
 }
 ```
 
-- [ ] **Step 7: Manual check**
+- [x] **Step 7: Manual check**
 
 Run: `npm run dev`, open `http://localhost:3000`, import `data/catalog.csv`. Expected: 40 rows, 16 with sheet ideas, 24 marked suggested (templates if no `ANTHROPIC_API_KEY` in the shell; Haiku ideas if set). Re-import: counts unchanged, no duplicates.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add -A && git commit -m "import + suggestions + read model + status page
@@ -1508,6 +1508,7 @@ Replace contents with the keys this app actually reads, no values:
 ```
 LUMA_AGENTS_API_KEY=
 ANTHROPIC_API_KEY=            # optional: Haiku shot-idea suggestions; template fallback without it
+ANTHROPIC_WORKSPACE_ID=       # required only for identity-linked Anthropic keys (API returns 400 without it)
 SLACK_WEBHOOK_URL=            # optional: one message per finished batch
 ACCESS_TOKEN=                 # long random string; the team link is APP_URL/?k=ACCESS_TOKEN
 APP_URL=http://localhost:3000

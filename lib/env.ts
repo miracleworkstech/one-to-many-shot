@@ -9,6 +9,8 @@ export const env = {
   accessToken: process.env.ACCESS_TOKEN ?? "",
   lumaKey: process.env.LUMA_AGENTS_API_KEY ?? "",
   anthropicKey: process.env.ANTHROPIC_API_KEY ?? "",
+  /** Identity-linked Anthropic keys are rejected without the workspace they act in. Optional. */
+  anthropicWorkspaceId: process.env.ANTHROPIC_WORKSPACE_ID ?? "",
   slackWebhook: process.env.SLACK_WEBHOOK_URL ?? "",
   costPerImage: num(process.env.LUMA_COST_PER_IMAGE_USD, 0.0434),
   candidatesPerProduct: num(process.env.CANDIDATES_PER_PRODUCT, 2),

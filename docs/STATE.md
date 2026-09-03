@@ -5,11 +5,12 @@
 
 ## Phase
 
-**Building, paused between tasks.** Tasks 1 and 2 merged to `main` (PR #1 approved by the
-user). Next action: on the user's go, `git checkout -b task/3-import` and run Task 3
-(import, suggestions, read model, status page) through the implementer/evaluator pair, then
-open a PR and stop. Task 3's manual check will use the Haiku key from `.env.local`
-via the dev server.
+**Building, Task 3 in review.** Tasks 1 and 2 merged to `main` (PR #1). Task 3 passed the
+evaluator in two rounds and is on branch `task/3-import` with a PR open to `main`. Next
+action: after the user approves the PR, `git checkout main && git merge --ff-only
+task/3-import`, delete the branch, push, then on the user's go start Task 4 on
+`task/4-luma`. The Haiku suggestion path has not been seen working yet: the key in
+`.env.local` is identity-linked and needs `ANTHROPIC_WORKSPACE_ID` (see below).
 
 ## Task board
 
@@ -17,7 +18,7 @@ via the dev server.
 |---|---|---|---|
 | 1 Scaffold, env, db, storage | merged | 08002ed | evaluator PASS, 8 mutants / 3 killed; NaN-cap fix + 3 tests added before merge |
 | 2 Pure domain functions | merged | PR #1 | evaluator PASS, 16 mutants / 12 killed; 4 test tightenings + cast fix applied |
-| 3 Import, suggestions, read model, status page | not started | | |
+| 3 Import, suggestions, read model, status page | PR open | task/3-import | evaluator PASS round 2, 8 mutants / 5 killed round 1 then 3/5 round 2 (2 survivors uncoverable without network or a React renderer); D10 |
 | 4 Luma client, photo fetch | not started | | |
 | 5 Admission control, worker, notify, analytics | not started | | money paths accepted 2026-09-03 |
 | 6 Review page, image route | not started | | |
@@ -49,6 +50,7 @@ via the dev server.
 - Photo host returns 403 to plain clients, 200 with a browser User-Agent (verified).
 - Codex CLI 0.144.4 installed and logged in (checked 2026-09-03).
 - `ANTHROPIC_API_KEY` is in `.env.local` as of 2026-09-03 (never read it). The user renamed `.env.example` to `.env` (gitignored, placeholder only); Task 8 recreates `.env.example` with the real variable list. `next dev` and `next start` load it; `node --test` does not, so tests run on the template fallback.
+- The Anthropic key is **identity-linked**: the API answers 400 `anthropic-workspace-id is required` (seen in the Task 3 dev-server log, no key material shown). Set `ANTHROPIC_WORKSPACE_ID` in `.env.local` (the workspace the key belongs to, from the Anthropic console) or use a non-identity-linked key. Until then suggestions are the category templates, labelled "suggested".
 - Deploy target: Railway, volume at `/data`, daily backups. No Railway project created yet.
 - Local Node is 26; better-sqlite3 13 ships prebuilds so no compiler needed. CI pins Node 22.
 - Pre-commit hook active locally (`core.hooksPath=.githooks`). GitHub Actions `check` runs on push.
@@ -59,6 +61,7 @@ via the dev server.
 ## Open items for the user
 
 - Luma credits (email sent?).
+- `ANTHROPIC_WORKSPACE_ID` in `.env.local` so Haiku suggestions actually run (Task 3 manual check pending on it).
 - Railway account confirmed.
 - Slack webhook URL for the demo (optional).
 
