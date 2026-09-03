@@ -210,9 +210,14 @@ import Database from "better-sqlite3";
 import fs from "node:fs";
 import path from "node:path";
 import { env } from "./env";
-import { CANDIDATE_STATES, BATCH_KINDS, SHOT_IDEA_SOURCES } from "./types";
+import { CANDIDATE_STATES, BATCH_KINDS, SHOT_IDEA_SOURCES, type CandidateState, type ShotIdeaSource } from "./types";
 
 const list = (xs: readonly string[]) => xs.map(x => `'${x}'`).join(",");
+
+/** Typed SQL literals. A misspelled state in a query or an assignment is a compile error, not a silent miss. */
+export const st = (s: CandidateState) => `'${s}'`;
+export const inStates = (...s: CandidateState[]) => `(${s.map(st).join(",")})`;
+export const src = (s: ShotIdeaSource) => `'${s}'`;
 
 const SCHEMA = `
 create table if not exists products (
@@ -229,7 +234,7 @@ create table if not exists batches (
 create table if not exists candidates (
   id integer primary key autoincrement, sku text not null references products(sku),
   batch_id integer not null references batches(id),
-  prompt text not null, luma_generation_id text, state text not null default 'queued' check (state in (${list(CANDIDATE_STATES)})),
+  prompt text not null, luma_generation_id text, state text not null default ${st("queued")} check (state in (${list(CANDIDATE_STATES)})),
   cost_usd real not null default 0, failure_reason text, attempts integer not null default 0,
   decided_by text, created_at text not null default (datetime('now')), decided_at text
 );
@@ -570,7 +575,7 @@ export function overview() {
 ```ts
 "use server";
 import { revalidatePath } from "next/cache";
-import { db } from "@/lib/db";
+import { db, src } from "@/lib/db";
 import type { Product } from "@/lib/types";
 import { parseCatalog } from "@/lib/catalog";
 import { suggestIdeas } from "@/lib/suggest";
@@ -586,12 +591,12 @@ export async function importCatalog(formData: FormData) {
     on conflict(sku) do update set name=excluded.name, category=excluded.category, color=excluded.color, material=excluded.material,
       price=excluded.price, photo_url=excluded.photo_url, notes=excluded.notes, priority=excluded.priority, updated_at=datetime('now'),
       shot_idea = case when excluded.shot_idea is not null then excluded.shot_idea else products.shot_idea end,
-      shot_idea_source = case when excluded.shot_idea is not null then 'sheet' else products.shot_idea_source end`);
+      shot_idea_source = case when excluded.shot_idea is not null then ${src("sheet")} else products.shot_idea_source end`);
   d.transaction(() => { for (const r of rows) upsert.run({ ...r, priority: r.priority ? 1 : 0, shot_idea_source: r.shot_idea ? "sheet" : null }); })();
 
   const blank = d.prepare("select * from products where shot_idea is null").all() as Product[];
   const ideas = await suggestIdeas(blank);
-  const setIdea = d.prepare("update products set shot_idea=?, shot_idea_source='suggested' where sku=? and shot_idea is null");
+  const setIdea = d.prepare(`update products set shot_idea=?, shot_idea_source=${src("suggested")} where sku=? and shot_idea is null`);
   d.transaction(() => { for (const [sku, idea] of ideas) setIdea.run(idea, sku); })();
   revalidatePath("/");
   return { imported: rows.length, suggested: ideas.size, errors };
@@ -603,10 +608,10 @@ export async function importCatalog(formData: FormData) {
 ```ts
 "use server";
 import { revalidatePath } from "next/cache";
-import { db } from "@/lib/db";
+import { db, src } from "@/lib/db";
 
 export async function updateIdea(sku: string, idea: string) {
-  db().prepare("update products set shot_idea=?, shot_idea_source='edited', updated_at=datetime('now') where sku=?").run(idea.trim() || null, sku);
+  db().prepare(`update products set shot_idea=?, shot_idea_source=${src("edited")}, updated_at=datetime('now') where sku=?`).run(idea.trim() || null, sku);
   revalidatePath("/"); revalidatePath(`/review/${sku}`);
 }
 ```
@@ -841,7 +846,7 @@ Run: `npm test` → Expected: FAIL, missing modules.
 - [ ] **Step 2: lib/enqueue.ts (admission control)**
 
 ```ts
-import { db } from "./db";
+import { db, inStates } from "./db";
 import type { Product, BatchKind } from "./types";
 import { env } from "./env";
 import { buildPrompt } from "./prompt";
@@ -850,9 +855,9 @@ export function enqueue(skus: string[], kind: BatchKind, opts: { perProduct?: nu
   const per = opts.perProduct ?? env.candidatesPerProduct;
   const d = db();
   return d.transaction(() => {
-    const inFlight = (d.prepare("select count(*) as n from candidates where state in ('queued','processing')").get() as { n: number }).n;
+    const inFlight = (d.prepare(`select count(*) as n from candidates where state in ${inStates("queued", "processing")}`).get() as { n: number }).n;
     const spent = (d.prepare("select coalesce(sum(cost_usd),0) as s from candidates").get() as { s: number }).s;
-    const busy = new Set((d.prepare("select distinct sku from candidates where state in ('queued','processing')").all() as { sku: string }[]).map(r => r.sku));
+    const busy = new Set((d.prepare(`select distinct sku from candidates where state in ${inStates("queued", "processing")}`).all() as { sku: string }[]).map(r => r.sku));
     const targets = skus.length
       ? (d.prepare(`select * from products where sku in (${skus.map(() => "?").join(",")}) and shot_idea is not null`).all(...skus) as Product[]).filter(p => !busy.has(p.sku))
       : [];
@@ -874,7 +879,7 @@ export function enqueue(skus: string[], kind: BatchKind, opts: { perProduct?: nu
 /** Next N products by priority that have an idea and nothing in flight or approved yet. */
 export function nextSkus(n: number): string[] {
   return (db().prepare(`select p.sku from products p where p.shot_idea is not null
-    and not exists (select 1 from candidates c where c.sku = p.sku and c.state in ('queued','processing','completed','approved'))
+    and not exists (select 1 from candidates c where c.sku = p.sku and c.state in ${inStates("queued", "processing", "completed", "approved")})
     order by p.priority desc, p.sku limit ?`).all(n) as { sku: string }[]).map(r => r.sku);
 }
 ```
@@ -882,17 +887,17 @@ export function nextSkus(n: number): string[] {
 - [ ] **Step 3: lib/analytics.ts (money reporting)**
 
 ```ts
-import { db } from "./db";
+import { db, st, inStates } from "./db";
 import type { Batch } from "./types";
 
 export function spendSummary() {
   const r = db().prepare(`select
       coalesce(sum(cost_usd), 0) as spent,
-      coalesce(sum(case when state = 'approved' then cost_usd end), 0) as spentApproved,
-      coalesce(sum(case when state in ('rejected', 'failed') then cost_usd end), 0) as spentWasted,
-      coalesce(sum(case when state in ('completed', 'queued', 'processing') then cost_usd end), 0) as spentPending,
-      coalesce(sum(state = 'approved'), 0) as approved,
-      coalesce(sum(state in ('approved', 'rejected')), 0) as decided,
+      coalesce(sum(case when state = ${st("approved")} then cost_usd end), 0) as spentApproved,
+      coalesce(sum(case when state in ${inStates("rejected", "failed")} then cost_usd end), 0) as spentWasted,
+      coalesce(sum(case when state in ${inStates("completed", "queued", "processing")} then cost_usd end), 0) as spentPending,
+      coalesce(sum(state = ${st("approved")}), 0) as approved,
+      coalesce(sum(state in ${inStates("approved", "rejected")}), 0) as decided,
       coalesce(sum(cost_usd > 0), 0) as generated
     from candidates`).get() as { spent: number; spentApproved: number; spentWasted: number; spentPending: number; approved: number; decided: number; generated: number };
   return {
@@ -904,7 +909,7 @@ export function spendSummary() {
 
 export function recentBatches(limit = 10) {
   return db().prepare(`select b.*, count(c.id) as images, coalesce(sum(c.cost_usd), 0) as actual_usd,
-      coalesce(sum(c.state = 'approved'), 0) as approved
+      coalesce(sum(c.state = ${st("approved")}), 0) as approved
     from batches b left join candidates c on c.batch_id = b.id
     group by b.id order by b.id desc limit ?`).all(limit) as (Batch & { images: number; actual_usd: number; approved: number })[];
 }
@@ -931,17 +936,17 @@ export async function notifySlack(text: string) {
 
 `lib/notify.ts`:
 ```ts
-import { db } from "./db";
+import { db, st, inStates } from "./db";
 import { env } from "./env";
 import { notifySlack } from "./slack";
 
 /** One message per settled batch: nothing in flight, and something completed since the last message. */
 export async function notifyIfBatchReady() {
   const d = db();
-  const pending = (d.prepare("select count(*) as n from candidates where state in ('queued','processing')").get() as { n: number }).n;
+  const pending = (d.prepare(`select count(*) as n from candidates where state in ${inStates("queued", "processing")}`).get() as { n: number }).n;
   if (pending > 0) return;
   const s = d.prepare("select last_notified_at from settings").get() as { last_notified_at: string | null };
-  const ready = d.prepare("select count(distinct sku) as n, max(created_at) as latest from candidates where state='completed'").get() as { n: number; latest: string | null };
+  const ready = d.prepare(`select count(distinct sku) as n, max(created_at) as latest from candidates where state=${st("completed")}`).get() as { n: number; latest: string | null };
   if (!ready.n || !ready.latest || (s.last_notified_at && s.last_notified_at >= ready.latest)) return;
   await notifySlack(`${ready.n} product${ready.n === 1 ? "" : "s"} ready to review: ${env.appUrl}/?k=${env.accessToken}`);
   d.prepare("update settings set last_notified_at=datetime('now')").run();
@@ -951,7 +956,7 @@ export async function notifyIfBatchReady() {
 - [ ] **Step 5: lib/worker.ts (advance generation only)**
 
 ```ts
-import { db } from "./db";
+import { db, st } from "./db";
 import type { Candidate } from "./types";
 import { env } from "./env";
 import { storage } from "./storage";
@@ -973,27 +978,27 @@ export async function tick() {
 async function submitQueued() {
   const d = db();
   if ((d.prepare("select paused_reason from settings").get() as { paused_reason: string | null }).paused_reason) return; // money path #4
-  const inFlight = (d.prepare("select count(*) as n from candidates where state='processing'").get() as { n: number }).n;
+  const inFlight = (d.prepare(`select count(*) as n from candidates where state=${st("processing")}`).get() as { n: number }).n;
   const slots = env.lumaConcurrency - inFlight;
   if (slots <= 0) return;
-  const rows = d.prepare("select c.*, p.photo_url from candidates c join products p on p.sku=c.sku where c.state='queued' order by c.id limit ?").all(slots) as (Candidate & { photo_url: string })[];
+  const rows = d.prepare(`select c.*, p.photo_url from candidates c join products p on p.sku=c.sku where c.state=${st("queued")} order by c.id limit ?`).all(slots) as (Candidate & { photo_url: string })[];
   const photos = new Map<string, string>();
   for (const c of rows) {
     try {
       if (!photos.has(c.sku)) photos.set(c.sku, (await fetchPhoto(c.photo_url)).toString("base64"));
     } catch (e) {
-      d.prepare("update candidates set state='failed', failure_reason=? where id=?").run((e as Error).message, c.id); // money path #12, cost stays 0
+      d.prepare(`update candidates set state=${st("failed")}, failure_reason=? where id=?`).run((e as Error).message, c.id); // money path #12, cost stays 0
       continue;
     }
     try {
       const gid = await submitEdit({ prompt: c.prompt, jpegBase64: photos.get(c.sku)! });
       // Money is committed here, so cost is recorded here (Global Constraints).
-      d.prepare("update candidates set state='processing', luma_generation_id=?, attempts=attempts+1, cost_usd=? where id=?").run(gid, env.costPerImage, c.id);
+      d.prepare(`update candidates set state=${st("processing")}, luma_generation_id=?, attempts=attempts+1, cost_usd=? where id=?`).run(gid, env.costPerImage, c.id);
     } catch (e) {
       if (e instanceof LumaBudgetError) { d.prepare("update settings set paused_reason=?").run("Luma credits exhausted. Top up, then press Resume."); return; }
       if (e instanceof LumaRateLimitError) return;                                   // money path #5
       const attempts = c.attempts + 1;                                                // money path #6
-      if (attempts >= MAX_ATTEMPTS) d.prepare("update candidates set state='failed', failure_reason=?, attempts=? where id=?").run((e as Error).message, attempts, c.id);
+      if (attempts >= MAX_ATTEMPTS) d.prepare(`update candidates set state=${st("failed")}, failure_reason=?, attempts=? where id=?`).run((e as Error).message, attempts, c.id);
       else d.prepare("update candidates set attempts=? where id=?").run(attempts, c.id);
     }
   }
@@ -1001,22 +1006,22 @@ async function submitQueued() {
 
 async function pollProcessing() {
   const d = db();
-  const rows = d.prepare("select * from candidates where state='processing'").all() as Candidate[];
+  const rows = d.prepare(`select * from candidates where state=${st("processing")}`).all() as Candidate[];
   for (const c of rows) {
     try {
       const g = await getGeneration(c.luma_generation_id!);
-      if (g.state === "failed") { d.prepare("update candidates set state='failed', failure_reason=? where id=?").run(g.failure ?? "generation failed", c.id); continue; }
+      if (g.state === "failed") { d.prepare(`update candidates set state=${st("failed")}, failure_reason=? where id=?`).run(g.failure ?? "generation failed", c.id); continue; }
       if (g.state !== "completed" || !g.url) continue;
       const res = await fetch(g.url);
       if (!res.ok) { console.warn(`download ${res.status} for ${c.id}, will re-poll`); continue; }  // money path #7
       storage.saveImage(c.id, Buffer.from(await res.arrayBuffer()));
-      d.prepare("update candidates set state='completed' where id=?").run(c.id);
+      d.prepare(`update candidates set state=${st("completed")} where id=?`).run(c.id);
     } catch (e) { console.warn(`poll ${c.id}:`, (e as Error).message); }
   }
 }
 
 export function startWorker() {
-  const stuck = (db().prepare("select count(*) as n from candidates where state='queued' and attempts>0").get() as { n: number }).n;
+  const stuck = (db().prepare(`select count(*) as n from candidates where state=${st("queued")} and attempts>0`).get() as { n: number }).n;
   if (stuck) console.warn(`worker: ${stuck} candidate(s) were mid-submit at last shutdown; they will be resubmitted (money path #3)`);
   setInterval(() => void tick(), env.tickMs);
 }
@@ -1038,7 +1043,7 @@ export async function register() {
 ```ts
 "use server";
 import { revalidatePath } from "next/cache";
-import { db } from "@/lib/db";
+import { db, src } from "@/lib/db";
 import { enqueue, nextSkus } from "@/lib/enqueue";
 import { tick } from "@/lib/worker";
 
@@ -1055,7 +1060,7 @@ export async function tryAgain(sku: string, note: string) {
   if (note.trim()) {
     const d = db();
     const p = d.prepare("select shot_idea from products where sku=?").get(sku) as { shot_idea: string | null };
-    d.prepare("update products set shot_idea=?, shot_idea_source='edited' where sku=?").run(`${p.shot_idea ?? ""}, ${note.trim()}`, sku);
+    d.prepare(`update products set shot_idea=?, shot_idea_source=${src("edited")} where sku=?`).run(`${p.shot_idea ?? ""}, ${note.trim()}`, sku);
   }
   const r = enqueue([sku], "retry"); after(sku); return r;
 }
@@ -1138,13 +1143,13 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 
 - [ ] **Step 1: decide action**
 
-Append to `lib/actions/review.ts`:
+Append to `lib/actions/review.ts`, and change its db import to `import { db, inStates } from "@/lib/db";`:
 ```ts
 export async function decide(formData: FormData) {
   const id = Number(formData.get("id")); const state = String(formData.get("state")); const sku = String(formData.get("sku"));
   const who = String(formData.get("who") ?? "").trim() || "Ellie";
   if (state !== "approved" && state !== "rejected") return;
-  db().prepare("update candidates set state=?, decided_by=?, decided_at=datetime('now') where id=? and state in ('completed','approved','rejected')").run(state, who, id);
+  db().prepare(`update candidates set state=?, decided_by=?, decided_at=datetime('now') where id=? and state in ${inStates("completed", "approved", "rejected")}`).run(state, who, id);
   revalidatePath("/"); revalidatePath(`/review/${sku}`);
 }
 ```
@@ -1487,6 +1492,6 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - **Single responsibility check:** `worker.ts` no longer decides when to notify (`notify.ts` does) and no longer computes money (`analytics.ts` does). Pages hold no SQL (`queries.ts`). Actions are split by concern. `export.ts` only formats. `slack.ts` only transports. `enqueue.ts` is admission control and nothing else.
 - **Deviation from APPROACH.md, deliberate:** images are downloaded at *completion*, not at approval. Rejected candidates stay on disk; pruning is in the D6 scaling plan, not v1. Cost is recorded at *submission*, not completion. Update APPROACH.md wording in T9.
 - **Placeholder scan:** none.
-- **Stringly-typed check:** no function signature in this plan takes `state: string`. Every comparison against a state name is against the `CandidateState` union or a `ProductStatus` member, and the schema's CHECK constraints are generated from the same const arrays, so the two cannot drift.
+- **Stringly-typed check:** no function signature in this plan takes `state: string`, and no SQL outside `tests/` spells a state or idea-source literal: every one goes through `st()`, `inStates()` or `src()` from `lib/db.ts`, which take the union. Every comparison against a state name is against the `CandidateState` union or a `ProductStatus` member, and the schema's CHECK constraints are generated from the same const arrays, so the two cannot drift.
 - **Failed products:** `failed` is its own status with its own count on the status page. The review page's generate button already shows for any non-generating status, so a failed product has a one-tap retry; the failure reason is on each card.
 - **Type consistency:** `enqueue(skus, kind, opts?)` returns `{ batchId?, queued, skipped, estimatedUsd, refused? }` and is consumed as such in T5 actions and tests; `BatchKind` values `next | product | retry` match `enqueue` call sites; `decide` takes FormData in T6 and the review page posts `id`, `sku`, `state`; `productStatus(hasIdea, candidates)` signature matches T2, T3, T6, T7; `storage.readImage` returns `Buffer | null` in T1 and is checked in T6 and T7; `spendSummary` field names match the analytics test and `SpendPanel`.
