@@ -13,3 +13,8 @@ google-cloud-cli-*.tar.gz
 
 # local generation samples
 scratch/
+
+# next.js / local data
+data-local/
+.next/
+*.tsbuildinfo

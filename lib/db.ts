@@ -1,0 +1,61 @@
+import Database from "better-sqlite3";
+import fs from "node:fs";
+import path from "node:path";
+import { env } from "./env";
+import {
+  CANDIDATE_STATES,
+  BATCH_KINDS,
+  SHOT_IDEA_SOURCES,
+  type CandidateState,
+  type ShotIdeaSource,
+} from "./types";
+
+const list = (xs: readonly string[]) => xs.map((x) => `'${x}'`).join(",");
+
+/** Typed SQL literals. A misspelled state in a query or an assignment is a compile error, not a silent miss. */
+export const st = (s: CandidateState) => `'${s}'`;
+export const inStates = (...s: CandidateState[]) => `(${s.map(st).join(",")})`;
+export const src = (s: ShotIdeaSource) => `'${s}'`;
+
+const SCHEMA = `
+create table if not exists products (
+  sku text primary key, name text not null, category text not null default '',
+  color text not null default '', material text not null default '', price text not null default '',
+  photo_url text not null, shot_idea text, shot_idea_source text check (shot_idea_source is null or shot_idea_source in (${list(SHOT_IDEA_SOURCES)})),
+  notes text not null default '', priority integer not null default 0,
+  imported_at text not null default (datetime('now')), updated_at text not null default (datetime('now'))
+);
+create table if not exists batches (
+  id integer primary key autoincrement, kind text not null check (kind in (${list(BATCH_KINDS)})), estimated_usd real not null default 0,
+  created_at text not null default (datetime('now'))
+);
+create table if not exists candidates (
+  id integer primary key autoincrement, sku text not null references products(sku),
+  batch_id integer not null references batches(id),
+  prompt text not null, luma_generation_id text, state text not null default ${st("queued")} check (state in (${list(CANDIDATE_STATES)})),
+  cost_usd real not null default 0, failure_reason text, attempts integer not null default 0,
+  decided_by text, created_at text not null default (datetime('now')), decided_at text
+);
+create index if not exists candidates_sku on candidates(sku);
+create index if not exists candidates_state on candidates(state);
+create index if not exists candidates_batch on candidates(batch_id);
+create table if not exists settings (
+  id integer primary key check (id = 1), paused_reason text, last_notified_at text
+);
+insert or ignore into settings (id) values (1);
+`;
+
+declare global {
+  var __shotsDb: Database.Database | undefined;
+}
+
+export function db(): Database.Database {
+  if (globalThis.__shotsDb) return globalThis.__shotsDb;
+  fs.mkdirSync(env.dataDir, { recursive: true });
+  const d = new Database(path.join(env.dataDir, "app.db"));
+  d.pragma("journal_mode = WAL");
+  d.pragma("foreign_keys = ON");
+  d.exec(SCHEMA);
+  globalThis.__shotsDb = d;
+  return d;
+}

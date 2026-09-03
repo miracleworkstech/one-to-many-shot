@@ -1,0 +1,8 @@
+.next
+node_modules
+data-local
+scratch
+dist
+data
+*.md
+package-lock.json
