@@ -33,8 +33,10 @@ Task 3 are open product decisions for the user (see "Open items").
 2. Evaluator subagent: invokes the `evaluating-task` skill (`.claude/skills/evaluating-task`),
    runs tests, mutation-tests, checks interfaces and invariants, reports in the contract.
 3. Loop cap two rounds. A third means the plan is wrong; fix the plan with the user first.
-3b. Codex review of the task diff (`codex:codex-rescue` subagent, read-only). Cheap
-   findings are fixed on the branch; product-decision findings go to the user verbatim.
+3b. Third check, only after the evaluator PASSes: Codex review of the task diff
+   (`codex:codex-rescue` subagent, read-only). Cheap findings are fixed on the branch and
+   re-checked; product-decision findings go to the user verbatim (D8, amended 2026-09-04).
+   Do not run it while `next dev` is up (it rebuilds `.next`).
 4. Main session commits with the plan's message (the pre-commit hook runs `npm run check`),
    pushes the branch, opens a PR to `main` with both agents' summaries, updates this file
    and the plan checkboxes on the branch, appends to DECISIONS.md if a material choice was

@@ -129,7 +129,14 @@ live in `ASSUMPTIONS.md`, not here.
   (mock-testing mocks, missing error paths, hardcoded test data, over-mocking, type escape
   hatches, stale imports, missing cleanup, incomplete UI, accessibility gaps), and reports
   in a fixed contract. Then reviewed by the user in this session. A Codex review runs over
-  the whole diff as the final pass before deploy. Progress is tracked in `docs/STATE.md` so
+  the whole diff as the final pass before deploy.
+  **Amended 2026-09-04 (user's call):** every task runs three checks in order, and each
+  gates the next: (1) the implementer's own `npm run check`, (2) the Claude evaluator's
+  verdict, which must be PASS, (3) a Codex review of the task diff (`codex:codex-rescue`,
+  read-only). Codex runs only after the evaluator passes, never in parallel with it. Cheap
+  Codex findings are fixed on the branch and re-checked; product-decision findings go to
+  the user verbatim in the PR and the recap. Only then is the PR opened. The whole-diff
+  Codex pass after Task 8 stays. Progress is tracked in `docs/STATE.md` so
   a fresh session can resume at the next task. Work happens in the main tree, no worktrees
   (tasks are sequential; a worktree per task adds a merge for no isolation).
 - **Alternatives:** Inline execution in this session. Single subagent per task without an
