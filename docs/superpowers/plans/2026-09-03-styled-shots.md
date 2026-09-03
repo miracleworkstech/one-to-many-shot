@@ -23,9 +23,9 @@
 - Access: one shared token `ACCESS_TOKEN`; links are `${APP_URL}/?k=<token>`.
 - Approved filename: `<SKU>-<first three idea words slugged>-<nn>.jpg`, e.g. `HG-002-morning-kitchen-counter-01.jpg`.
 - Product status is derived, never stored.
-- **No stringly-typed states.** `CandidateState`, `BatchKind`, `ProductStatus` live in `lib/types.ts` as unions derived from const arrays. Functions take and return the union, never `string`. The schema's `check (state in (...))` constraints are generated from the same arrays, so the database rejects what the compiler would. Adding a state fails the compiler and the constraint until every site is updated.
+- **No stringly-typed states.** `CandidateState`, `BatchKind`, `ShotIdeaSource` live in `lib/types.ts` as unions derived from const arrays (they mirror database columns). `ProductStatus` is derived, not stored, so it lives with its derivation in `lib/status.ts`, same const-array pattern. Functions take and return the union, never `string`. The schema's `check (state in (...))` constraints are generated from the same arrays, so the database rejects what the compiler would. Adding a state fails the compiler and the constraint until every site is updated.
 - **Single responsibility:** each module below has one reason to change. When a module grows a second responsibility during a task, split it in that task and say so in the commit message. Pages render; `lib/queries.ts` reads; actions mutate; the worker advances generation; `analytics` counts money.
-- **Branch per task.** Before a task starts: `git checkout -b task/<n>-<slug>` from `main`. The implementer and evaluator work on that branch. After the evaluator passes and the main session has run `npm run check` green, fast-forward merge into `main` (`git checkout main && git merge --ff-only task/<n>-<slug>`), delete the branch, push `main`. A task that fails twice stays on its branch while the plan is fixed.
+- **Branch per task.** Before a task starts: `git checkout -b task/<n>-<slug>` from `main`. The implementer and evaluator work on that branch. After the evaluator passes, push the branch and open a PR to `main` (`gh pr create`) carrying both agents' summaries, then stop for the user's review. After approval: `git checkout main && git merge --ff-only task/<n>-<slug>`, delete the branch, push `main`. A task that fails twice stays on its branch while the plan is fixed.
 - **`npm run check`** is `tsc --noEmit`, `eslint .`, `prettier --check .`, and the tests. A pre-commit hook (`.githooks/pre-commit`, enabled by `npm run prepare`) runs it, and GitHub Actions runs it on every push. Never commit with `--no-verify`. `@typescript-eslint/no-explicit-any` and `ban-ts-comment` are errors, so most of pattern 5 fails the build, not just the review.
 - **Fail fast in production.** `assertProductionEnv()` in `lib/env.ts` throws at server start (called from `instrumentation.ts`, not at build) if `LUMA_AGENTS_API_KEY` or `ACCESS_TOKEN` is missing.
 - Commit after every task with a reasoned message ending in `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
@@ -363,7 +363,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 **Interfaces:**
 - Produces: `parseCatalog(text): { rows: CatalogRow[]; errors: string[] }`; `REQUIRED_HEADERS`; `isPriority(notes)`; `productStatus(hasIdea, candidates): ProductStatus`; `STATUS_LABEL`; `buildPrompt(p, idea): string`; `approvedFilename(sku, idea, n): string`.
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 `tests/catalog.test.ts`:
 ```ts
@@ -451,7 +451,7 @@ test("deterministic filenames", () => {
 
 Run: `npm test` → Expected: FAIL on missing modules.
 
-- [ ] **Step 2: lib/catalog.ts**
+- [x] **Step 2: lib/catalog.ts**
 
 ```ts
 import { parse } from "csv-parse/sync";
@@ -496,7 +496,7 @@ export function parseCatalog(text: string): { rows: CatalogRow[]; errors: string
 }
 ```
 
-- [ ] **Step 3: lib/status.ts**
+- [x] **Step 3: lib/status.ts**
 
 ```ts
 import type { CandidateState } from "./types";
@@ -521,7 +521,7 @@ export const STATUS_LABEL: Record<ProductStatus, string> = {
 };
 ```
 
-- [ ] **Step 4: lib/prompt.ts**
+- [x] **Step 4: lib/prompt.ts**
 
 ```ts
 export function buildPrompt(p: { name: string; color: string; material: string; notes: string }, idea: string): string {
@@ -537,7 +537,7 @@ export function buildPrompt(p: { name: string; color: string; material: string; 
 }
 ```
 
-- [ ] **Step 5: lib/names.ts**
+- [x] **Step 5: lib/names.ts**
 
 ```ts
 export function approvedFilename(sku: string, idea: string | null, n: number): string {
@@ -547,7 +547,7 @@ export function approvedFilename(sku: string, idea: string | null, n: number): s
 }
 ```
 
-- [ ] **Step 6: Run tests, commit**
+- [x] **Step 6: Run tests, commit**
 
 Run: `npm test` → Expected: all PASS.
 

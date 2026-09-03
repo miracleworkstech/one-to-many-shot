@@ -10,8 +10,10 @@ for *what*; this file is authoritative for *how*.
 - **Push back when the user is wrong, and say so plainly.** Don't agree to keep them happy.
 - **Explain before acceptance on money paths.** For budget, generation triggers, and
   approvals: walk through the failure modes and races before writing the code.
-- **Small commits, reasoned messages.** One branch per plan task (`task/<n>-<slug>`),
-  fast-forward merged into `main` after the evaluator passes. The pre-commit hook runs
+- **Small commits, reasoned messages.** One branch per plan task (`task/<n>-<slug>`).
+  After the evaluator passes, push the branch and open a PR to `main`, then **stop and wait
+  for the user's review**. Never start the next task or merge without their go. Merge is
+  fast-forward after approval. The pre-commit hook runs
   `npm run check` (typecheck, lint, format, tests); never bypass it with `--no-verify`.
   CI runs the same check on push.
 - **Prefer simple, explainable, production-credible over clever.** Six-person customer,

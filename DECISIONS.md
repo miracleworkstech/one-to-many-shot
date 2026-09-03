@@ -143,3 +143,16 @@ live in `ASSUMPTIONS.md`, not here.
   subagent transcripts, so this session's log must summarise what each pair concluded.
 - **Revisit trigger:** A task where the evaluator and implementer loop more than twice; then
   the task is under-specified and the plan gets fixed first.
+
+## D9 — A PR and a human review gate between every task (2026-09-03)
+
+- **Decision:** After the evaluator passes, the task branch is pushed and a PR to `main` is
+  opened with both agents' summaries. The next task does not start until the user has
+  reviewed and approved. Merge is fast-forward after approval.
+- **Alternatives:** Auto-merge on evaluator PASS and continue (the D8 loop as first
+  written). Batch several tasks per review.
+- **Why:** The user owns decisions and wants to read the diff, not just the evaluator's
+  verdict, before it lands. A PR gives a stable review surface and a CI result per task.
+- **Cost accepted:** Wall-clock: each task waits on a human. Slightly more ceremony.
+- **Revisit trigger:** Review turnaround becomes the bottleneck on day one; then batch
+  low-risk tasks (2, 4, 7) into one PR.

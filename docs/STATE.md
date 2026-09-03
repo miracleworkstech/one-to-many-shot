@@ -5,15 +5,15 @@
 
 ## Phase
 
-**Building.** Task 1 merged to main. Next action: Task 2 (pure domain functions) on branch
-`task/2-domain`.
+**Building.** Task 1 merged. Task 2 in PR, awaiting the user's review (D9). Next action after
+approval: fast-forward merge, then Task 3 on `task/3-import` on the user's go.
 
 ## Task board
 
 | Task | Status | Commit | Notes |
 |---|---|---|---|
 | 1 Scaffold, env, db, storage | merged | 08002ed | evaluator PASS, 8 mutants / 3 killed; NaN-cap fix + 3 tests added before merge |
-| 2 Pure domain functions | not started | | |
+| 2 Pure domain functions | in PR | | evaluator PASS, 16 mutants / 12 killed; 4 test tightenings + cast fix applied |
 | 3 Import, suggestions, read model, status page | not started | | |
 | 4 Luma client, photo fetch | not started | | |
 | 5 Admission control, worker, notify, analytics | not started | | money paths accepted 2026-09-03 |
@@ -31,10 +31,12 @@
    runs tests, mutation-tests, checks interfaces and invariants, reports in the contract.
 3. Loop cap two rounds. A third means the plan is wrong; fix the plan with the user first.
 4. Main session commits with the plan's message (the pre-commit hook runs `npm run check`),
-   fast-forward merges into `main`, deletes the branch, pushes (CI re-runs the check),
-   updates this file and the plan checkboxes, appends to DECISIONS.md if a material choice
-   was made, summarises the pair's result.
-5. After Task 8: Codex review over the full diff, findings to the user, then deploy.
+   pushes the branch, opens a PR to `main` with both agents' summaries, updates this file
+   and the plan checkboxes on the branch, appends to DECISIONS.md if a material choice was
+   made, and **stops for the user's review**.
+5. After the user approves: fast-forward merge into `main`, delete the branch, push (CI
+   re-runs the check). Only then does the next task start, on the user's go.
+6. After Task 8: Codex review over the full diff, findings to the user, then deploy.
 
 ## Environment facts
 
