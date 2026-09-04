@@ -11,6 +11,15 @@ on the user's go, `git checkout -b task/4-luma` and run Task 4 (Luma client, pho
 through implementer, evaluator, and Codex, then open a PR and stop. The Task 3 Codex
 findings were decided 2026-09-04: sheet wins on re-import (D10 addendum).
 
+**Update 2026-09-04: Task 4 passed all three checks and is on `task/4-luma` with a PR open.**
+Next action: after the user approves, ff-merge, delete the branch, then on their go start
+Task 5 on `task/5-worker`. Notes for Task 5 from the Task 4 reviewers: write the
+`GenerationState` to `CandidateState` mapping out explicitly (the vocabularies coincide so
+a bare pass-through would typecheck); an unexpected-state or completed-without-url throw
+from `getGeneration` fires after the $0.0434 was committed, so it must not be counted like
+a transport error in the attempt budget; `LumaRateLimitError` carries no Retry-After, so
+the worker only stops for the current tick (add the header if 429s are ever seen).
+
 ## Task board
 
 | Task | Status | Commit | Notes |
@@ -18,7 +27,7 @@ findings were decided 2026-09-04: sheet wins on re-import (D10 addendum).
 | 1 Scaffold, env, db, storage | merged | 08002ed | evaluator PASS, 8 mutants / 3 killed; NaN-cap fix + 3 tests added before merge |
 | 2 Pure domain functions | merged | PR #1 | evaluator PASS, 16 mutants / 12 killed; 4 test tightenings + cast fix applied |
 | 3 Import, suggestions, read model, status page | merged | PR #2 | evaluator PASS round 2 (8 mutants / 5 killed, then 3/5, survivors need network or a React renderer); Codex: 4 findings, 2 fixed (2 MB upload cap, honest `suggested` count), 2 to the user; manual check with Haiku: 40 rows, 24 model ideas |
-| 4 Luma client, photo fetch | not started | | |
+| 4 Luma client, photo fetch | PR open | task/4-luma | evaluator PASS round 2 (8 mutants / 7 killed; the survivor is the timeout value); Codex: 6 findings, 4 fixed (JPEG magic bytes, 15 MB photo cap, url must be a string, empty id and completed-without-url throw), Retry-After deferred to Task 5. Live: key authenticates, 402 no credits, $0 spent |
 | 5 Admission control, worker, notify, analytics | not started | | money paths accepted 2026-09-03 |
 | 6 Review page, image route | not started | | |
 | 7 Exports | not started | | |
@@ -48,9 +57,12 @@ findings were decided 2026-09-04: sheet wins on re-import (D10 addendum).
 
 ## Environment facts
 
-- Luma Agents API key is in `.env.local` (never read it). Account had **zero credits** on
-  2026-09-03 (402 `RATE_LIMIT.BUDGET.EXCEEDED`). User is emailing the recruiter for credits.
-  Until then, the worker's 402 pause path is what gets exercised.
+- Luma Agents API key is in `.env.local` (never read it). It authenticates (a GET on a bogus
+  id returns 404, not 401) but the account has **zero credits** as of 2026-09-04 (402
+  `RATE_LIMIT.BUDGET.EXCEEDED` on `scripts/smoke_luma.py`, $0 spent). The user tried a
+  second key on 2026-09-04; it was a different Luma product (401 on the Agents API) and was
+  reverted. Decision: proceed without credits; the worker's 402 pause path is what gets
+  exercised live until the account is topped up, and D5's real generation is still owed.
 - Photo host returns 403 to plain clients, 200 with a browser User-Agent (verified).
 - Codex CLI 0.144.4 installed and logged in (checked 2026-09-03).
 - `ANTHROPIC_API_KEY` is in `.env.local` as of 2026-09-03 (never read it). The user renamed `.env.example` to `.env` (gitignored, placeholder only); Task 8 recreates `.env.example` with the real variable list. `next dev` and `next start` load it; `node --test` does not, so tests run on the template fallback.

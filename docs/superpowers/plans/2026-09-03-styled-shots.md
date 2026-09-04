@@ -760,7 +760,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 **Interfaces:**
 - Produces: `submitEdit({ prompt, jpegBase64 }): Promise<string>` (generation id); `getGeneration(id): Promise<{ state; url?: string; failure?: string }>`; `LumaBudgetError`, `LumaRateLimitError`; `fetchPhoto(url): Promise<Buffer>`.
 
-- [ ] **Step 1: lib/luma.ts**
+- [x] **Step 1: lib/luma.ts**
 
 ```ts
 import { env } from "./env";
@@ -795,7 +795,7 @@ export async function getGeneration(id: string): Promise<{ state: string; url?: 
 }
 ```
 
-- [ ] **Step 2: lib/photos.ts**
+- [x] **Step 2: lib/photos.ts**
 
 ```ts
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128 Safari/537.36";
@@ -807,7 +807,7 @@ export async function fetchPhoto(url: string): Promise<Buffer> {
 }
 ```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add lib/luma.ts lib/photos.ts && git commit -m "luma client + photo fetch
