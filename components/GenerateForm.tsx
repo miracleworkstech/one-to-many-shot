@@ -61,7 +61,11 @@ export function GenerateForm({
           disabled={isPending || ready === 0}
           className="min-h-11 rounded-lg bg-stone-900 px-3 py-2 text-white hover:bg-stone-800 disabled:opacity-50"
         >
-          {isPending ? "Starting…" : `Generate · about $${estimate}`}
+          {ready === 0
+            ? "Nothing to generate"
+            : isPending
+              ? "Starting…"
+              : `Generate · about $${estimate}`}
         </button>
         <span className="text-xs text-stone-600">
           Caps: {maxInFlight} images in flight, ${maxTotalSpend} total.

@@ -16,7 +16,7 @@ export function ImportForm() {
         name="file"
         accept=".csv,text/csv"
         required
-        className="text-sm"
+        className="min-h-11 text-sm"
       />
       <button
         disabled={isPending}
