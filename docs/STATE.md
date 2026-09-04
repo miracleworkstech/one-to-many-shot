@@ -11,9 +11,18 @@ on the user's go, `git checkout -b task/4-luma` and run Task 4 (Luma client, pho
 through implementer, evaluator, and Codex, then open a PR and stop. The Task 3 Codex
 findings were decided 2026-09-04: sheet wins on re-import (D10 addendum).
 
-**Update 2026-09-04: Task 7 passed all three checks and is on `task/7-exports` with PR #6
-open.** Next action: user review, ff-merge, delete the branch, then Task 8 (access gate,
-Docker, Railway) on `task/8-deploy`; its brief is at `.superpowers/sdd/task-8-brief.md`. Task 8's middleware must accept `?k=` on `/img/[id]` (the CSV links carry
+**Update 2026-09-04 (end of session): Task 7 merged as PR #6 (including D14: streamed zip
+with exact Content-Length). Task 8 is next, on `task/8-deploy`, which exists and is checked
+out with no code yet.** Next action in a fresh session: read the brief at
+`.superpowers/sdd/task-8-brief.md` (regenerate with the task-brief script if missing), then
+run Task 8 through implementer → evaluator → Codex → PR → user review. Deltas to give the
+implementer: the middleware gates every route except `_next`, `favicon.ico` and `/healthz`,
+including `/img/[id]` and `/export/*`, and accepts `?k=` on any of them (Task 7's CSV links
+carry it) before setting the cookie and redirecting to the clean URL; `next.config.ts`
+already has `output: "standalone"`; the manual check is a local `docker build` and `docker
+run` with a temp data dir and the key blanked; the first Railway deploy is expected to fail
+until the Dockerfile lands and the variables are set (see Environment facts). After Task 8:
+the whole-diff Codex pass (D8), then deploy with the user, then Task 9 (docs, video). Task 8's middleware must accept `?k=` on `/img/[id]` (the CSV links carry
 it) as well as on `/`, and gate `/export/*`. Notes for Task 5 from the Task 4 reviewers: write the
 `GenerationState` to `CandidateState` mapping out explicitly (the vocabularies coincide so
 a bare pass-through would typecheck); an unexpected-state or completed-without-url throw
@@ -34,8 +43,8 @@ candidate with no retry and shows `failure.userMessage` on the card.
 | 4 Luma client, photo fetch | merged | PR #3 | evaluator PASS round 2 (8 mutants / 7 killed; the survivor is the timeout value); Codex: 6 findings, 4 fixed (JPEG magic bytes, 15 MB photo cap, url must be a string, empty id and completed-without-url throw), then D11 (user's ask): every Luma status and failure_code maps to a typed code and plain-English message in `lib/luma-errors.ts`; evaluator PASS (16 mutants / 14 killed, survivors fixed), Codex: 3 findings fixed (key redaction, Retry-After clamp, body-read failure). 74 tests. Live: key authenticates, 402 no credits, $0 spent |
 | 5 Admission control, worker, notify, analytics | merged | PR #4 | evaluator FAIL→PASS (19 then 9 mutants; live 402 pause at $0 twice); Codex: 7 findings, 6 fixed (shared worker lock across hot reloads, positive env bounds, no double-counted processing cost, bounded download retries, retryable photo errors, integer n), 1 accepted (per-settlement Slack message, D12 addendum) |
 | 6 Review page, image route | merged | PR #5 | evaluator FAIL→PASS (8 mutants, 5 killed by tests, 3 browser-only killed by hand; 375 px check at $0 twice); Codex: 8 findings, 7 fixed (kind validation, retry note only with an idea, length limits, decide bound to sku, keyed forms, IdeaForm pending state, updated_at restore), 1 deferred to Task 8 (img route auth = the token middleware); D13 |
-| 7 Exports | PR open | task/7-exports | evaluator PASS (9 mutants / 8 killed, survivor fixed; full-catalog round trip 40 rows 0 diffs, $0); Codex: 8 findings, 5 fixed (formula neutralisation with a leading space, SKU slug in zip names, missing-file warning, UTF-8 BOM + charset, memory ceiling named), 3 accepted (in-process snapshots, second-resolution ties); then D14: the zip streams (user's call; evaluator PASS with a measured 26 MB peak for a 120 MB zip, Codex no findings), then D14 amended: exact Content-Length from stat sizes (user's call; evaluator FAIL→PASS on one missing test, fflate layout re-verified from source; Codex 7 findings, 3 fixed, fflate pinned exact), A16, A17 |
-| 8 Access gate, Docker, Railway | not started | | the middleware must gate `/img/[id]` and `/export/*` too (Codex on Task 6: candidate images are enumerable without it) |
+| 7 Exports | merged | PR #6 | evaluator PASS (9 mutants / 8 killed, survivor fixed; full-catalog round trip 40 rows 0 diffs, $0); Codex: 8 findings, 5 fixed (formula neutralisation with a leading space, SKU slug in zip names, missing-file warning, UTF-8 BOM + charset, memory ceiling named), 3 accepted (in-process snapshots, second-resolution ties); then D14: the zip streams (user's call; evaluator PASS with a measured 26 MB peak for a 120 MB zip, Codex no findings), then D14 amended: exact Content-Length from stat sizes (user's call; evaluator FAIL→PASS on one missing test, fflate layout re-verified from source; Codex 7 findings, 3 fixed, fflate pinned exact), A16, A17 |
+| 8 Access gate, Docker, Railway | in progress | task/8-deploy (branch created, no code yet) | the middleware must gate `/img/[id]` and `/export/*` too and accept `?k=` on them (the CSV links carry it); manual check = local Docker build and run (Docker Desktop 29.6 present); deploy via the Railway connector with the user |
 | 9 Final docs, video, submit | not started | | |
 
 ## How a task runs (D8)
@@ -72,16 +81,30 @@ candidate with no retry and shows `failure.userMessage` on the card.
 - `ANTHROPIC_API_KEY` is in `.env.local` as of 2026-09-03 (never read it). The user renamed `.env.example` to `.env` (gitignored, placeholder only); Task 8 recreates `.env.example` with the real variable list. `next dev` and `next start` load it; `node --test` does not, so tests run on the template fallback.
 - The user replaced the Anthropic key with a non-identity-linked one on 2026-09-04; Haiku suggestions verified working through the page (24 model ideas on the first import). `ANTHROPIC_WORKSPACE_ID` stays optional in `lib/env.ts` for identity-linked keys.
 - Running a Codex review while `next dev` is up wipes `.next` (Codex's sandbox rebuilt it) and the dev server 500s until restarted. Run the manual check before or after Codex, not during.
-- Deploy target: Railway, volume at `/data`, daily backups. No Railway project created yet.
+- Deploy target: Railway, volume at `/data`, daily backups. **The user created the Railway
+  project from the GitHub repo on 2026-09-04 and it started building** before the Dockerfile
+  existed, so that first build/deploy will fail or crash-loop (`assertProductionEnv` throws
+  without `LUMA_AGENTS_API_KEY` and `ACCESS_TOKEN`); expected, not a bug. The Railway
+  connector is attached to this Claude session (tools `mcp__…__list-projects`,
+  `get-status`, `create-volume`, `set-variables`, `list-variables`, `get-logs`,
+  `generate-domain`, `get-deployment-diagnosis`); a fresh session should load them with
+  ToolSearch. Use it for the volume, domain, non-secret variables and diagnosis; the user
+  pastes secret variables (Luma, Anthropic, Slack, ACCESS_TOKEN) in the dashboard, never
+  through this session.
 - Local Node is 26; better-sqlite3 13 ships prebuilds so no compiler needed. CI pins Node 22.
 - Pre-commit hook active locally (`core.hooksPath=.githooks`). GitHub Actions `check` runs on push.
 - This Windows machine has a small paging file; it has killed a pre-commit hook mid-run twice
   (no lint output, exit 1). Rerun the commit; never bypass the hook.
-- Slack incoming webhook: not created yet. Optional; the app runs without it.
+- Slack incoming webhook: **required for the demo** (user's call 2026-09-04); not created
+  yet. The user creates it in the workspace and sets `SLACK_WEBHOOK_URL` on the Railway
+  service; the app runs without it until then.
 
 ## Open items for the user
 
-- Luma credits (email sent?).
+- Luma credits: still zero as of 2026-09-04; needed for the demo and D5's owed generation.
+- Slack incoming webhook URL, set on the Railway service (needed for the demo).
+- Railway: add the `/data` volume with daily backups, set the variables, generate the domain
+  and set `APP_URL` to it (the connector can do the non-secret parts with you).
 - Railway account confirmed.
 - Slack webhook URL for the demo (optional).
 
