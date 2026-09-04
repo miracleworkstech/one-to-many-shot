@@ -11,12 +11,20 @@ export function GenerateProductForm({
   kind,
   label,
   costUsd,
+  variant = "primary",
 }: {
   sku: string;
   kind: "product" | "retry";
   label: string;
   costUsd: number;
+  /** `primary` when generating is the one thing to do on the page (no candidates yet);
+   *  `quiet` once there are candidates to review, so a spend never outranks the image. */
+  variant?: "primary" | "quiet";
 }) {
+  const button =
+    variant === "quiet"
+      ? "border border-stone-300 bg-white text-stone-900 hover:bg-stone-100"
+      : "bg-stone-900 text-white hover:bg-stone-800";
   const [state, formAction, isPending] = useActionState<
     EnqueueResult | null,
     FormData
@@ -34,12 +42,12 @@ export function GenerateProductForm({
           aria-label="What to change"
           maxLength={MAX_IDEA_CHARS}
           placeholder="What to change (optional)"
-          className="min-h-11 w-full min-w-0 flex-1 rounded border px-2 text-sm sm:w-auto"
+          className="min-h-11 w-full min-w-0 flex-1 rounded-lg border border-stone-300 bg-white px-3 text-base sm:w-auto"
         />
       )}
       <button
         disabled={isPending}
-        className="min-h-11 rounded bg-stone-900 px-3 py-2 text-white disabled:opacity-50"
+        className={`min-h-11 rounded-lg px-3 py-2 disabled:opacity-50 ${button}`}
       >
         {isPending ? "Starting…" : `${label} · $${costUsd.toFixed(2)}`}
       </button>

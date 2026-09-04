@@ -97,6 +97,10 @@ test("productDetail: prev/next follow the list order, undefined at the ends", ()
   assert.equal(productDetail("HG-002")?.prev, "HG-008");
   assert.equal(productDetail("HG-002")?.next, "HG-003");
   assert.equal(productDetail("HG-099")?.next, undefined);
+  assert.deepEqual(
+    [productDetail("HG-002")?.position, productDetail("HG-002")?.total],
+    [2, 4],
+  );
 });
 
 test("productDetail: candidates newest first, status derived from them", () => {

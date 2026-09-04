@@ -377,3 +377,26 @@ live in `ASSUMPTIONS.md`, not here.
   backfill is a guess for pre-existing rows (none in production yet: the volume is empty).
   Two additive columns now live inline in `db.ts`; a migrations table at the third.
 - **Revisit trigger:** A request for stable numbering, or a third schema change.
+
+## D18 — The review page leads with the candidate; Prev/Next live in a bottom bar, no auto-advance (2026-09-04)
+
+- **Decision:** From the Impeccable critique of the review page (26/40, snapshot in
+  `.impeccable/critique/`), the page is reordered to the task: header with status and
+  "n to decide", product name, the shot idea as a read-only caption (editing behind a
+  disclosure, open only when there is no idea yet), then candidates full-width with
+  undecided ones first, then the spend actions as quiet outlined buttons, then the source
+  photo. Prev/Next and "n of N" sit in a bar fixed to the bottom on phones. The user chose
+  the bar over auto-advancing to the next SKU after the last decision. Try again now also
+  appears for a failed candidate, and a photo-host failure says the fix is the link in the
+  sheet. Decision buttons carry `aria-pressed` and a per-candidate label.
+- **Alternatives:** Auto-advance on the last decision (one gesture fewer, but a decision
+  Ellie did not make moves her page). Collapse decided candidates to a thumbnail strip
+  (less scroll, but hides the change-your-mind path). Keep the generate button on top.
+- **Why:** PRODUCT.md's principles: the image is the interface, status before action, money
+  visible but never outranking the candidate. On a 375 px phone the first Approve moved from
+  about 1100 px to the first screen.
+- **Cost accepted:** The idea editor is one tap further away. The bar costs 50 px of the
+  phone viewport. A 4:5 candidate leaves the first decision buttons a few pixels under the
+  bar until the page is nudged.
+- **Revisit trigger:** Ellie asks for swipe or auto-advance, or candidates come back in a
+  taller aspect ratio than 4:5.

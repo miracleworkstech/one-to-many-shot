@@ -1,1 +1,13 @@
 @import "tailwindcss";
+
+/* The parts we did not draw still carry the design: focus, selection, numerals. */
+:focus-visible {
+  outline: 2px solid var(--color-stone-900);
+  outline-offset: 2px;
+}
+::selection {
+  background: var(--color-stone-300);
+}
+summary::-webkit-details-marker {
+  display: none;
+}

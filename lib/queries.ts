@@ -26,8 +26,9 @@ export function overview() {
   return { rows, counts, pausedReason: paused_reason };
 }
 
-/** One product's review screen: the product, its candidates newest first, and the neighbours
- *  in the same priority order the list page uses. `null` when the SKU is unknown. */
+/** One product's review screen: the product, its candidates newest first, the neighbours
+ *  in the same priority order the list page uses, and where this SKU sits in that order
+ *  (`position` of `total`, for the Prev/Next bar). `null` when the SKU is unknown. */
 export function productDetail(sku: string) {
   const d = db();
   const p = d.prepare("select * from products where sku=?").get(sku) as
@@ -46,7 +47,15 @@ export function productDetail(sku: string) {
   // Indexing past the ends yields undefined; say so, since the compiler would claim `string`.
   const prev: string | undefined = nav[i - 1];
   const next: string | undefined = nav[i + 1];
-  return { p, cands, status: productStatus(!!p.shot_idea, cands), prev, next };
+  return {
+    p,
+    cands,
+    status: productStatus(!!p.shot_idea, cands),
+    prev,
+    next,
+    position: i + 1,
+    total: nav.length,
+  };
 }
 
 /** Every product with its approved candidates, named in approval order, for the exports.
