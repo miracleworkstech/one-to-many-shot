@@ -8,8 +8,8 @@
 **Building, paused between tasks.** Tasks 1 to 3 merged to `main` (PR #2 for Task 3,
 approved by the user 2026-09-04 after the Codex pass and the Haiku re-test). Next action:
 on the user's go, `git checkout -b task/4-luma` and run Task 4 (Luma client, photo fetch)
-through implementer, evaluator, and Codex, then open a PR and stop. Two Codex findings on
-Task 3 are open product decisions for the user (see "Open items").
+through implementer, evaluator, and Codex, then open a PR and stop. The Task 3 Codex
+findings were decided 2026-09-04: sheet wins on re-import (D10 addendum).
 
 ## Task board
 
@@ -66,7 +66,6 @@ Task 3 are open product decisions for the user (see "Open items").
 ## Open items for the user
 
 - Luma credits (email sent?).
-- Codex on Task 3, decide: (1) a re-imported CSV overwrites an in-app edited idea and relabels it `sheet` (current: sheet wins, per D1/A8; the export CSV carries edits so a clean round trip keeps them); (2) any import re-suggests ideas for every product whose idea was cleared in the app (current: yes; alternative is to skip `edited`-source blanks).
 - Railway account confirmed.
 - Slack webhook URL for the demo (optional).
 

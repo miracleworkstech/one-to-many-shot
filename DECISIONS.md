@@ -191,3 +191,9 @@ live in `ASSUMPTIONS.md`, not here.
 - **Revisit trigger:** A support question "why are all the ideas the same?" means surface
   the model-vs-template count in the import result. A slow-phone report of a dead import
   button means switch `importCatalog` to the `(prevState, formData)` signature.
+- **Addendum 2026-09-04 (user's call on the Codex findings):** the sheet wins on
+  re-import. A re-uploaded CSV overwrites an idea edited in the app and relabels it
+  `sheet`, and any import re-suggests ideas for products whose idea was cleared in the
+  app. Accepted because the material impact is small (a Haiku prompt's worth of cost,
+  no candidate or approval is touched) and the export CSV carries edits, so the normal
+  round trip keeps them. No version check.
