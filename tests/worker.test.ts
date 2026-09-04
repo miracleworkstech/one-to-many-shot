@@ -172,6 +172,18 @@ test("(1) a submitted candidate is charged at once, then the finished image land
     assert.match(sent.prompt, /Stoneware Mug 12oz/);
     assert.equal(sent.source.data, Buffer.from(JPEG).toString("base64"));
 
+    // Poll now runs before submit (Codex finding: poll-before-submit), so a candidate
+    // submitted THIS tick is not polled until the NEXT tick — one extra tick is needed
+    // before the "processing" mock response is even reachable.
+    await tick();
+    c = row(id);
+    assert.equal(
+      c.state,
+      "processing",
+      "submitted this tick, polled next tick",
+    );
+    assert.equal(c.cost_usd, env.costPerImage);
+
     await tick();
     c = row(id);
     assert.equal(c.state, "completed");
@@ -345,6 +357,123 @@ test("(7) a moderated generation fails with Luma's reason and keeps its cost", a
       "an image we paid for stays paid",
     );
     assert.deepEqual(unexpected, []);
+  } finally {
+    restore();
+  }
+});
+
+test("(7b) a budget_exhausted failure while polling pauses the worker and stops the tick", async () => {
+  reset();
+  seedProduct("HG-002", 0);
+  const failing = seedCandidate({
+    sku: "HG-002",
+    state: "processing",
+    gid: "gen-7b",
+    cost: env.costPerImage,
+    attempts: 1,
+  });
+  const restore = stubFetch((url) => {
+    if (url === "https://agents.lumalabs.ai/v1/generations/gen-7b")
+      return {
+        body: JSON.stringify({
+          id: "gen-7b",
+          state: "failed",
+          failure_code: "budget_exhausted",
+          failure_reason: "out of credits",
+        }),
+      };
+    return miss(url);
+  });
+  try {
+    await tick();
+    const c = row(failing);
+    assert.equal(c.state, "failed");
+    assert.equal(
+      c.failure_reason,
+      "Luma ran out of credits during this generation. Add funds, then press Resume.",
+    );
+    assert.equal(
+      c.cost_usd,
+      env.costPerImage,
+      "an image we paid for stays paid",
+    );
+    assert.equal(
+      pausedReason(),
+      "Luma ran out of credits during this generation. Add funds, then press Resume.",
+    );
+    assert.deepEqual(unexpected, []);
+
+    // A second candidate queued after the pause: the next tick must not submit it either.
+    seedProduct("HG-003", 0);
+    const queued = seedCandidate({ sku: "HG-003", state: "queued" });
+    const before = calls.length;
+    await tick();
+    assert.equal(calls.length, before, "a paused worker calls nothing");
+    assert.equal(row(queued).state, "queued");
+    assert.equal(row(queued).cost_usd, 0);
+  } finally {
+    restore();
+  }
+});
+
+test("(7c) budget_exhausted stops the poll loop and pauses before a same-tick queued candidate is submitted", async () => {
+  reset();
+  seedProduct("HG-002", 0);
+  const failing = seedCandidate({
+    sku: "HG-002",
+    state: "processing",
+    gid: "gen-7c-a",
+    cost: env.costPerImage,
+    attempts: 1,
+  });
+  // A second processing candidate, ordered after the first: this row's poll endpoint is
+  // deliberately left unhandled by the stub (falls through to `miss`), so if the loop keeps
+  // polling after the pause instead of stopping, this test catches it via `unexpected`.
+  // This is what kills the "drop the return after pause()" mutant in pollProcessing — a
+  // single processing candidate can't distinguish `return` from the `continue` that already
+  // follows it, since there is no next row to wrongly poll.
+  seedProduct("HG-003", 0);
+  const untouched = seedCandidate({
+    sku: "HG-003",
+    state: "processing",
+    gid: "gen-7c-b",
+    cost: env.costPerImage,
+    attempts: 1,
+  });
+  seedProduct("HG-004", 0);
+  const queued = seedCandidate({ sku: "HG-004", state: "queued" });
+  const restore = stubFetch((url) => {
+    if (url === "https://agents.lumalabs.ai/v1/generations/gen-7c-a")
+      return {
+        body: JSON.stringify({
+          id: "gen-7c-a",
+          state: "failed",
+          failure_code: "budget_exhausted",
+          failure_reason: "out of credits",
+        }),
+      };
+    return miss(url);
+  });
+  try {
+    await tick();
+    assert.equal(row(failing).state, "failed");
+    assert.equal(
+      pausedReason(),
+      "Luma ran out of credits during this generation. Add funds, then press Resume.",
+    );
+    // The pause must stop the poll loop immediately: the second processing candidate is
+    // never reached, so its state and attempts are untouched.
+    const b = row(untouched);
+    assert.equal(b.state, "processing");
+    assert.equal(b.attempts, 1);
+    // Poll-before-submit (Codex finding) means the pause lands before submitQueued ever
+    // looks at this row: it stays queued at cost 0, and the Luma submit endpoint is never
+    // called.
+    const c = row(queued);
+    assert.equal(c.state, "queued");
+    assert.equal(c.cost_usd, 0);
+    assert.equal(lumaCalls().filter((x) => isSubmit(x.url, x.init)).length, 0);
+    assert.deepEqual(unexpected, [], "gen-7c-b must never be polled this tick");
   } finally {
     restore();
   }

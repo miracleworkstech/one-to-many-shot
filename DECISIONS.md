@@ -330,3 +330,29 @@ live in `ASSUMPTIONS.md`, not here.
   Railway default), when the canonical-host redirect becomes visible to the team. A request
   for per-user access, which is D14's trigger too. A Next upgrade that makes `register()`
   errors fatal, at which point the wrap can go.
+
+## D16 — Photo URLs are checked against private address space, redirects included; the worker polls before it submits (2026-09-04)
+
+- **Decision:** From the whole-codebase Codex pass after Task 8 (D8 step 6), the user chose to
+  fix four of six findings. `photoUrlProblem()` in `lib/photos.ts` rejects a photo URL whose
+  host is a literal loopback, link-local, private, carrier-grade NAT or translated-IPv4
+  address, `localhost`, or carries credentials; it runs at import (the row is skipped with the
+  reason) and again in `fetchPhoto`, on every redirect hop, with at most three hops. The
+  generate form's estimate follows the chosen N. A generation that Luma fails with
+  `budget_exhausted` pauses the worker like a 402 does, and each tick now polls processing
+  generations before submitting queued ones, so that pause lands before new spend.
+- **Alternatives:** Resolve DNS and check the resolved address (closes hostname-to-private
+  and rebinding cases). An allow-list of photo hosts from the catalog. Leaving the estimate
+  fixed at ten products. Keeping submit-before-poll.
+- **Why:** The container fetches whatever URL a CSV names, so a CSV could point it at the
+  container's own network; a literal-address check is a few lines and closes the cheap
+  cases. The Global Constraint says every trigger shows its estimate, and the form let N vary
+  without the estimate following. Money path #4 says exhausted credits pause the worker,
+  whichever way Luma reports them.
+- **Cost accepted:** A hostname that resolves to a private address, or rebinds after the
+  check, still gets through (named in a `ponytail:` comment; DNS resolution is the upgrade).
+  Findings 3 and 4 of that pass (approvals kept across a shot-idea change, and missing image
+  files still counted as approved) stay as documented costs of D14 and money path #9, the
+  user's call.
+- **Revisit trigger:** A catalog whose photos live on a host we do not recognise, or the app
+  ever running with access to anything on a private network worth protecting.
