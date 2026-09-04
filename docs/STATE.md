@@ -11,9 +11,11 @@ on the user's go, `git checkout -b task/4-luma` and run Task 4 (Luma client, pho
 through implementer, evaluator, and Codex, then open a PR and stop. The Task 3 Codex
 findings were decided 2026-09-04: sheet wins on re-import (D10 addendum).
 
-**Update 2026-09-04: Task 4 (plus D11) merged as PR #3. Task 5 is in progress on
-`task/5-worker`** (implementer → evaluator → Codex → PR → user review). Next action after
-the PR: user review, ff-merge, then Task 6 on `task/6-review`. Notes for Task 5 from the Task 4 reviewers: write the
+**Update 2026-09-04: Task 5 passed all three checks and is on `task/5-worker` with PR #4
+open.** Next action: user review, ff-merge, delete the branch, then Task 6 (review page,
+image route) on `task/6-review`; its brief is already at `.superpowers/sdd/task-6-brief.md`.
+Task 6 must put the cost on the "try again" and "generate this product" buttons (money
+path #11) since `generateSku`/`tryAgain` exist but have no UI yet. Notes for Task 5 from the Task 4 reviewers: write the
 `GenerationState` to `CandidateState` mapping out explicitly (the vocabularies coincide so
 a bare pass-through would typecheck); an unexpected-state or completed-without-url throw
 from `getGeneration` fires after the $0.0434 was committed, so it must not be counted like
@@ -31,7 +33,7 @@ candidate with no retry and shows `failure.userMessage` on the card.
 | 2 Pure domain functions | merged | PR #1 | evaluator PASS, 16 mutants / 12 killed; 4 test tightenings + cast fix applied |
 | 3 Import, suggestions, read model, status page | merged | PR #2 | evaluator PASS round 2 (8 mutants / 5 killed, then 3/5, survivors need network or a React renderer); Codex: 4 findings, 2 fixed (2 MB upload cap, honest `suggested` count), 2 to the user; manual check with Haiku: 40 rows, 24 model ideas |
 | 4 Luma client, photo fetch | merged | PR #3 | evaluator PASS round 2 (8 mutants / 7 killed; the survivor is the timeout value); Codex: 6 findings, 4 fixed (JPEG magic bytes, 15 MB photo cap, url must be a string, empty id and completed-without-url throw), then D11 (user's ask): every Luma status and failure_code maps to a typed code and plain-English message in `lib/luma-errors.ts`; evaluator PASS (16 mutants / 14 killed, survivors fixed), Codex: 3 findings fixed (key redaction, Retry-After clamp, body-read failure). 74 tests. Live: key authenticates, 402 no credits, $0 spent |
-| 5 Admission control, worker, notify, analytics | in progress | task/5-worker | evaluator FAIL→PASS (19 then 9 mutants; live 402 pause at $0 twice); Codex: 7 findings, 6 fixed (shared worker lock across hot reloads, positive env bounds, no double-counted processing cost, bounded download retries, retryable photo errors, integer n), 1 accepted (per-settlement Slack message, D12 addendum) |
+| 5 Admission control, worker, notify, analytics | PR open | task/5-worker (406f469) | evaluator FAIL→PASS (19 then 9 mutants; live 402 pause at $0 twice); Codex: 7 findings, 6 fixed (shared worker lock across hot reloads, positive env bounds, no double-counted processing cost, bounded download retries, retryable photo errors, integer n), 1 accepted (per-settlement Slack message, D12 addendum) |
 | 6 Review page, image route | not started | | |
 | 7 Exports | not started | | |
 | 8 Access gate, Docker, Railway | not started | | |
