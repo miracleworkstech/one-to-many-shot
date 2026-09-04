@@ -268,3 +268,24 @@ live in `ASSUMPTIONS.md`, not here.
   components instead of plain forms, so the buttons are inert before hydration.
 - **Revisit trigger:** A third action needs the same shape, at which point a tiny helper
   for "server action returning a result to a client form" earns its place.
+
+## D14 — The approved-images zip streams; the CSV's image links carry the team token (2026-09-04)
+
+- **Decision:** `exportZip()` returns a `ReadableStream` built with fflate's streaming `Zip`
+  and pass-through entries, reading one image file at a time, so peak memory is one image
+  regardless of catalog size. The CSV's "Approved Images" links keep the shared `?k=`
+  token so a Sheets user opens an image with no extra permissioning (A16).
+- **Alternatives:** Keep the in-memory `zipSync` with a named ceiling (about 900 MB peak
+  for 300 products × 3 approved at 0.5 MB, twice that with the route's copy). A `since`
+  date to scope the zip to the week's approvals. A byte cap that refuses large exports.
+  Per-user links or signed image URLs instead of the team token.
+- **Why:** The user chose streaming: a small change that removes the ceiling rather than
+  documenting it, for catalogs with many large images. Simplicity for the end user
+  outweighs per-user permissioning at a six-person team.
+- **Cost accepted:** No `Content-Length` on the zip (chunked), so browsers show no
+  progress percentage. The manifest CSV is still built in memory (kilobytes). The
+  capability URL in a shared spreadsheet is only as private as the Drive folder it sits
+  in; rotating `ACCESS_TOKEN` breaks links in old exports.
+- **Revisit trigger:** A request to hand a link to someone outside the team, which is when
+  per-user or expiring links replace the shared token. A weekly hand-off that wants only
+  new approvals, which is when the `since` filter earns its place.

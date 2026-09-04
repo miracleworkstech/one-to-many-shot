@@ -29,12 +29,17 @@ after(() => {
 
 const noSuggest = async () => new Map<string, string>();
 
+// exportZip() now returns a ReadableStream (D14); collect it the same way a real client
+// would (via Response) before handing it to unzipSync for assertions.
+const collectZip = async (stream: ReadableStream<Uint8Array>) =>
+  unzipSync(Buffer.from(await new Response(stream).arrayBuffer()));
+
 const HEADER =
   "SKU,Product Name,Category,Color / Finish,Material,Price,Photo,Shot Idea,Notes,Status,Approved Images,Approved Filenames,Spent (USD)";
 
-test("empty database: CSV is exactly the header row, zip contains only manifest.csv", () => {
+test("empty database: CSV is exactly the header row, zip contains only manifest.csv", async () => {
   assert.equal(exportCsv(), HEADER + "\n");
-  const zip = unzipSync(exportZip());
+  const zip = await collectZip(exportZip());
   assert.deepEqual(Object.keys(zip), ["manifest.csv"]);
 });
 
@@ -154,8 +159,8 @@ test("a shot idea with a comma and a double quote round-trips through parseCatal
   assert.equal(row?.shot_idea, tricky);
 });
 
-test("exportZip: exactly the two approved filenames plus manifest.csv; a missing file is omitted but stays in the manifest", () => {
-  const zip = unzipSync(exportZip());
+test("exportZip: exactly the two approved filenames plus manifest.csv; a missing file is omitted but stays in the manifest", async () => {
+  const zip = await collectZip(exportZip());
   const keys = Object.keys(zip).sort();
   assert.deepEqual(keys, [name1, name2, "manifest.csv"].sort());
   // -01 is the earliest approval (second, "img2"); -02 is first ("img1").
@@ -166,6 +171,41 @@ test("exportZip: exactly the two approved filenames plus manifest.csv; a missing
     manifest.includes(missingName),
     "missing-file candidate is still listed in the manifest",
   );
+});
+
+test("exportZip streams lazily: reading only the first chunk has not read every approved image yet (D14)", async () => {
+  const totalApproved = approvedByProduct().reduce(
+    (n, r) => n + r.approved.length,
+    0,
+  );
+  assert.ok(
+    totalApproved > 0,
+    "test setup needs at least one approved candidate",
+  );
+  let calls = 0;
+  const real = storage.readImage;
+  storage.readImage = (id) => {
+    calls++;
+    return real(id);
+  };
+  try {
+    const reader = exportZip().getReader();
+    await reader.read();
+    // The manifest goes first, so the first chunk needs no image at all.
+    assert.equal(
+      calls,
+      0,
+      `expected no image read after the first chunk, got ${calls}`,
+    );
+    // Keep pulling until the first image is touched: fflate emits the manifest's
+    // header and data as separate chunks, so this takes a few reads.
+    for (let n = 0; n < 10 && calls === 0; n++) await reader.read();
+    assert.equal(calls, 1, "exactly one image read once entries start");
+    assert.ok(calls < totalApproved);
+    await reader.cancel();
+  } finally {
+    storage.readImage = real;
+  }
 });
 
 test("approvedByProduct: status for a product with only failed candidates matches productStatus", async () => {

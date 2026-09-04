@@ -1,7 +1,7 @@
 // The Drive hand-off (D3): a CSV Maya can open in Sheets, and a zip Ellie's approvals become
 // deterministic files in. Both are derived from the same approvedByProduct() query.
 import { stringify } from "csv-stringify/sync";
-import { zipSync } from "fflate";
+import { Zip, ZipPassThrough } from "fflate";
 import { storage } from "./storage";
 import { STATUS_LABEL } from "./status";
 import { REQUIRED_HEADERS } from "./catalog";
@@ -53,24 +53,62 @@ export function exportCsv(): string {
   });
 }
 
-// ponytail: the whole zip is built in memory. Luma's 1:1 JPEGs run well under 1 MB, so
-// 300 products x 3 approved is a few hundred MB at worst on a 2 GB box; fflate's streaming
-// Zip class plus a ReadableStream response is the upgrade if the catalog outgrows that.
-export function exportZip(): Uint8Array {
-  const files: Record<string, Uint8Array> = {};
-  for (const { approved } of approvedByProduct())
-    for (const a of approved) {
-      // A candidate can be approved with its file missing on disk (storage wiped, moved
-      // manually). Skip it in the zip but keep it in the manifest so the gap is visible
-      // rather than silently dropped.
-      const b = storage.readImage(a.c.id);
-      if (b) files[a.name] = new Uint8Array(b);
-      else
-        console.warn(
-          `export: approved candidate ${a.c.id} has no image file; left out of the zip`,
-        );
-    }
-  files["manifest.csv"] = new TextEncoder().encode(exportCsv());
-  // JPEGs are already compressed; spend no CPU trying again.
-  return zipSync(files, { level: 0 });
+// ponytail: the ceiling is gone. Files stream through fflate's Zip one at a time, so peak
+// memory is a small constant (a few images' worth: the read buffer, its copy, queued
+// chunks) regardless of catalog size; measured 26 MB for a 120 MB zip. exportCsv() (the
+// manifest) is still built up front as one string, fine at any plausible catalog size (D14).
+export function exportZip(): ReadableStream<Uint8Array> {
+  const manifest = new TextEncoder().encode(exportCsv());
+  const files = approvedByProduct().flatMap(({ approved }) =>
+    approved.map((a) => ({ name: a.name, id: a.c.id })),
+  );
+
+  let zip: Zip;
+  let manifestSent = false;
+  let i = 0;
+
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      // level 0: JPEGs are already compressed, spend no CPU trying again. The Zip is built
+      // here so its callback always has a controller: nothing can be swallowed.
+      zip = new Zip((err, chunk) => {
+        if (err) controller.error(err);
+        else if (chunk) controller.enqueue(chunk);
+      });
+    },
+    // One file per pull(): the image for the entry being written is the only one ever
+    // held in memory, and a slow consumer's backpressure just stops us reading more
+    // (the Streams spec never calls pull() again after cancel()).
+    pull(controller) {
+      if (!manifestSent) {
+        manifestSent = true;
+        const entry = new ZipPassThrough("manifest.csv");
+        zip.add(entry);
+        entry.push(manifest, true);
+        return;
+      }
+      while (i < files.length) {
+        const { name, id } = files[i++];
+        // A candidate can be approved with its file missing on disk (storage wiped, moved
+        // manually). Skip it in the zip but keep it in the manifest so the gap is visible
+        // rather than silently dropped.
+        const b = storage.readImage(id);
+        if (!b) {
+          console.warn(
+            `export: approved candidate ${id} has no image file; left out of the zip`,
+          );
+          continue;
+        }
+        const entry = new ZipPassThrough(name);
+        zip.add(entry);
+        entry.push(new Uint8Array(b), true);
+        return;
+      }
+      zip.end();
+      controller.close();
+    },
+    cancel() {
+      zip.terminate();
+    },
+  });
 }

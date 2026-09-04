@@ -1366,7 +1366,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 
 **Interfaces:**
 - Consumes: `db`, `storage`, `approvedFilename`, `productStatus`, `STATUS_LABEL`, `REQUIRED_HEADERS`, `spendBySku`.
-- Produces: `queries.approvedByProduct()`; `exportCsv(): string`; `exportZip(): Uint8Array`.
+- Produces: `queries.approvedByProduct()`; `exportCsv(): string`; `exportZip(): ReadableStream<Uint8Array>` (streamed per file, D14).
 
 - [x] **Step 1: approvedByProduct query**
 
