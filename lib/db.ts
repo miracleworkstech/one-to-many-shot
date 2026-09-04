@@ -17,7 +17,7 @@ export const st = (s: CandidateState) => `'${s}'`;
 export const inStates = (...s: CandidateState[]) => `(${s.map(st).join(",")})`;
 export const src = (s: ShotIdeaSource) => `'${s}'`;
 
-const SCHEMA = `
+export const SCHEMA = `
 create table if not exists products (
   sku text primary key, name text not null, category text not null default '',
   color text not null default '', material text not null default '', price text not null default '',
@@ -33,6 +33,7 @@ create table if not exists candidates (
   id integer primary key autoincrement, sku text not null references products(sku),
   batch_id integer not null references batches(id),
   prompt text not null, luma_generation_id text, state text not null default ${st("queued")} check (state in (${list(CANDIDATE_STATES)})),
+  shot_idea text,
   cost_usd real not null default 0, failure_reason text, attempts integer not null default 0,
   decided_by text, created_at text not null default (datetime('now')), decided_at text
 );
@@ -58,8 +59,8 @@ export function db(): Database.Database {
   d.pragma("foreign_keys = ON");
   d.exec(SCHEMA);
   // `create table if not exists` cannot add a column to a database that already exists
-  // (a running deploy's volume). ponytail: one additive column, inline; a migrations
-  // table the day there is a second one.
+  // (a running deploy's volume). ponytail: two additive columns, inline; a migrations
+  // table the day there is a third one.
   const settingsCols = (
     d.prepare("pragma table_info(settings)").all() as { name: string }[]
   ).map((c) => c.name);
@@ -67,6 +68,22 @@ export function db(): Database.Database {
     d.exec(
       "alter table settings add column last_notified_id integer not null default 0",
     );
+  const candidateCols = (
+    d.prepare("pragma table_info(candidates)").all() as { name: string }[]
+  ).map((c) => c.name);
+  if (!candidateCols.includes("shot_idea"))
+    // One transaction: a crash after the alter but before the backfill would otherwise
+    // leave the column present and the backfill skipped forever (Codex, Task 8d).
+    d.transaction(() => {
+      d.exec("alter table candidates add column shot_idea text");
+      // Backfill for rows generated before this column existed: the product's current idea
+      // is the best available guess (the idea the candidate was actually generated with is
+      // gone), so pre-existing candidates fall back to it via `c.shot_idea ?? p.shot_idea`
+      // anyway. This one-time update just saves that lookup for future rows.
+      d.exec(
+        "update candidates set shot_idea = (select shot_idea from products where products.sku = candidates.sku) where shot_idea is null",
+      );
+    })();
   globalThis.__shotsDb = d;
   return d;
 }

@@ -38,6 +38,12 @@ test("double trigger enqueues once, each trigger is a batch", () => {
   const first = enqueue(["HG-002"], "product");
   assert.equal(first.queued, 2);
   assert.ok(first.batchId);
+  const rows = d
+    .prepare("select shot_idea from candidates where sku = 'HG-002'")
+    .all() as { shot_idea: string | null }[];
+  assert.ok(rows.length > 0);
+  for (const r of rows)
+    assert.equal(r.shot_idea, "morning kitchen counter, steam, warm light");
   const second = enqueue(["HG-002"], "product");
   assert.equal(second.queued, 0);
   assert.deepEqual(second.skipped, ["HG-002"]);
@@ -169,6 +175,12 @@ test("enqueueRetry: a queued retry keeps the note and is its own batch", () => {
     shot_idea: "a long table, linen, warmer light",
     shot_idea_source: "edited",
   });
+  const rows = d
+    .prepare("select shot_idea from candidates where sku = 'HG-002'")
+    .all() as { shot_idea: string | null }[];
+  assert.ok(rows.length > 0);
+  for (const row of rows)
+    assert.equal(row.shot_idea, "a long table, linen, warmer light");
 });
 
 test("enqueueRetry: a refused retry leaves the idea exactly as it was", () => {

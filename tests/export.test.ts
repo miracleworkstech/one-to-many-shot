@@ -342,6 +342,67 @@ test("a shot idea that looks like a spreadsheet formula is neutralised and still
   assert.equal(again?.notes, "+not a sum");
 });
 
+test("approvedByProduct/exportCsv: filename comes from the candidate's shot_idea snapshot, not the product's current idea; a legacy null snapshot falls back to the product's idea", async () => {
+  const csvIn =
+    [
+      "SKU,Product Name,Category,Color / Finish,Material,Price,Photo,Shot Idea,Notes",
+      "HG-201,Snapshot Product,Ceramics,White,Stoneware,$10,https://x/hg-201.jpg,original idea words,",
+    ].join("\n") + "\n";
+  const { rows } = parseCatalog(csvIn);
+  await importCatalogRows(rows, noSuggest);
+
+  const d = db();
+  const batchId = d
+    .prepare("insert into batches (kind) values ('product')")
+    .run().lastInsertRowid;
+  // Snapshotted at generation time, like `enqueue` writes it.
+  const snapped = Number(
+    d
+      .prepare(
+        "insert into candidates (sku, batch_id, prompt, state, decided_at, shot_idea) values (?, ?, 'p', 'approved', '2026-09-02 10:00:00', 'original idea words')",
+      )
+      .run("HG-201", batchId).lastInsertRowid,
+  );
+  // A legacy row with no snapshot (generated before this column existed and never backfilled
+  // in this test's fresh DB): falls back to the product's idea at read time.
+  const legacy = Number(
+    d
+      .prepare(
+        "insert into candidates (sku, batch_id, prompt, state, decided_at) values (?, ?, 'p', 'approved', '2026-09-02 10:01:00')",
+      )
+      .run("HG-201", batchId).lastInsertRowid,
+  );
+  storage.saveImage(snapped, Buffer.from("s1"));
+  storage.saveImage(legacy, Buffer.from("s2"));
+
+  // Edit the product's idea after both approvals — must not rename the snapshotted file.
+  d.prepare("update products set shot_idea = ? where sku = ?").run(
+    "a totally different idea",
+    "HG-201",
+  );
+
+  const expectedSnapName = approvedFilename("HG-201", "original idea words", 1);
+  const expectedLegacyName = approvedFilename(
+    "HG-201",
+    "a totally different idea",
+    2,
+  );
+
+  const row = approvedByProduct().find((r) => r.p.sku === "HG-201");
+  assert.deepEqual(
+    row?.approved.map((a) => a.name),
+    [expectedSnapName, expectedLegacyName],
+  );
+
+  const csv = exportCsv();
+  const records = parseCsv(csv, { columns: true }) as Record<string, string>[];
+  const csvRow = records.find((r) => r.SKU === "HG-201");
+  assert.equal(
+    csvRow?.["Approved Filenames"],
+    `${expectedSnapName}; ${expectedLegacyName}`,
+  );
+});
+
 test("an image that vanishes between the plan and the stream fails the download instead of truncating it", async () => {
   const plan = exportZipPlan();
   const victim = plan.files[0];

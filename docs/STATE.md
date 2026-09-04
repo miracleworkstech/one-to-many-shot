@@ -18,7 +18,10 @@ The whole-codebase Codex pass (D8 step 6) ran after the merge; its findings are 
 session recap and, if material, below. Live deploy verified 2026-09-04 after the HOSTNAME hotfix (PR #8): healthz 200, every
 app route 401 without the link, no cookie on a wrong token. The user chose to fix four of the
 six whole-codebase findings; that is Task 8c (`task/8c-codex-fixes`, D16), in PR, waiting for
-review. Next: merge 8c, then Task 9 (docs, video, submit).** Earlier note, kept for
+review. Then the user chose to fix finding 3 too: Task 8d (`task/8d-idea-snapshot`, D17,
+chained on 8c) snapshots the shot idea on the candidate so approved filenames stop changing
+when the idea is edited. Next: merge 8c then 8d (both fast-forward in that order), then Task 9
+(docs, video, submit).** Earlier note, kept for
 the record: Task 7 merged as PR #6. The original next action was: read the brief at
 `.superpowers/sdd/task-8-brief.md` (regenerate with the task-brief script if missing), then
 run Task 8 through implementer → evaluator → Codex → PR → user review. Deltas to give the
@@ -53,6 +56,7 @@ candidate with no retry and shows `failure.userMessage` on the card.
 | 8 Access gate, Docker, Railway | merged | PR #7 | evaluator PASS twice (9 mutants / 5 killed then survivors tested; 4/4 on the fixes); Docker image verified by implementer and evaluator (healthz, 401, redirect + cookie, fail-fast exit 1, no env files in the image, $0); Codex: 6 findings, 5 fixed (APP_URL required and origin-only, whole-startup fail-fast, `.env*` ignore, trailing-slash test, README), 1 accepted (matcher test anchors the regex source); re-check 1 low finding fixed; D15, A18. Step 4 (deploy) still to do with the user |
 | 8b Deploy hotfix | merged | PR #8 | `HOSTNAME=::` in the Dockerfile: Next standalone binds to HOSTNAME and Docker sets it to the container id, so Railway's proxy got connection refused |
 | 8c Codex whole-codebase fixes | PR open | task/8c-codex-fixes | user's call: findings 1, 2, 5, 6 (estimate tracks N; budget_exhausted pauses; SSRF guard on photo URLs incl. redirect hops; ASSUMPTIONS row 14); 3 and 4 accepted as documented costs. Evaluator PASS x2 (6/8 then 7/7 mutants); Codex 4 findings all fixed; D16 |
+| 8d Idea snapshot on candidates | PR open | task/8d-idea-snapshot | user's call on finding 3: `candidates.shot_idea` written at enqueue, additive migration + one-time backfill in one transaction, filenames from `c.shot_idea ?? p.shot_idea`; evaluator FAIL→PASS (untested write side, fixed), 6 + 3 mutants; Codex 1 finding fixed (transactional migration); D17 |
 | 9 Final docs, video, submit | not started | | |
 
 ## How a task runs (D8)

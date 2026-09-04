@@ -42,6 +42,7 @@ export interface Candidate {
   prompt: string;
   luma_generation_id: string | null;
   state: CandidateState;
+  shot_idea: string | null;
   cost_usd: number;
   failure_reason: string | null;
   attempts: number;
