@@ -10,10 +10,7 @@ export function ImportForm() {
     FormData
   >((_prev, formData) => importCatalog(formData), null);
   return (
-    <form
-      action={formAction}
-      className="rounded bg-white p-3 shadow-sm flex flex-wrap items-center gap-2"
-    >
+    <form action={formAction} className="flex flex-wrap items-center gap-2">
       <input
         type="file"
         name="file"
@@ -23,11 +20,11 @@ export function ImportForm() {
       />
       <button
         disabled={isPending}
-        className="rounded bg-stone-900 px-3 py-2 min-h-11 text-white text-sm disabled:opacity-50"
+        className="min-h-11 rounded-lg bg-stone-900 px-3 py-2 text-sm text-white hover:bg-stone-800 disabled:opacity-50"
       >
         {isPending ? "Importing…" : "Import catalog CSV"}
       </button>
-      <span className="text-xs text-stone-500">
+      <span className="text-xs text-stone-600">
         Same columns as the export. Existing approvals are kept.
       </span>
       {state && (
