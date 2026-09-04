@@ -2,6 +2,10 @@ import Link from "next/link";
 import { overview } from "@/lib/queries";
 import { STATUS_LABEL, PRODUCT_STATUSES } from "@/lib/status";
 import { ImportForm } from "@/components/ImportForm";
+import { GenerateForm } from "@/components/GenerateForm";
+import { SpendPanel } from "@/components/SpendPanel";
+import { resumeWorker } from "@/lib/actions/generate";
+import { env } from "@/lib/env";
 
 export const dynamic = "force-dynamic";
 
@@ -11,10 +15,22 @@ export default function Home() {
     <main className="mx-auto max-w-3xl p-4 space-y-6">
       <h1 className="text-2xl font-semibold">Styled shots</h1>
       {pausedReason && (
-        <div className="rounded bg-amber-100 p-3 text-amber-900">
-          Generation paused: {pausedReason}
+        <div className="rounded bg-amber-100 p-3 text-amber-900 space-y-2">
+          <p>Generation paused: {pausedReason}</p>
+          <form action={resumeWorker}>
+            <button className="rounded bg-amber-700 px-3 py-2 min-h-11 text-white text-sm">
+              Resume generation
+            </button>
+          </form>
         </div>
       )}
+      <SpendPanel />
+      <GenerateForm
+        perProduct={env.candidatesPerProduct}
+        costPerImage={env.costPerImage}
+        maxInFlight={env.maxInFlight}
+        maxTotalSpend={env.maxTotalSpend}
+      />
       <section className="grid grid-cols-2 gap-2 sm:grid-cols-3 text-sm">
         {PRODUCT_STATUSES.map((s) => (
           <div key={s} className="rounded bg-white p-3 shadow-sm">

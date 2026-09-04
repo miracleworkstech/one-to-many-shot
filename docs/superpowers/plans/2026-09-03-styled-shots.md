@@ -831,7 +831,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - Consumes: `db`, `env`, `buildPrompt`, `submitEdit`, `getGeneration`, `fetchPhoto`, `storage`.
 - Produces: `enqueue(skus, kind, opts?): { batchId?: number; queued: number; skipped: string[]; estimatedUsd: number; refused?: string }`; `nextSkus(n)`; `tick()`; `startWorker()`; `notifySlack(text)`; `notifyIfBatchReady()`; `spendSummary()`; `recentBatches(limit)`.
 
-- [ ] **Step 1: Failing tests (money paths #1, #8, and the ledger)**
+- [x] **Step 1: Failing tests (money paths #1, #8, and the ledger)**
 
 `tests/enqueue.test.ts`:
 ```ts
@@ -905,7 +905,7 @@ test("recent batches show estimate vs actual", () => {
 
 Run: `npm test` → Expected: FAIL, missing modules.
 
-- [ ] **Step 2: lib/enqueue.ts (admission control)**
+- [x] **Step 2: lib/enqueue.ts (admission control)**
 
 ```ts
 import { db, inStates } from "./db";
@@ -946,7 +946,7 @@ export function nextSkus(n: number): string[] {
 }
 ```
 
-- [ ] **Step 3: lib/analytics.ts (money reporting)**
+- [x] **Step 3: lib/analytics.ts (money reporting)**
 
 ```ts
 import { db, st, inStates } from "./db";
@@ -984,7 +984,7 @@ export function spendBySku(): Map<string, number> {
 
 Run: `npm test` → Expected: enqueue and analytics tests PASS.
 
-- [ ] **Step 4: lib/slack.ts (transport) and lib/notify.ts (policy)**
+- [x] **Step 4: lib/slack.ts (transport) and lib/notify.ts (policy)**
 
 `lib/slack.ts`:
 ```ts
@@ -1015,7 +1015,7 @@ export async function notifyIfBatchReady() {
 }
 ```
 
-- [ ] **Step 5: lib/worker.ts (advance generation only)**
+- [x] **Step 5: lib/worker.ts (advance generation only)**
 
 ```ts
 import { db, st } from "./db";
@@ -1089,7 +1089,7 @@ export function startWorker() {
 }
 ```
 
-- [ ] **Step 6: instrumentation.ts**
+- [x] **Step 6: instrumentation.ts**
 
 ```ts
 export async function register() {
@@ -1102,7 +1102,7 @@ export async function register() {
 }
 ```
 
-- [ ] **Step 7: lib/actions/generate.ts**
+- [x] **Step 7: lib/actions/generate.ts**
 
 ```ts
 "use server";
@@ -1133,7 +1133,7 @@ export async function resumeWorker() {
 }
 ```
 
-- [ ] **Step 8: components/SpendPanel.tsx**
+- [x] **Step 8: components/SpendPanel.tsx**
 
 ```tsx
 import { spendSummary, recentBatches } from "@/lib/analytics";
@@ -1158,7 +1158,7 @@ export function SpendPanel() {
 }
 ```
 
-- [ ] **Step 9: Status page additions**
+- [x] **Step 9: Status page additions**
 
 In `app/page.tsx`, import `generateNext`, `resumeWorker` from `@/lib/actions/generate`, `SpendPanel`, and `env`. After the banner add:
 
@@ -1174,11 +1174,11 @@ In `app/page.tsx`, import `generateNext`, `resumeWorker` from `@/lib/actions/gen
 </form>
 ```
 
-- [ ] **Step 10: Manual check with a paused account**
+- [x] **Step 10: Manual check with a paused account**
 
 Run: `npm run dev` with `LUMA_AGENTS_API_KEY` in the shell (never printed). Click Generate next 1. Expected with zero credits: banner "Luma credits exhausted", candidates stay queued at cost 0, spend panel shows $0.00, no log storm. With credits: two candidates go `processing` (cost recorded) then `completed` within about a minute, images appear under `data-local/images/`, the batch row shows est = actual.
 
-- [ ] **Step 11: Commit**
+- [x] **Step 11: Commit**
 
 ```bash
 git add -A && git commit -m "generation: admission control, worker, notify policy, spend analytics

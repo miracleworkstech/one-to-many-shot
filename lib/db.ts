@@ -40,7 +40,8 @@ create index if not exists candidates_sku on candidates(sku);
 create index if not exists candidates_state on candidates(state);
 create index if not exists candidates_batch on candidates(batch_id);
 create table if not exists settings (
-  id integer primary key check (id = 1), paused_reason text, last_notified_at text
+  id integer primary key check (id = 1), paused_reason text, last_notified_at text,
+  last_notified_id integer not null default 0
 );
 insert or ignore into settings (id) values (1);
 `;
@@ -56,6 +57,16 @@ export function db(): Database.Database {
   d.pragma("journal_mode = WAL");
   d.pragma("foreign_keys = ON");
   d.exec(SCHEMA);
+  // `create table if not exists` cannot add a column to a database that already exists
+  // (a running deploy's volume). ponytail: one additive column, inline; a migrations
+  // table the day there is a second one.
+  const settingsCols = (
+    d.prepare("pragma table_info(settings)").all() as { name: string }[]
+  ).map((c) => c.name);
+  if (!settingsCols.includes("last_notified_id"))
+    d.exec(
+      "alter table settings add column last_notified_id integer not null default 0",
+    );
   globalThis.__shotsDb = d;
   return d;
 }

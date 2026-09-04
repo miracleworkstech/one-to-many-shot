@@ -220,3 +220,27 @@ live in `ASSUMPTIONS.md`, not here.
   absorbed by `detail`, so a new `failure_code` shows as "Luma failed on its side" until
   the table is extended.
 - **Revisit trigger:** A new `failure_code` appears in logs more than once.
+
+## D12 — The Slack "ready to review" watermark is a candidate id, not a timestamp (2026-09-04)
+
+- **Decision:** `settings` gains `last_notified_id`. `notifyIfBatchReady()` sends when nothing
+  is queued or processing and the highest completed candidate id exceeds that watermark, then
+  stores the new high-water mark (`last_notified_at` is left unwritten; nothing reads it). `lib/db.ts` adds the
+  column with an inline `alter table` for databases that already exist.
+- **Alternatives:** The plan's comparison of `last_notified_at` against `max(created_at)` of
+  completed candidates. `datetime('now')` has one-second resolution, so a batch triggered in
+  the same second as a notification would never be announced, and the case is untestable
+  without sleeping. A `completed_at` column (a second schema change, only for this).
+- **Why:** Notification is the only signal Ellie gets that there is work waiting; a silently
+  dropped ping is a batch nobody reviews. Candidate ids are monotonic, and at the moment we
+  notify every candidate is terminal, so the highest completed id is exactly the point the
+  next message must start from.
+- **Cost accepted:** One additive column and the first migration line in `lib/db.ts`.
+  A ping lost to a Slack outage is not retried (the watermark moves anyway).
+- **Revisit trigger:** A second schema change lands, which is when the inline `alter table`
+  becomes a migrations table.
+- **Addendum 2026-09-04 (Codex finding, accepted):** the message is per *settlement*, not
+  per batch. If batch A completes while batch B is still processing, nothing is sent until B
+  settles, and then one message covers both. For a six-person team on 40-product drops one
+  message when the queue empties is the right amount of Slack; per-batch messages become
+  worth it if two people start triggering batches independently.

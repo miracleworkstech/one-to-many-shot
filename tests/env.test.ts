@@ -4,16 +4,31 @@ import assert from "node:assert/strict";
 // env is read once at import, so set the process env before the dynamic import.
 process.env.MAX_TOTAL_SPEND_USD = "abc"; // non-numeric: must fall back, never NaN
 process.env.MAX_IMAGES_IN_FLIGHT = "7";
-delete process.env.LUMA_CONCURRENCY;
+process.env.CANDIDATES_PER_PRODUCT = "-1"; // negative count
+process.env.LUMA_CONCURRENCY = "1.5"; // fractional count
+process.env.WORKER_TICK_MS = "0"; // zero would spin the tick loop
+process.env.LUMA_COST_PER_IMAGE_USD = "-0.01"; // negative cost defeats the budget cap
 const { env, assertProductionEnv } = await import("../lib/env.ts");
 // Next's types mark NODE_ENV read-only; Reflect.set bypasses the declaration without a cast.
 const setNodeEnv = (v: string) => Reflect.set(process.env, "NODE_ENV", v);
 
-test("numeric env vars: parsed, defaulted, never NaN", () => {
+test("numeric env vars: parsed, defaulted, never NaN, zero or negative", () => {
   assert.equal(env.maxInFlight, 7);
-  assert.equal(env.lumaConcurrency, 4);
-  assert.equal(env.maxTotalSpend, 25);
-  assert.ok(Number.isFinite(env.maxTotalSpend));
+  assert.equal(env.maxTotalSpend, 25); // "abc"
+  assert.equal(env.candidatesPerProduct, 2); // "-1"
+  assert.equal(env.lumaConcurrency, 4); // "1.5"
+  assert.equal(env.tickMs, 5000); // "0"
+  assert.equal(env.costPerImage, 0.0434); // "-0.01"
+  // Every cap and rate is a positive number, whatever the environment said.
+  for (const n of [
+    env.costPerImage,
+    env.candidatesPerProduct,
+    env.maxInFlight,
+    env.maxTotalSpend,
+    env.lumaConcurrency,
+    env.tickMs,
+  ])
+    assert.ok(Number.isFinite(n) && n > 0);
 });
 
 test("assertProductionEnv fails fast only in production", () => {
