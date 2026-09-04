@@ -1529,7 +1529,7 @@ LUMA_CONCURRENCY=4
 
 Railway: new project from the GitHub repo, add a volume mounted at `/data`, set the env vars above (paste the Luma key from `.env.local` by hand, never via this session), enable a daily volume backup in the volume settings, generate a domain, set `APP_URL` to it. Verify: open `APP_URL/?k=TOKEN`, import `data/catalog.csv`, generate 1, watch it complete, approve on a phone, download zip.
 
-- [ ] **Step 5: README run section, commit**
+- [x] **Step 5: README run section, commit**
 
 Append to `README.md` a short "Running it" section: env vars, `npm install && npm run prepare` (enables the pre-commit hook), `npm run dev`, `npm run check`, deploy notes, the team link format. Then:
 

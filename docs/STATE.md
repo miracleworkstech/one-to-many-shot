@@ -11,9 +11,11 @@ on the user's go, `git checkout -b task/4-luma` and run Task 4 (Luma client, pho
 through implementer, evaluator, and Codex, then open a PR and stop. The Task 3 Codex
 findings were decided 2026-09-04: sheet wins on re-import (D10 addendum).
 
-**Update 2026-09-04 (end of session): Task 7 merged as PR #6 (including D14: streamed zip
-with exact Content-Length). Task 8 is next, on `task/8-deploy`, which exists and is checked
-out with no code yet.** Next action in a fresh session: read the brief at
+**Update 2026-09-04 (later): Task 8 built and PR #7 opened (commit 77b4ed4 on
+`task/8-deploy`), waiting for the user's review. After approval: fast-forward merge, then the
+whole-diff Codex pass (D8), then the Railway deploy with the user (plan Task 8 step 4: volume,
+secret variables in the dashboard, domain, `APP_URL`), then Task 9.** Earlier note, kept for
+the record: Task 7 merged as PR #6. The original next action was: read the brief at
 `.superpowers/sdd/task-8-brief.md` (regenerate with the task-brief script if missing), then
 run Task 8 through implementer → evaluator → Codex → PR → user review. Deltas to give the
 implementer: the middleware gates every route except `_next`, `favicon.ico` and `/healthz`,
@@ -44,7 +46,7 @@ candidate with no retry and shows `failure.userMessage` on the card.
 | 5 Admission control, worker, notify, analytics | merged | PR #4 | evaluator FAIL→PASS (19 then 9 mutants; live 402 pause at $0 twice); Codex: 7 findings, 6 fixed (shared worker lock across hot reloads, positive env bounds, no double-counted processing cost, bounded download retries, retryable photo errors, integer n), 1 accepted (per-settlement Slack message, D12 addendum) |
 | 6 Review page, image route | merged | PR #5 | evaluator FAIL→PASS (8 mutants, 5 killed by tests, 3 browser-only killed by hand; 375 px check at $0 twice); Codex: 8 findings, 7 fixed (kind validation, retry note only with an idea, length limits, decide bound to sku, keyed forms, IdeaForm pending state, updated_at restore), 1 deferred to Task 8 (img route auth = the token middleware); D13 |
 | 7 Exports | merged | PR #6 | evaluator PASS (9 mutants / 8 killed, survivor fixed; full-catalog round trip 40 rows 0 diffs, $0); Codex: 8 findings, 5 fixed (formula neutralisation with a leading space, SKU slug in zip names, missing-file warning, UTF-8 BOM + charset, memory ceiling named), 3 accepted (in-process snapshots, second-resolution ties); then D14: the zip streams (user's call; evaluator PASS with a measured 26 MB peak for a 120 MB zip, Codex no findings), then D14 amended: exact Content-Length from stat sizes (user's call; evaluator FAIL→PASS on one missing test, fflate layout re-verified from source; Codex 7 findings, 3 fixed, fflate pinned exact), A16, A17 |
-| 8 Access gate, Docker, Railway | in progress | task/8-deploy (branch created, no code yet) | the middleware must gate `/img/[id]` and `/export/*` too and accept `?k=` on them (the CSV links carry it); manual check = local Docker build and run (Docker Desktop 29.6 present); deploy via the Railway connector with the user |
+| 8 Access gate, Docker, Railway | PR #7 open | 77b4ed4 | evaluator PASS twice (9 mutants / 5 killed then survivors tested; 4/4 on the fixes); Docker image verified by implementer and evaluator (healthz, 401, redirect + cookie, fail-fast exit 1, no env files in the image, $0); Codex: 6 findings, 5 fixed (APP_URL required and origin-only, whole-startup fail-fast, `.env*` ignore, trailing-slash test, README), 1 accepted (matcher test anchors the regex source); re-check 1 low finding fixed; D15, A18. Step 4 (deploy) still to do with the user |
 | 9 Final docs, video, submit | not started | | |
 
 ## How a task runs (D8)
@@ -104,7 +106,10 @@ candidate with no retry and shows `failure.userMessage` on the card.
 - Luma credits: still zero as of 2026-09-04; needed for the demo and D5's owed generation.
 - Slack incoming webhook URL, set on the Railway service (needed for the demo).
 - Railway: add the `/data` volume with daily backups, set the variables, generate the domain
-  and set `APP_URL` to it (the connector can do the non-secret parts with you).
+  and set `APP_URL` to it (the connector can do the non-secret parts with you). `APP_URL` is
+  now required in production and must be the bare origin, and `ACCESS_TOKEN` is required, so
+  the service crash-loops (exit 1, message names the variable) until both are set.
+- Review PR #7 (Task 8). The one accepted Codex finding (matcher test strategy) is in the PR.
 - Railway account confirmed.
 - Slack webhook URL for the demo (optional).
 
