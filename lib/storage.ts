@@ -16,4 +16,12 @@ export const storage = {
     const p = storage.imagePath(id);
     return fs.existsSync(p) ? fs.readFileSync(p) : null;
   },
+  /** Byte size without reading the file, for the zip's exact Content-Length. */
+  imageSize: (id: number): number | null => {
+    try {
+      return fs.statSync(storage.imagePath(id)).size;
+    } catch {
+      return null; // missing (or vanished between checks) reads as absent, not as an error
+    }
+  },
 };

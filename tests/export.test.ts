@@ -17,7 +17,8 @@ const { db } = await import("../lib/db.ts");
 const { storage } = await import("../lib/storage.ts");
 const { parseCatalog } = await import("../lib/catalog.ts");
 const { importCatalogRows } = await import("../lib/import.ts");
-const { exportCsv, exportZip } = await import("../lib/export.ts");
+const { exportCsv, exportZip, exportZipPlan, zipSizeFor } =
+  await import("../lib/export.ts");
 const { approvedByProduct } = await import("../lib/queries.ts");
 const { approvedFilename } = await import("../lib/names.ts");
 const { STATUS_LABEL } = await import("../lib/status.ts");
@@ -34,6 +35,15 @@ const noSuggest = async () => new Map<string, string>();
 const collectZip = async (stream: ReadableStream<Uint8Array>) =>
   unzipSync(Buffer.from(await new Response(stream).arrayBuffer()));
 
+// The load-bearing assertion for the Content-Length header: whatever exportZipPlan()
+// promised is byte-for-byte what the stream produces. This is what pins the size
+// arithmetic in zipSizeFor() to the fflate version in package.json.
+const assertExactLength = async () => {
+  const plan = exportZipPlan();
+  const bytes = await new Response(exportZip(plan)).arrayBuffer();
+  assert.equal(plan.contentLength, bytes.byteLength);
+};
+
 const HEADER =
   "SKU,Product Name,Category,Color / Finish,Material,Price,Photo,Shot Idea,Notes,Status,Approved Images,Approved Filenames,Spent (USD)";
 
@@ -41,6 +51,7 @@ test("empty database: CSV is exactly the header row, zip contains only manifest.
   assert.equal(exportCsv(), HEADER + "\n");
   const zip = await collectZip(exportZip());
   assert.deepEqual(Object.keys(zip), ["manifest.csv"]);
+  await assertExactLength();
 });
 
 // HG-002 gets two approved candidates (in a known decided_at order), one rejected, one
@@ -173,6 +184,68 @@ test("exportZip: exactly the two approved filenames plus manifest.csv; a missing
   );
 });
 
+test("exportZip: Content-Length is exact for a real fixture (two files, one missing, manifest)", async () => {
+  const plan = exportZipPlan();
+  assert.deepEqual(
+    plan.files.map((f) => f.name).sort(),
+    [name1, name2].sort(),
+    "the missing-file candidate is not in the plan",
+  );
+  await assertExactLength();
+});
+
+test("zipSizeFor: matches a real fflate archive, multi-byte name and empty file included", async () => {
+  const { Zip, ZipPassThrough } = await import("fflate");
+  const entries: [string, Uint8Array][] = [
+    ["manifest.csv", new TextEncoder().encode("SKU,Notes\nHG-002,ok\n")],
+    ["café-über-01.jpg", new Uint8Array(1000).fill(7)],
+    ["empty.jpg", new Uint8Array(0)],
+  ];
+  const chunks: Uint8Array[] = [];
+  await new Promise<void>((resolve, reject) => {
+    const zip = new Zip((err, chunk, final) => {
+      if (err) reject(err);
+      else {
+        if (chunk) chunks.push(chunk);
+        if (final) resolve();
+      }
+    });
+    for (const [name, data] of entries) {
+      const e = new ZipPassThrough(name);
+      zip.add(e);
+      e.push(data, true);
+    }
+    zip.end();
+  });
+  const real = chunks.reduce((n, c) => n + c.length, 0);
+  assert.ok(
+    entries.some(([n]) => Buffer.byteLength(n, "utf8") !== n.length),
+    "fixture must include a name whose UTF-8 length differs from its char count",
+  );
+  assert.equal(
+    zipSizeFor(
+      entries.map(([name, data]) => ({
+        nameBytes: Buffer.byteLength(name, "utf8"),
+        size: data.length,
+      })),
+    ),
+    real,
+  );
+  assert.equal(zipSizeFor([]), 22, "an empty archive is just the EOCD record");
+});
+
+test("zipSizeFor refuses a zip past the 4 GB zip64 boundary instead of truncating", () => {
+  assert.throws(
+    () => zipSizeFor([{ nameBytes: 10, size: 0x1_0000_0000 }]),
+    /over 4 GB/,
+  );
+  // 0xFFFFFFFF total is the last size that still fits every 4-byte field.
+  assert.equal(
+    zipSizeFor([{ nameBytes: 0, size: 0xffffffff - 114 }]),
+    0xffffffff,
+  );
+});
+
 test("exportZip streams lazily: reading only the first chunk has not read every approved image yet (D14)", async () => {
   const totalApproved = approvedByProduct().reduce(
     (n, r) => n + r.approved.length,
@@ -254,4 +327,21 @@ test("a shot idea that looks like a spreadsheet formula is neutralised and still
     "importer trims it back to the original",
   );
   assert.equal(again?.notes, "+not a sum");
+});
+
+test("an image that vanishes between the plan and the stream fails the download instead of truncating it", async () => {
+  const plan = exportZipPlan();
+  const victim = plan.files[0];
+  assert.ok(victim, "fixture has at least one planned file");
+  const bytes = storage.readImage(victim.id);
+  assert.ok(bytes);
+  fs.unlinkSync(storage.imagePath(victim.id));
+  try {
+    await assert.rejects(
+      () => new Response(exportZip(plan)).arrayBuffer(),
+      /vanished mid-stream/,
+    );
+  } finally {
+    storage.saveImage(victim.id, bytes); // put it back for the tests that follow
+  }
 });

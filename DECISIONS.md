@@ -282,10 +282,20 @@ live in `ASSUMPTIONS.md`, not here.
 - **Why:** The user chose streaming: a small change that removes the ceiling rather than
   documenting it, for catalogs with many large images. Simplicity for the end user
   outweighs per-user permissioning at a six-person team.
-- **Cost accepted:** No `Content-Length` on the zip (chunked), so browsers show no
-  progress percentage. The manifest CSV is still built in memory (kilobytes). The
+- **Cost accepted:** The manifest CSV is still built in memory (kilobytes). The
   capability URL in a shared spreadsheet is only as private as the Drive folder it sits
   in; rotating `ACCESS_TOKEN` breaks links in old exports.
+- **Amended 2026-09-04 (user's call):** the stream carries an exact `Content-Length` so
+  browsers show a progress bar. With stored entries the zip layout is deterministic, so
+  the size is computed up front from `fs.stat` sizes and name lengths (local header 30 +
+  name, data, 16-byte descriptor; central entry 46 + name; 22-byte trailer) without
+  reading a byte. Alternatives were spooling the zip to a temp file first (exact size,
+  but no bytes until the whole zip is written and double disk I/O) or buffering again.
+  Cost: the arithmetic depends on fflate's stored-entry format, so a test asserts the
+  computed length equals the streamed byte count and pins the fflate version; anything
+  over 4 GB (zip64) is refused with a clear message rather than miscounted. An image that
+  disappears or changes size between planning and streaming errors the download (the
+  browser sees a failed transfer) instead of quietly sending fewer bytes than promised.
 - **Revisit trigger:** A request to hand a link to someone outside the team, which is when
   per-user or expiring links replace the shared token. A weekly hand-off that wants only
   new approvals, which is when the `since` filter earns its place.
