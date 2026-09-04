@@ -18,3 +18,6 @@ scratch/
 data-local/
 .next/
 *.tsbuildinfo
+
+# local dev-server launcher (sets a throwaway ACCESS_TOKEN)
+.claude/launch.json
