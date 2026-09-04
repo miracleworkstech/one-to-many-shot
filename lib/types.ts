@@ -49,3 +49,12 @@ export interface Candidate {
   created_at: string;
   decided_at: string | null;
 }
+
+/** Free-text limits at the trust boundary. They live here, not in `lib/review.ts` or
+ *  `lib/enqueue.ts`, because both of those import `lib/db.ts` (better-sqlite3) and the
+ *  textarea that enforces `maxLength` is a client component. A shot idea is one sentence;
+ *  500 characters is generous. A name on a decision is a name. The catalog's SKUs are
+ *  `HG-002`-shaped, so 64 is already far past anything real. */
+export const MAX_IDEA_CHARS = 500;
+export const MAX_WHO_CHARS = 80;
+export const MAX_SKU_CHARS = 64;

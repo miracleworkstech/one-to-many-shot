@@ -64,6 +64,9 @@ app/
   export/zip/route.ts        approved images zip
 components/
   IdeaForm.tsx               client component: edit a shot idea
+  GenerateForm.tsx           client component: generate next N, shows estimate, caps, result
+  GenerateProductForm.tsx    client component: generate this product / try again, cost on the button
+  ImportForm.tsx             client component: CSV upload, shows counts and skipped rows
   SpendPanel.tsx             renders analytics.spendSummary + recent batches
 lib/
   env.ts                     typed env with defaults
@@ -84,6 +87,7 @@ lib/
   worker.ts                  advance generation: submit, poll, download
   analytics.ts               money: spend by outcome, by batch, by product
   queries.ts                 read model for pages and exports
+  review.ts                  decideCandidate + the typed decision union (D13)
   export.ts                  CSV and zip formats
   actions/
     import.ts                importCatalog
@@ -1205,7 +1209,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - Consumes: `db`, `storage`, `productStatus`, `generateSku`, `tryAgain`, `updateIdea`.
 - Produces: `decide(formData)`; `queries.productDetail(sku): { p, cands, status, prev?, next? } | null`.
 
-- [ ] **Step 1: decide action**
+- [x] **Step 1: decide action**
 
 Append to `lib/actions/review.ts`, and change its db import to `import { db, inStates } from "@/lib/db";`:
 ```ts
@@ -1218,7 +1222,7 @@ export async function decide(formData: FormData) {
 }
 ```
 
-- [ ] **Step 2: productDetail query**
+- [x] **Step 2: productDetail query**
 
 Append to `lib/queries.ts` (Product and Candidate are already imported from `./types`):
 ```ts
@@ -1233,7 +1237,7 @@ export function productDetail(sku: string) {
 }
 ```
 
-- [ ] **Step 3: app/img/[id]/route.ts**
+- [x] **Step 3: app/img/[id]/route.ts**
 
 ```ts
 import { storage } from "@/lib/storage";
@@ -1244,7 +1248,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
 }
 ```
 
-- [ ] **Step 4: components/IdeaForm.tsx**
+- [x] **Step 4: components/IdeaForm.tsx**
 
 ```tsx
 "use client";
@@ -1261,7 +1265,7 @@ export function IdeaForm({ sku, idea, source, onSave }: { sku: string; idea: str
 }
 ```
 
-- [ ] **Step 5: app/review/[sku]/page.tsx**
+- [x] **Step 5: app/review/[sku]/page.tsx**
 
 ```tsx
 import Link from "next/link";
@@ -1336,11 +1340,11 @@ export default async function Review({ params }: { params: Promise<{ sku: string
 }
 ```
 
-- [ ] **Step 6: Manual check on a phone-width viewport**
+- [x] **Step 6: Manual check on a phone-width viewport**
 
 Run dev, open `/review/HG-002` at 375px wide. Expected: original photo, idea editable, generate button with cost, candidates stack vertically, approve/reject are full-width thumb targets, prev/next work.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add -A && git commit -m "review page: one product per screen, thumb-sized approve/reject

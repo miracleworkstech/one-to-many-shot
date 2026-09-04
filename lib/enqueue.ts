@@ -1,7 +1,7 @@
 // Admission control: the only place candidates are created. Refuses past the two caps
 // (money paths #1 and #8) and skips products that already have work in flight.
-import { db, st, inStates } from "./db";
-import type { Product, BatchKind } from "./types";
+import { db, st, inStates, src } from "./db";
+import { MAX_IDEA_CHARS, type Product, type BatchKind } from "./types";
 import { env } from "./env";
 import { buildPrompt } from "./prompt";
 
@@ -105,4 +105,41 @@ export function nextSkus(n: number): string[] {
       )
       .all(n) as { sku: string }[]
   ).map((r) => r.sku);
+}
+
+/**
+ * "Try again" with a note. The note has to join the shot idea *before* `enqueue` runs,
+ * because `enqueue` builds each candidate's prompt from the idea as it stands — so the
+ * write happens first and is rolled back inside the same transaction when nothing was
+ * queued. A refusal (a cap) or a skip (already generating) must not leave Ellie's idea
+ * permanently rewritten for a batch that never existed.
+ */
+export function enqueueRetry(sku: string, note: string): EnqueueResult {
+  const d = db();
+  return d.transaction((): EnqueueResult => {
+    const trimmed = note.trim();
+    const row = trimmed
+      ? (d
+          .prepare(
+            "select shot_idea, shot_idea_source, updated_at from products where sku = ?",
+          )
+          .get(sku) as
+          | Pick<Product, "shot_idea" | "shot_idea_source" | "updated_at">
+          | undefined)
+      : undefined;
+    // Only a product that exists and already has an idea can carry a note. Without an idea
+    // there is nothing to append to and `enqueue` would skip the product anyway, so writing
+    // the bare note as the idea would invent one nobody asked for.
+    const before = row?.shot_idea ? row : undefined;
+    if (before)
+      d.prepare(
+        `update products set shot_idea = ?, shot_idea_source = ${src("edited")}, updated_at = datetime('now') where sku = ?`,
+      ).run(`${before.shot_idea}, ${trimmed}`.slice(0, MAX_IDEA_CHARS), sku);
+    const result = enqueue([sku], "retry");
+    if (before && result.queued === 0)
+      d.prepare(
+        "update products set shot_idea = ?, shot_idea_source = ?, updated_at = ? where sku = ?",
+      ).run(before.shot_idea, before.shot_idea_source, before.updated_at, sku);
+    return result;
+  })();
 }

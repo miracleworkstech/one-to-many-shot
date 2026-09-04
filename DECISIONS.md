@@ -244,3 +244,27 @@ live in `ASSUMPTIONS.md`, not here.
   settles, and then one message covers both. For a six-person team on 40-product drops one
   message when the queue empties is the right amount of Slack; per-batch messages become
   worth it if two people start triggering batches independently.
+
+## D13 — Decisions and per-product generation are split the same way as import (2026-09-04)
+
+- **Decision:** The review page's writes follow the Task 3 shape. `lib/review.ts` holds
+  `decideCandidate(id, state, who)` (the UPDATE, guarded to completed/approved/rejected)
+  and the typed `DECISIONS` union; `lib/actions/review.ts` is request glue that validates
+  the form and revalidates. `components/GenerateProductForm.tsx` is a client component
+  around one server action, `generateForProduct`, so "generate 2 more" and "try again"
+  show their cost on the button before the tap and the queued count or the cap refusal
+  after it. A try-again whose enqueue is refused restores the idea it would have amended.
+  The `IdeaForm` is keyed on the SKU and re-syncs its text when the stored idea changes,
+  so a note appended by try-again, or another reviewer's edit, replaces the textarea
+  instead of showing a stale "Save idea", while a plain save keeps the instance and can
+  show "Saved". (Keying on the idea text itself remounted the form on every save.)
+- **Alternatives:** The plan's inline `"use server"` closures on the page (they discard
+  `EnqueueResult`, so a refused generate looks like nothing happened). SQL inside the
+  action (untestable under node:test because `revalidatePath` needs a request context).
+- **Why:** "No generation without a visible cost and a cap" needs the answer as well as
+  the estimate, and money path #11 makes try-again its own batch. The split is what let
+  the evaluator mutation-test the decision guard against a real database.
+- **Cost accepted:** One more module than the plan's file structure lists; two client
+  components instead of plain forms, so the buttons are inert before hydration.
+- **Revisit trigger:** A third action needs the same shape, at which point a tiny helper
+  for "server action returning a result to a client form" earns its place.

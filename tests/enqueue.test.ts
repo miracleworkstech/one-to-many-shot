@@ -10,8 +10,9 @@ process.env.MAX_IMAGES_IN_FLIGHT = "4";
 process.env.MAX_TOTAL_SPEND_USD = "1";
 
 const { db } = await import("../lib/db.ts");
-const { enqueue } = await import("../lib/enqueue.ts");
+const { enqueue, enqueueRetry } = await import("../lib/enqueue.ts");
 const { env } = await import("../lib/env.ts");
+const { MAX_IDEA_CHARS } = await import("../lib/types.ts");
 
 const d = db();
 after(() => {
@@ -138,4 +139,122 @@ test("a processing candidate is charged once, not reserved twice", () => {
     env.costPerImage = cost;
     env.maxTotalSpend = cap;
   }
+});
+
+// enqueueRetry: the note joins the idea before the prompts are built, so a retry that never
+// happens must not leave the idea rewritten (money path #11 on the review screen).
+const idea = (sku: string) =>
+  d
+    .prepare("select shot_idea, shot_idea_source from products where sku = ?")
+    .get(sku) as { shot_idea: string | null; shot_idea_source: string | null };
+
+test("enqueueRetry: a queued retry keeps the note and is its own batch", () => {
+  d.exec("delete from candidates; delete from batches;");
+  d.prepare(
+    "update products set shot_idea = 'a long table, linen', shot_idea_source = 'sheet' where sku = 'HG-002'",
+  ).run();
+
+  const r = enqueueRetry("HG-002", "  warmer light  ");
+  assert.equal(r.queued, 2);
+  assert.ok(r.batchId);
+  assert.equal(
+    (
+      d.prepare("select kind from batches where id = ?").get(r.batchId) as {
+        kind: string;
+      }
+    ).kind,
+    "retry",
+  );
+  assert.deepEqual(idea("HG-002"), {
+    shot_idea: "a long table, linen, warmer light",
+    shot_idea_source: "edited",
+  });
+});
+
+test("enqueueRetry: a refused retry leaves the idea exactly as it was", () => {
+  d.exec("delete from candidates; delete from batches;");
+  d.prepare(
+    "update products set shot_idea = 'a long table, linen', shot_idea_source = 'sheet' where sku = 'HG-002'",
+  ).run();
+  const batch = d
+    .prepare("insert into batches (kind) values ('next')")
+    .run().lastInsertRowid;
+  for (let i = 0; i < env.maxInFlight; i++)
+    d.prepare(
+      "insert into candidates (sku,batch_id,prompt,state) values ('HG-004',?,'p','queued')",
+    ).run(batch); // in flight is now at the cap
+
+  const r = enqueueRetry("HG-002", "warmer light");
+  assert.equal(r.queued, 0);
+  assert.match(r.refused ?? "", /in flight/);
+  assert.deepEqual(
+    idea("HG-002"),
+    { shot_idea: "a long table, linen", shot_idea_source: "sheet" },
+    "the note is rolled back with the batch that never happened",
+  );
+  assert.equal(
+    (
+      d
+        .prepare("select count(*) as n from batches where kind = 'retry'")
+        .get() as {
+        n: number;
+      }
+    ).n,
+    0,
+  );
+});
+
+test("enqueueRetry: the note is bounded, so the idea column and the prompt are too", () => {
+  d.exec("delete from candidates; delete from batches;");
+  d.prepare(
+    "update products set shot_idea = 'a long table', shot_idea_source = 'sheet' where sku = 'HG-002'",
+  ).run();
+
+  const r = enqueueRetry("HG-002", "x".repeat(900));
+  assert.equal(r.queued, 2);
+  assert.equal(idea("HG-002").shot_idea?.length, MAX_IDEA_CHARS);
+});
+
+test("enqueueRetry: a product with no idea is skipped, and the note is not written as one", () => {
+  d.exec("delete from candidates; delete from batches;");
+  d.prepare(
+    "update products set shot_idea = null, shot_idea_source = null where sku = 'HG-004'",
+  ).run();
+
+  const r = enqueueRetry("HG-004", "warmer light");
+  assert.equal(r.queued, 0);
+  assert.deepEqual(r.skipped, ["HG-004"]);
+  assert.deepEqual(idea("HG-004"), {
+    shot_idea: null,
+    shot_idea_source: null,
+  });
+});
+
+test("enqueueRetry: a rollback restores updated_at too, not just the idea", () => {
+  d.exec("delete from candidates; delete from batches;");
+  d.prepare(
+    "update products set shot_idea = 'a long table', shot_idea_source = 'sheet', updated_at = '2020-01-01 00:00:00' where sku = 'HG-002'",
+  ).run();
+  const batch = d
+    .prepare("insert into batches (kind) values ('next')")
+    .run().lastInsertRowid;
+  for (let i = 0; i < env.maxInFlight; i++)
+    d.prepare(
+      "insert into candidates (sku,batch_id,prompt,state) values ('HG-003',?,'p','queued')",
+    ).run(batch);
+
+  const r = enqueueRetry("HG-002", "warmer light");
+  assert.equal(r.queued, 0);
+  assert.deepEqual(
+    d
+      .prepare(
+        "select shot_idea, shot_idea_source, updated_at from products where sku = 'HG-002'",
+      )
+      .get(),
+    {
+      shot_idea: "a long table",
+      shot_idea_source: "sheet",
+      updated_at: "2020-01-01 00:00:00",
+    },
+  );
 });

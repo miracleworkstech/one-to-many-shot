@@ -11,7 +11,7 @@ delete process.env.ANTHROPIC_API_KEY;
 const { db } = await import("../lib/db.ts");
 const { parseCatalog } = await import("../lib/catalog.ts");
 const { importCatalogRows } = await import("../lib/import.ts");
-const { overview } = await import("../lib/queries.ts");
+const { overview, productDetail } = await import("../lib/queries.ts");
 
 after(() => {
   db().close();
@@ -82,4 +82,40 @@ test("overview: pausedReason surfaces settings.paused_reason", async () => {
     .run("Luma credits exhausted");
   const { pausedReason } = overview();
   assert.equal(pausedReason, "Luma credits exhausted");
+});
+
+// These run after the tests above: the DB holds HG-008 (priority), HG-002, HG-003 and
+// HG-099 (no idea), plus one queued candidate on HG-002.
+test("productDetail: null for an unknown SKU", () => {
+  assert.equal(productDetail("NOPE-1"), null);
+});
+
+test("productDetail: prev/next follow the list order, undefined at the ends", () => {
+  // Same order as overview(): priority desc, then sku. HG-008, HG-002, HG-003, HG-099.
+  assert.equal(productDetail("HG-008")?.prev, undefined);
+  assert.equal(productDetail("HG-008")?.next, "HG-002");
+  assert.equal(productDetail("HG-002")?.prev, "HG-008");
+  assert.equal(productDetail("HG-002")?.next, "HG-003");
+  assert.equal(productDetail("HG-099")?.next, undefined);
+});
+
+test("productDetail: candidates newest first, status derived from them", () => {
+  const d = db();
+  const batchId = d
+    .prepare("insert into batches (kind) values ('retry')")
+    .run().lastInsertRowid;
+  const newer = Number(
+    d
+      .prepare(
+        "insert into candidates (sku, batch_id, prompt, state) values ('HG-002', ?, 'p2', 'completed')",
+      )
+      .run(batchId).lastInsertRowid,
+  );
+
+  const detail = productDetail("HG-002");
+  assert.equal(detail?.p.name, "Stoneware Mug 12oz");
+  assert.equal(detail?.cands.length, 2);
+  assert.equal(detail?.cands[0].id, newer, "newest first");
+  // One queued, one completed: generating wins (money is in flight).
+  assert.equal(detail?.status, "generating");
 });
