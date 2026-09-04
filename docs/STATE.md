@@ -15,8 +15,10 @@ findings were decided 2026-09-04: sheet wins on re-import (D10 addendum).
 Railway variable by hand and generated the domain
 `one-to-many-shot-production.up.railway.app`; the first Dockerfile deploy started 13:27 UTC.
 The whole-codebase Codex pass (D8 step 6) ran after the merge; its findings are in the
-session recap and, if material, below. Next: verify the live deploy (healthz, gate, import,
-volume), then Task 9 (docs, video, submit).** Earlier note, kept for
+session recap and, if material, below. Live deploy verified 2026-09-04 after the HOSTNAME hotfix (PR #8): healthz 200, every
+app route 401 without the link, no cookie on a wrong token. The user chose to fix four of the
+six whole-codebase findings; that is Task 8c (`task/8c-codex-fixes`, D16), in PR, waiting for
+review. Next: merge 8c, then Task 9 (docs, video, submit).** Earlier note, kept for
 the record: Task 7 merged as PR #6. The original next action was: read the brief at
 `.superpowers/sdd/task-8-brief.md` (regenerate with the task-brief script if missing), then
 run Task 8 through implementer → evaluator → Codex → PR → user review. Deltas to give the
@@ -49,6 +51,8 @@ candidate with no retry and shows `failure.userMessage` on the card.
 | 6 Review page, image route | merged | PR #5 | evaluator FAIL→PASS (8 mutants, 5 killed by tests, 3 browser-only killed by hand; 375 px check at $0 twice); Codex: 8 findings, 7 fixed (kind validation, retry note only with an idea, length limits, decide bound to sku, keyed forms, IdeaForm pending state, updated_at restore), 1 deferred to Task 8 (img route auth = the token middleware); D13 |
 | 7 Exports | merged | PR #6 | evaluator PASS (9 mutants / 8 killed, survivor fixed; full-catalog round trip 40 rows 0 diffs, $0); Codex: 8 findings, 5 fixed (formula neutralisation with a leading space, SKU slug in zip names, missing-file warning, UTF-8 BOM + charset, memory ceiling named), 3 accepted (in-process snapshots, second-resolution ties); then D14: the zip streams (user's call; evaluator PASS with a measured 26 MB peak for a 120 MB zip, Codex no findings), then D14 amended: exact Content-Length from stat sizes (user's call; evaluator FAIL→PASS on one missing test, fflate layout re-verified from source; Codex 7 findings, 3 fixed, fflate pinned exact), A16, A17 |
 | 8 Access gate, Docker, Railway | merged | PR #7 | evaluator PASS twice (9 mutants / 5 killed then survivors tested; 4/4 on the fixes); Docker image verified by implementer and evaluator (healthz, 401, redirect + cookie, fail-fast exit 1, no env files in the image, $0); Codex: 6 findings, 5 fixed (APP_URL required and origin-only, whole-startup fail-fast, `.env*` ignore, trailing-slash test, README), 1 accepted (matcher test anchors the regex source); re-check 1 low finding fixed; D15, A18. Step 4 (deploy) still to do with the user |
+| 8b Deploy hotfix | merged | PR #8 | `HOSTNAME=::` in the Dockerfile: Next standalone binds to HOSTNAME and Docker sets it to the container id, so Railway's proxy got connection refused |
+| 8c Codex whole-codebase fixes | PR open | task/8c-codex-fixes | user's call: findings 1, 2, 5, 6 (estimate tracks N; budget_exhausted pauses; SSRF guard on photo URLs incl. redirect hops; ASSUMPTIONS row 14); 3 and 4 accepted as documented costs. Evaluator PASS x2 (6/8 then 7/7 mutants); Codex 4 findings all fixed; D16 |
 | 9 Final docs, video, submit | not started | | |
 
 ## How a task runs (D8)
@@ -85,7 +89,10 @@ candidate with no retry and shows `failure.userMessage` on the card.
 - `ANTHROPIC_API_KEY` is in `.env.local` as of 2026-09-03 (never read it). The user renamed `.env.example` to `.env` (gitignored, placeholder only); Task 8 recreates `.env.example` with the real variable list. `next dev` and `next start` load it; `node --test` does not, so tests run on the template fallback.
 - The user replaced the Anthropic key with a non-identity-linked one on 2026-09-04; Haiku suggestions verified working through the page (24 model ideas on the first import). `ANTHROPIC_WORKSPACE_ID` stays optional in `lib/env.ts` for identity-linked keys.
 - Running a Codex review while `next dev` is up wipes `.next` (Codex's sandbox rebuilt it) and the dev server 500s until restarted. Run the manual check before or after Codex, not during.
-- Deploy target: Railway, volume at `/data`, daily backups. **The user created the Railway
+- Deploy target: Railway, volume at `/data`, daily backups. Live at
+  `https://one-to-many-shot-production.up.railway.app` (domain target port 3000, `PORT=3000`
+  set by the user because Railway injects PORT=8080 otherwise). The connector's write actions
+  are blocked by the session's permission classifier; reads (status, logs, domains) work. **The user created the Railway
   project from the GitHub repo on 2026-09-04 and it started building** before the Dockerfile
   existed, so that first build/deploy will fail or crash-loop (`assertProductionEnv` throws
   without `LUMA_AGENTS_API_KEY` and `ACCESS_TOKEN`); expected, not a bug. The Railway

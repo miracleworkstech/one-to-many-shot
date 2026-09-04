@@ -50,6 +50,19 @@ test("rejects wrong headers with a diff", () => {
   assert.equal(rows.length, 0);
   assert.match(errors[0], /missing.*Product Name/i);
 });
+test("skips a row whose Photo points at a private/loopback address (SSRF guard)", () => {
+  const { rows, errors } = parseCatalog(
+    [
+      "SKU,Product Name,Category,Color / Finish,Material,Price,Photo,Shot Idea,Notes",
+      "HG-001,Vase,Ceramics,,,$1,https://x/a.jpg,,",
+      "HG-002,Mug,Ceramics,,,$1,http://169.254.169.254/latest/meta-data,,",
+      "",
+    ].join(String.fromCharCode(10)),
+  );
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].sku, "HG-001");
+  assert.match(errors[0], /HG-002.*Photo.*private or loopback/);
+});
 test("priority from notes", () => {
   assert.equal(isPriority("El: bestseller, do this one first"), true);
   assert.equal(isPriority("top seller, gets reordered constantly"), false);

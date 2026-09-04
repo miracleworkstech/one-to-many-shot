@@ -1,4 +1,5 @@
 import { parse } from "csv-parse/sync";
+import { photoUrlProblem } from "./photos";
 
 export const REQUIRED_HEADERS = [
   "SKU",
@@ -69,8 +70,9 @@ export function parseCatalog(text: string): {
       errors.push(`Row ${i + 2}: empty SKU, skipped`);
       return;
     }
-    if (!/^https?:\/\//.test(g("Photo"))) {
-      errors.push(`Row ${i + 2} (${sku}): Photo is not a URL, skipped`);
+    const photoProblem = photoUrlProblem(g("Photo"));
+    if (photoProblem) {
+      errors.push(`Row ${i + 2} (${sku}): Photo ${photoProblem}, skipped`);
       return;
     }
     if (bySku.has(sku))

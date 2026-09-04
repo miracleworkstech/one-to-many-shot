@@ -72,8 +72,10 @@ export async function tick() {
   if (state.running) return; // money path #2: single flight
   state.running = true;
   try {
-    await submitQueued();
+    // Codex finding (poll-before-submit): poll first so a budget_exhausted result pauses the
+    // worker before submitQueued spends on anything new this tick.
     await pollProcessing();
+    await submitQueued();
     await notifyIfBatchReady();
   } catch (e) {
     console.error("tick:", reason(e));
@@ -165,6 +167,12 @@ async function pollProcessing() {
           c.id,
           g.failure?.userMessage ?? "Luma failed on its side. Try again.",
         );
+        // Money path #4: credits ran out mid-generation. Every other queued candidate would
+        // hit the same 402 one at a time this tick, so stop here instead of burning through them.
+        if (g.failure?.code === "budget_exhausted") {
+          pause(g.failure.userMessage);
+          return;
+        }
         continue;
       }
       if (g.state !== "completed" || !g.url) continue;

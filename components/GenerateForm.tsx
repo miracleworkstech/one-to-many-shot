@@ -1,5 +1,5 @@
 "use client";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { generateNext } from "@/lib/actions/generate";
 import type { EnqueueResult } from "@/lib/enqueue";
 
@@ -18,6 +18,10 @@ export function GenerateForm({
     EnqueueResult | null,
     FormData
   >((_prev, formData) => generateNext(formData), null);
+  const [n, setN] = useState(10);
+  // Clamp only for the shown estimate; the input's own min/max already stop the user
+  // reaching an out-of-range value, this just covers a cleared or partial field.
+  const clampedN = Math.min(40, Math.max(1, n));
   return (
     <form
       action={formAction}
@@ -28,14 +32,19 @@ export function GenerateForm({
         id="n"
         type="number"
         name="n"
-        defaultValue={10}
+        value={n}
         min={1}
         max={40}
+        onChange={(e) => {
+          const v = e.target.valueAsNumber;
+          setN(Number.isFinite(v) ? v : 10);
+        }}
         className="w-16 min-h-11 rounded border px-2 py-1"
       />
       <span>
         products · {perProduct} candidates each · about $
-        {(10 * perProduct * costPerImage).toFixed(2)} per 10 products
+        {(clampedN * perProduct * costPerImage).toFixed(2)} for {clampedN}{" "}
+        products
       </span>
       <button
         disabled={isPending}
