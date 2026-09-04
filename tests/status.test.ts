@@ -1,6 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { productStatus, byReadingOrder } from "../lib/status.ts";
+import {
+  productStatus,
+  byReadingOrder,
+  canRetry,
+  isPhotoProblem,
+} from "../lib/status.ts";
 import type { CandidateState } from "../lib/types.ts";
 const c = (...states: CandidateState[]) => states.map((state) => ({ state }));
 test("status ladder", () => {
@@ -34,4 +39,17 @@ test("byReadingOrder: undecided, in flight, decided, failed; newest first within
     [...cs].sort(byReadingOrder).map((c) => c.id),
     [6, 3, 7, 4, 2, 5, 1],
   );
+});
+test("canRetry: a rejected or failed candidate earns Try again, unless something is in flight", () => {
+  assert.equal(canRetry(c("rejected"), "needs_more"), true);
+  assert.equal(canRetry(c("failed"), "failed"), true);
+  assert.equal(canRetry(c("completed", "approved"), "in_review"), false);
+  assert.equal(canRetry(c("rejected", "queued"), "generating"), false);
+  assert.equal(canRetry([], "idea_ready"), false);
+});
+test("isPhotoProblem keys on the PhotoError prefix, not the word anywhere", () => {
+  assert.equal(isPhotoProblem("photo not reachable (HTTP 403)"), true);
+  assert.equal(isPhotoProblem("photo URL points at localhost"), true);
+  assert.equal(isPhotoProblem("Luma could not use the photo"), false);
+  assert.equal(isPhotoProblem(null), false);
 });

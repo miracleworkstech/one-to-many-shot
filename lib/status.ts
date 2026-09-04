@@ -11,6 +11,21 @@ const RANK: Record<CandidateState, number> = {
   rejected: 3,
   failed: 4,
 };
+/** Try again is offered when Ellie has seen a candidate and said no, or when one never
+ *  arrived, and nothing is in flight: a generating product would just queue a second
+ *  spend behind the first. */
+export const canRetry = (
+  cands: { state: CandidateState }[],
+  status: ProductStatus,
+) =>
+  status !== "generating" &&
+  cands.some((c) => c.state === "rejected" || c.state === "failed");
+
+/** Every PhotoError message starts with "photo" (lib/photos.ts): the fix is the link in the
+ *  sheet, not another attempt. Anything else came back from Luma. */
+export const isPhotoProblem = (reason: string | null) =>
+  /^photo/i.test(reason ?? "");
+
 export const byReadingOrder = (
   a: { state: CandidateState; id: number },
   b: { state: CandidateState; id: number },

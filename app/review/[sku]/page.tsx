@@ -1,7 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { productDetail } from "@/lib/queries";
-import { STATUS_LABEL, byReadingOrder } from "@/lib/status";
+import {
+  STATUS_LABEL,
+  byReadingOrder,
+  canRetry as retryAllowed,
+  isPhotoProblem,
+} from "@/lib/status";
 import type { CandidateState } from "@/lib/types";
 import { env } from "@/lib/env";
 import { decide, updateIdea } from "@/lib/actions/review";
@@ -23,10 +28,6 @@ const DECIDED_FILL = {
   rejected: "bg-red-700 text-white border-red-700",
 };
 
-/** Every PhotoError message starts with "photo" (lib/photos.ts): the fix is the link in the
- *  sheet, not another attempt. Anything else came back from Luma. */
-const isPhotoProblem = (reason: string | null) => /^photo/i.test(reason ?? "");
-
 export default async function Review({
   params,
 }: {
@@ -40,9 +41,7 @@ export default async function Review({
   const perCost = env.candidatesPerProduct * env.costPerImage;
   const toDecide = cands.filter((c) => c.state === "completed").length;
   const canGenerate = !!p.shot_idea && status !== "generating";
-  const canRetry =
-    canGenerate &&
-    cands.some((c) => c.state === "rejected" || c.state === "failed");
+  const canRetry = !!p.shot_idea && retryAllowed(cands, status);
   const meta = [p.color, p.material, p.price].filter(Boolean).join(" · ");
 
   return (

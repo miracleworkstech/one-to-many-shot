@@ -72,7 +72,8 @@ test("fetchPhoto rejects a private-network URL before ever calling fetch", async
   try {
     await assert.rejects(
       () => fetchPhoto("http://169.254.169.254/latest/meta-data"),
-      isPhotoError(false),
+      // The review page keys its "check the link in the sheet" hint on this prefix.
+      { message: /^photo URL points at a private or loopback address/ },
     );
     assert.equal(called, false, "no network call for a rejected URL");
   } finally {
@@ -107,10 +108,9 @@ test("a redirect to a private-network URL throws the guard's reason before a sec
     { status: 302, location: "http://127.0.0.1/x.jpg" },
   ]);
   try {
-    await assert.rejects(
-      () => fetchPhoto("https://host.example/photo.jpg"),
-      /private or loopback/,
-    );
+    await assert.rejects(() => fetchPhoto("https://host.example/photo.jpg"), {
+      message: /^photo redirect URL points at a private or loopback address/,
+    });
     assert.equal(stub.callCount(), 1, "no second fetch after a bad redirect");
   } finally {
     stub.restore();
@@ -139,10 +139,9 @@ test("four chained redirects throw 'redirects too many times'", async () => {
     { status: 302, location: "https://host.example/4.jpg" },
   ]);
   try {
-    await assert.rejects(
-      () => fetchPhoto("https://host.example/photo.jpg"),
-      /redirects too many times/,
-    );
+    await assert.rejects(() => fetchPhoto("https://host.example/photo.jpg"), {
+      message: /^photo redirects too many times/,
+    });
     assert.equal(stub.callCount(), 4, "3 hops followed, the 4th one throws");
   } finally {
     stub.restore();
