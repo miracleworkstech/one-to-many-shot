@@ -356,3 +356,24 @@ live in `ASSUMPTIONS.md`, not here.
   user's call.
 - **Revisit trigger:** A catalog whose photos live on a host we do not recognise, or the app
   ever running with access to anything on a private network worth protecting.
+
+## D17 — A candidate remembers the idea it was generated with; approved filenames come from it (2026-09-04)
+
+- **Decision:** `candidates.shot_idea` snapshots the product's shot idea at enqueue, next to the
+  prompt built from it. `approvedByProduct` names each approved file from that snapshot, so
+  editing the product's idea afterwards (review-page edit, re-import, a "try again" note) no
+  longer renames files the team already downloaded. Rows generated before the column existed
+  are backfilled once from the product's current idea, the best available guess. The user
+  chose this over leaving finding 3 of the whole-codebase Codex pass as an accepted cost;
+  finding 4 (missing image files still counted as approved) stays accepted.
+- **Alternatives:** Store the full filename at approval (also freezes the `-01` number across
+  un-approval). Mark approvals stale when the idea changes (turns a filename problem into a
+  workflow question Ellie has to answer). Parse the idea back out of the stored prompt (fragile).
+- **Why:** The brief's hand-off is a Drive folder of files whose names must stay meaningful
+  and stable; a rename between two exports is the "which file is final?" confusion the build
+  exists to remove. One nullable column and one read-side fallback is the smallest change
+  that makes the name a fact about the candidate rather than about the product today.
+- **Cost accepted:** Un-approving a candidate still renumbers the ones after it. The
+  backfill is a guess for pre-existing rows (none in production yet: the volume is empty).
+  Two additive columns now live inline in `db.ts`; a migrations table at the third.
+- **Revisit trigger:** A request for stable numbering, or a third schema change.

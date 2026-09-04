@@ -68,16 +68,18 @@ export function approvedByProduct() {
       .filter((c) => c.state === "approved")
       // ponytail: ordered by decided_at (the actual approval order), id as the tiebreaker
       // when decided_at ties or is null. Un-approving a candidate later renumbers everything
-      // after it in this ordering, and editing the shot idea renames every file for the SKU
-      // (the slug is built from the current idea). A stored filename column on the candidate
-      // row is the upgrade the day a downloaded zip must stay stable across edits.
+      // after it in this ordering (accepted). The slug is built from `c.shot_idea`, the idea
+      // snapshotted when the candidate was generated, so editing the product's idea afterward
+      // no longer renames it (Task 8d); `?? p.shot_idea` is only for legacy rows generated
+      // before that snapshot existed. A stored full filename column is the upgrade the day
+      // numbering must also stay stable across un-approval.
       .sort(
         (a, b) =>
           (a.decided_at ?? "").localeCompare(b.decided_at ?? "") || a.id - b.id,
       )
       .map((c, i) => ({
         c,
-        name: approvedFilename(p.sku, p.shot_idea, i + 1),
+        name: approvedFilename(p.sku, c.shot_idea ?? p.shot_idea, i + 1),
       }));
     return { p, approved, status: productStatus(!!p.shot_idea, mine) };
   });

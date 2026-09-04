@@ -85,11 +85,11 @@ export function enqueue(
         .run(kind, estimatedUsd).lastInsertRowid,
     );
     const ins = d.prepare(
-      "insert into candidates (sku, batch_id, prompt) values (?, ?, ?)",
+      "insert into candidates (sku, batch_id, prompt, shot_idea) values (?, ?, ?, ?)",
     );
     for (const p of targets)
       for (let i = 0; i < per; i++)
-        ins.run(p.sku, batchId, buildPrompt(p, p.shot_idea));
+        ins.run(p.sku, batchId, buildPrompt(p, p.shot_idea), p.shot_idea);
     return { batchId, queued: planned, skipped, estimatedUsd };
   })();
 }
