@@ -244,6 +244,19 @@ test("zipSizeFor refuses a zip past the 4 GB zip64 boundary instead of truncatin
     zipSizeFor([{ nameBytes: 0, size: 0xffffffff - 114 }]),
     0xffffffff,
   );
+  // A name is a 2-byte length field: 65535 bytes fits, 65536 does not.
+  assert.ok(zipSizeFor([{ nameBytes: 0xffff, size: 0 }]) > 0);
+  assert.throws(
+    () => zipSizeFor([{ nameBytes: 0x10000, size: 0 }]),
+    /over 4 GB/,
+  );
+  // The entry count is a 2-byte field whose 0xffff value is the zip64 sentinel.
+  const entry = { nameBytes: 1, size: 0 };
+  assert.ok(zipSizeFor(Array.from({ length: 0xfffe }, () => entry)) > 0);
+  assert.throws(
+    () => zipSizeFor(Array.from({ length: 0xffff }, () => entry)),
+    /over 4 GB/,
+  );
 });
 
 test("exportZip streams lazily: reading only the first chunk has not read every approved image yet (D14)", async () => {

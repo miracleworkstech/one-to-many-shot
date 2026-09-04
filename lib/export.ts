@@ -79,8 +79,14 @@ export function zipSizeFor(
   // Every size and offset in the layout above is a 4-byte field and the entry count a
   // 2-byte one; past those we would need zip64. `total` exceeds any single entry's size,
   // so it covers both. Refuse rather than let fflate's wbytes wrap and hand out a corrupt
-  // archive. (65535 entries is two orders of magnitude past this catalog.)
-  if (total > 0xffffffff || entries.length > 0xffff)
+  // archive. 0xffff in the entry-count field is the zip64 sentinel, so the last plain
+  // count is 0xfffe (two orders of magnitude past this catalog); a name is a 2-byte length
+  // field too (fflate throws "filename too long" mid-stream otherwise).
+  if (
+    total > 0xffffffff ||
+    entries.length >= 0xffff ||
+    entries.some((e) => e.nameBytes > 0xffff)
+  )
     throw new Error(ZIP_TOO_LARGE);
   return total;
 }
