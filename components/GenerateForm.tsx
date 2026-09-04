@@ -23,6 +23,14 @@ export function GenerateForm({
     FormData
   >((_prev, formData) => generateNext(formData), null);
   const [n, setN] = useState(Math.min(10, max));
+  // `ready` shrinks after every batch (revalidation re-renders with a smaller max) while
+  // `n` is preserved state; re-clamp during render, as IdeaForm re-syncs its textarea, so
+  // the input, the estimate on the button and the submitted count never disagree.
+  const [prevMax, setPrevMax] = useState(max);
+  if (max !== prevMax) {
+    setPrevMax(max);
+    if (n > max) setN(max);
+  }
   // Clamp only for the shown estimate; the input's own min/max already stop the user
   // reaching an out-of-range value, this just covers a cleared or partial field.
   const clampedN = Math.min(max, Math.max(1, n));
