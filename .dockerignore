@@ -1,0 +1,10 @@
+node_modules
+.next
+data-local
+scratch
+dist
+.git
+.superpowers
+.env*
+!.env.example
+.take-home-token

@@ -29,6 +29,26 @@ export const env = {
 /** Call at server start, never at build: Next sets NODE_ENV=production during `next build` too. */
 export function assertProductionEnv() {
   if (process.env.NODE_ENV !== "production") return;
-  for (const k of ["LUMA_AGENTS_API_KEY", "ACCESS_TOKEN"] as const)
+  for (const k of ["LUMA_AGENTS_API_KEY", "ACCESS_TOKEN", "APP_URL"] as const)
     if (!process.env[k]) throw new Error(`Missing required env var ${k}`);
+  const invalidAppUrl = () =>
+    new Error(
+      "Invalid APP_URL: must be an http(s) origin with no path, e.g. https://shots.example.railway.app",
+    );
+  let url: URL;
+  try {
+    url = new URL(process.env.APP_URL ?? "");
+  } catch {
+    throw invalidAppUrl();
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:")
+    throw invalidAppUrl();
+  if (
+    url.pathname !== "/" ||
+    url.search ||
+    url.hash ||
+    url.username ||
+    url.password
+  )
+    throw invalidAppUrl();
 }

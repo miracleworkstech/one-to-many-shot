@@ -132,3 +132,25 @@ When you're ready, run the submit script from your repo root:
 ```
 
 This handles everything: packages your AI session history, commits and pushes your latest changes, grants reviewer access, and registers your submission. You'll see a confirmation when it's done.
+
+---
+
+## Running it
+
+**Env vars** — `.env.example` is the committed template; copy it to `.env.local`, fill in secrets there, and never commit `.env.local` (or any other filled-in `.env` file). See `.env.example` for the full list; the ones that matter to start:
+
+- `LUMA_AGENTS_API_KEY` — required in production.
+- `ACCESS_TOKEN` — required in production; the shared team link is `APP_URL/?k=ACCESS_TOKEN`. Visiting it once sets a cookie, so the rest of the site "just works" after that.
+- `APP_URL`, `DATA_DIR` — public URL and where the SQLite DB and images live (`/data` on Railway, a mounted volume). `APP_URL` is required in production and must be the bare origin (no path).
+
+**Local dev:**
+
+```bash
+npm install && npm run prepare   # enables the pre-commit hook (npm run check)
+npm run dev                      # http://localhost:3000, no ACCESS_TOKEN needed
+npm run check                    # typecheck, lint, format, tests — same as CI and the pre-commit hook
+```
+
+**Deploy (Railway):** new project from this GitHub repo, builder = Dockerfile (`railway.json`). Add a volume mounted at `/data` with a daily backup enabled. Set the env vars from `.env.example` (paste the Luma key by hand from your own `.env.local`, never through an AI session). Generate a domain, set `APP_URL` to it, redeploy. `/healthz` is the health check path and is exempt from the access gate.
+
+The access-gate redirect uses `APP_URL` as its origin (not forwarded headers, which a client can fake), so set it to the public domain.

@@ -36,10 +36,14 @@ test("assertProductionEnv fails fast only in production", () => {
     NODE_ENV: process.env.NODE_ENV,
     LUMA_AGENTS_API_KEY: process.env.LUMA_AGENTS_API_KEY,
     ACCESS_TOKEN: process.env.ACCESS_TOKEN,
+    APP_URL: process.env.APP_URL,
   };
   try {
     delete process.env.LUMA_AGENTS_API_KEY;
     delete process.env.ACCESS_TOKEN;
+    Object.assign(process.env, {
+      APP_URL: "https://shots.example.railway.app",
+    });
     setNodeEnv("test");
     assert.doesNotThrow(assertProductionEnv);
     setNodeEnv("production");
@@ -48,6 +52,53 @@ test("assertProductionEnv fails fast only in production", () => {
     assert.throws(assertProductionEnv, /ACCESS_TOKEN/);
     process.env.ACCESS_TOKEN = "y";
     assert.doesNotThrow(assertProductionEnv);
+  } finally {
+    for (const [k, v] of Object.entries(saved))
+      if (v === undefined) Reflect.deleteProperty(process.env, k);
+      else Reflect.set(process.env, k, v);
+  }
+});
+
+test("assertProductionEnv validates APP_URL is an http(s) origin with no path", () => {
+  const saved = {
+    NODE_ENV: process.env.NODE_ENV,
+    LUMA_AGENTS_API_KEY: process.env.LUMA_AGENTS_API_KEY,
+    ACCESS_TOKEN: process.env.ACCESS_TOKEN,
+    APP_URL: process.env.APP_URL,
+  };
+  try {
+    process.env.LUMA_AGENTS_API_KEY = "x";
+    process.env.ACCESS_TOKEN = "y";
+    setNodeEnv("production");
+
+    Object.assign(process.env, {
+      APP_URL: "https://shots.example.railway.app",
+    });
+    assert.doesNotThrow(assertProductionEnv);
+
+    Object.assign(process.env, {
+      APP_URL: "https://shots.example.railway.app/",
+    });
+    assert.doesNotThrow(assertProductionEnv); // trailing slash is fine
+
+    Object.assign(process.env, {
+      APP_URL: "https://shots.example.railway.app/some/path",
+    });
+    assert.throws(assertProductionEnv, /Invalid APP_URL/);
+
+    Object.assign(process.env, { APP_URL: "ftp://shots.example.railway.app" });
+    assert.throws(assertProductionEnv, /Invalid APP_URL/);
+    for (const bad of [
+      "https://shots.example.railway.app/?x=1",
+      "https://shots.example.railway.app/#top",
+      "https://user:pw@shots.example.railway.app",
+    ]) {
+      Object.assign(process.env, { APP_URL: bad });
+      assert.throws(assertProductionEnv, /Invalid APP_URL/, bad);
+    }
+
+    Reflect.deleteProperty(process.env, "APP_URL");
+    assert.throws(assertProductionEnv, /Missing required env var APP_URL/);
   } finally {
     for (const [k, v] of Object.entries(saved))
       if (v === undefined) Reflect.deleteProperty(process.env, k);

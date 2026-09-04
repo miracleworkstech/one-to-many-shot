@@ -1457,7 +1457,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - Create: `middleware.ts`, `Dockerfile`, `railway.json`, `.dockerignore`
 - Modify: `.env.example`, `README.md` (append a "Running it" section only; the brief stays intact)
 
-- [ ] **Step 1: middleware.ts**
+- [x] **Step 1: middleware.ts**
 
 ```ts
 import { NextResponse, type NextRequest } from "next/server";
@@ -1479,7 +1479,7 @@ export const config = { matcher: ["/((?!_next|favicon.ico|healthz).*)"] };
 
 Add `app/healthz/route.ts`: `export const GET = () => new Response("ok");`
 
-- [ ] **Step 2: Dockerfile and .dockerignore**
+- [x] **Step 2: Dockerfile and .dockerignore**
 
 ```dockerfile
 FROM node:22-bookworm-slim AS build
@@ -1507,7 +1507,7 @@ CMD ["node", "server.js"]
 { "$schema": "https://railway.app/railway.schema.json", "build": { "builder": "DOCKERFILE" }, "deploy": { "restartPolicyType": "ON_FAILURE", "healthcheckPath": "/healthz", "healthcheckTimeout": 60 } }
 ```
 
-- [ ] **Step 3: .env.example**
+- [x] **Step 3: .env.example**
 
 Replace contents with the keys this app actually reads, no values:
 ```

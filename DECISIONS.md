@@ -299,3 +299,34 @@ live in `ASSUMPTIONS.md`, not here.
 - **Revisit trigger:** A request to hand a link to someone outside the team, which is when
   per-user or expiring links replace the shared token. A weekly hand-off that wants only
   new approvals, which is when the `since` filter earns its place.
+
+## D15 — The access gate redirects to `APP_URL`, and the server exits when startup fails (2026-09-04)
+
+- **Decision:** `middleware.ts` gates every route except `_next/`, `favicon.ico` and `healthz`
+  (exact matches, not prefixes), accepts `?k=<token>` on any path because the exported CSV
+  links images that way (D14), sets the token as a one-year httpOnly cookie and redirects to
+  the same path with `k` removed, using the configured `APP_URL` as the origin. `APP_URL` is
+  therefore required in production and must be a bare http(s) origin, checked by
+  `assertProductionEnv()`. `instrumentation.ts` wraps the whole Node startup (env assertion,
+  imports, `startWorker()`) and exits 1 on any throw. The runtime image runs as root.
+- **Alternatives:** Build the redirect from `x-forwarded-proto` and `x-forwarded-host` (the
+  first cut did; the evaluator showed a forged header turns the link into an open redirect
+  for anyone holding the token). Leave Next's behaviour on a thrown `register()`: the
+  standalone server logs "Failed to prepare server" and keeps serving 500s, so a Railway
+  deploy with a missing variable sits unhealthy instead of restarting (verified in Docker).
+  A hashed cookie value instead of the raw token. A non-root user in the image.
+- **Why:** The team link is minted from `APP_URL`, so the redirect host matches by
+  construction and nothing client-controlled reaches the `Location` header. Fail fast in
+  production is a plan constraint and Railway's `ON_FAILURE` restart and healthcheck both key
+  off a process exit. Railway mounts volumes root-owned, and a non-root user would need a
+  chown step for `/data`; at six users on one container the isolation gain is nil.
+- **Cost accepted:** A wrong `APP_URL` sends the team link to the wrong host; the deploy
+  checklist's first step (open `APP_URL/?k=TOKEN`) catches it immediately. The cookie holds
+  the same secret as the link (httpOnly, `secure` on https). The matcher test anchors the
+  brief's regex source rather than driving Next's compiler (Codex finding, accepted: the
+  compiled matcher was exercised live in the Docker check). The `process.exit` wrap is
+  verified only by the Docker check, not a unit test.
+- **Revisit trigger:** The app being reached at two hosts at once (custom domain plus the
+  Railway default), when the canonical-host redirect becomes visible to the team. A request
+  for per-user access, which is D14's trigger too. A Next upgrade that makes `register()`
+  errors fatal, at which point the wrap can go.
