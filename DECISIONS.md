@@ -135,8 +135,9 @@ live in `ASSUMPTIONS.md`, not here.
   verdict, which must be PASS, (3) a Codex review of the task diff (`codex:codex-rescue`,
   read-only). Codex runs only after the evaluator passes, never in parallel with it. Cheap
   Codex findings are fixed on the branch and re-checked; product-decision findings go to
-  the user verbatim in the PR and the recap. Only then is the PR opened. The whole-diff
-  Codex pass after Task 8 stays. Progress is tracked in `docs/STATE.md` so
+  the user verbatim in the PR and the recap. Only then is the PR opened. Codex is part of
+  validation, not of review: it finishes before the user sees the PR, and the user's review
+  is the last gate before merge. The whole-diff Codex pass after Task 8 stays. Progress is tracked in `docs/STATE.md` so
   a fresh session can resume at the next task. Work happens in the main tree, no worktrees
   (tasks are sequential; a worktree per task adds a merge for no isolation).
 - **Alternatives:** Inline execution in this session. Single subagent per task without an

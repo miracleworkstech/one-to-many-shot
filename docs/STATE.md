@@ -36,7 +36,8 @@ Task 3 are open product decisions for the user (see "Open items").
 3b. Third check, only after the evaluator PASSes: Codex review of the task diff
    (`codex:codex-rescue` subagent, read-only). Cheap findings are fixed on the branch and
    re-checked; product-decision findings go to the user verbatim (D8, amended 2026-09-04).
-   Do not run it while `next dev` is up (it rebuilds `.next`).
+   Codex is validation, so it finishes before the PR is opened; the user's review (step 5)
+   is the last gate. Do not run it while `next dev` is up (it rebuilds `.next`).
 4. Main session commits with the plan's message (the pre-commit hook runs `npm run check`),
    pushes the branch, opens a PR to `main` with both agents' summaries, updates this file
    and the plan checkboxes on the branch, appends to DECISIONS.md if a material choice was
