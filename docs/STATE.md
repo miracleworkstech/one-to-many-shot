@@ -20,8 +20,12 @@ app route 401 without the link, no cookie on a wrong token. The user chose to fi
 six whole-codebase findings; that is Task 8c (`task/8c-codex-fixes`, D16), in PR, waiting for
 review. Then the user chose to fix finding 3 too: Task 8d (`task/8d-idea-snapshot`, D17,
 chained on 8c) snapshots the shot idea on the candidate so approved filenames stop changing
-when the idea is edited. Next: merge 8c then 8d (both fast-forward in that order), then Task 9
-(docs, video, submit).** Earlier note, kept for
+when the idea is edited. 8c and 8d merged (PRs #9, #10; main at a34cc96, deployed). Luma credits
+topped up and the Slack webhook set by the user. Live end-to-end run 2026-09-04 through the
+team link: HG-001, 1 product, estimate $0.09 shown before the tap, actual $0.09, both
+candidates landed in review within a minute, Slack message received (user confirmed). Total
+live spend $0.17 over two batches; D5's owed real generation is discharged. Next: Task 9
+(final docs, video, submit) on the user's go.** Earlier note, kept for
 the record: Task 7 merged as PR #6. The original next action was: read the brief at
 `.superpowers/sdd/task-8-brief.md` (regenerate with the task-brief script if missing), then
 run Task 8 through implementer → evaluator → Codex → PR → user review. Deltas to give the
@@ -83,7 +87,7 @@ candidate with no retry and shows `failure.userMessage` on the card.
 ## Environment facts
 
 - Luma Agents API key is in `.env.local` (never read it). It authenticates (a GET on a bogus
-  id returns 404, not 401) but the account has **zero credits** as of 2026-09-04 (402
+  id returns 404, not 401) had zero credits until 2026-09-04 (topped up that evening; two live batches since) (402
   `RATE_LIMIT.BUDGET.EXCEEDED` on `scripts/smoke_luma.py`, $0 spent). The user tried a
   second key on 2026-09-04; it was a different Luma product (401 on the Agents API) and was
   reverted. Decision: proceed without credits; the worker's 402 pause path is what gets
@@ -110,19 +114,15 @@ candidate with no retry and shows `failure.userMessage` on the card.
 - Pre-commit hook active locally (`core.hooksPath=.githooks`). GitHub Actions `check` runs on push.
 - This Windows machine has a small paging file; it has killed a pre-commit hook mid-run twice
   (no lint output, exit 1). Rerun the commit; never bypass the hook.
-- Slack incoming webhook: **required for the demo** (user's call 2026-09-04); not created
-  yet. The user creates it in the workspace and sets `SLACK_WEBHOOK_URL` on the Railway
-  service; the app runs without it until then.
+- Slack incoming webhook: created and set on the Railway service by the user 2026-09-04;
+  one message per settled batch confirmed live.
 
 ## Open items for the user
 
-- Luma credits: still zero as of 2026-09-04; needed for the demo and D5's owed generation.
-- Slack incoming webhook URL, set on the Railway service (needed for the demo).
 - Railway: variables and domain set by the user 2026-09-04 (the connector's write actions are
   blocked by the session's permission classifier; reads work). Confirm the `/data` volume
   with daily backups exists in the dashboard.
 - Railway account confirmed.
-- Slack webhook URL for the demo (optional).
 
 ## Resume checklist for a fresh session
 
