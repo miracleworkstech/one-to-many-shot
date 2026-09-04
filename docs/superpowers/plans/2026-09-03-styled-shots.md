@@ -40,7 +40,7 @@
 | 1 | Maya double-taps "Generate next 10" | Two enqueues of 20 candidates, $1.74 instead of $0.87 | `enqueue()` runs in one SQLite transaction; a product with any queued/processing candidate is skipped; the in-flight cap counts queued+processing across all products. Second tap enqueues nothing and says so. |
 | 2 | Worker ticks overlap (slow Luma call, next interval fires) | Same queued candidate submitted twice | Single-flight: `tick()` returns immediately if a tick is running. One process, one loop, no cron. |
 | 3 | Process dies after Luma accepted the job but before we stored the generation id | Candidate still `queued`, resubmitted on restart; one image paid for twice ($0.04) | Accepted. Logged as a warning at boot when candidates are `queued` with `attempts > 0`. Not worth a two-phase state in v1. |
-| 4 | Luma 402 (credits exhausted) | Every tick retries every queued candidate forever, log storm | Worker sets `settings.paused_reason`, submits nothing until a human clicks Resume. Banner on the status page. |
+| 4 | Luma 402 (credits exhausted), 401 (bad key), 403 (client suspended) | Every tick retries every queued candidate forever, log storm; a bad key burns five attempts per candidate | Worker sets `settings.paused_reason` with the `LumaError.userMessage`, submits nothing until a human clicks Resume. Banner on the status page. (401/403 added by D11.) |
 | 5 | Luma 429 (rate limit) | Hammering | Stop submitting for this tick, leave candidates queued. Concurrency is capped by `LUMA_CONCURRENCY` (default 4) anyway. |
 | 6 | Luma 5xx or network error on submit | Silent stall | `attempts` incremented; after 5 the candidate is `failed` with the last error, visible on the card with a retry button. |
 | 7 | Result URL expired before download (worker was down > 1 h) | Download 403 | Re-poll the generation on next tick for a fresh URL; candidate stays `processing`. |
@@ -75,7 +75,8 @@ lib/
   prompt.ts                  Luma prompt from product + idea (pure)
   names.ts                   approved filename (pure)
   photos.ts                  fetch product photo with browser UA
-  luma.ts                    Luma Agents API client + typed errors
+  luma.ts                    Luma Agents API client (transport, polling)
+  luma-errors.ts             every Luma status and failure_code -> typed code + plain-English message (D11)
   suggest.ts                 Haiku shot-idea suggestions + template fallback
   slack.ts                   incoming webhook transport
   notify.ts                  "batch ready" policy: when to send, what to say
@@ -758,7 +759,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - Create: `lib/luma.ts`, `lib/photos.ts`
 
 **Interfaces:**
-- Produces: `submitEdit({ prompt, jpegBase64 }): Promise<string>` (generation id); `getGeneration(id): Promise<{ state; url?: string; failure?: string }>`; `LumaBudgetError`, `LumaRateLimitError`; `fetchPhoto(url): Promise<Buffer>`.
+- Produces: `submitEdit({ prompt, jpegBase64 }): Promise<string>` (generation id); `getGeneration(id): Promise<{ state: GenerationState; url?: string; failure?: { code: LumaFailureCode; userMessage: string; retryable: boolean } }>`; `LumaError` (`code: LumaErrorCode`, `userMessage`, `detail`, `retryable`, `retryAfterMs?`) with subclasses `LumaBudgetError` (402), `LumaRateLimitError` (429); `fetchPhoto(url): Promise<Buffer>`. (D11, 2026-09-04: every documented Luma status and failure_code maps to a code and a plain-English message; the worker pauses on 401 and 403 as well as 402.)
 
 - [x] **Step 1: lib/luma.ts**
 

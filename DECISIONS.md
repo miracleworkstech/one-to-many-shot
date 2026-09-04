@@ -197,3 +197,26 @@ live in `ASSUMPTIONS.md`, not here.
   app. Accepted because the material impact is small (a Haiku prompt's worth of cost,
   no candidate or approval is touched) and the export CSV carries edits, so the normal
   round trip keeps them. No version check.
+
+## D11 — Every Luma response maps to a typed code and a plain-English message; bad credentials pause the worker (2026-09-04)
+
+- **Decision:** `lib/luma.ts` throws one `LumaError` carrying `code` (typed union: auth,
+  budget, forbidden, rate_limited, bad_request, not_found, upstream, timeout, network,
+  invalid_response), `userMessage` (ours), `detail` (Luma's raw string, for logs),
+  `retryable`, and `retryAfterMs` from the `Retry-After` header. `LumaBudgetError` and
+  `LumaRateLimitError` stay as subclasses. Generation failures come back as
+  `failure: { code, userMessage, retryable }` keyed on Luma's documented `failure_code`
+  list. The worker (Task 5) pauses with a banner on 402, 401 and 403, not only 402.
+- **Alternatives:** Keep the plan's two typed errors plus a generic `Error` (the worker
+  would retry a revoked key five times per candidate and fail every batch with a log
+  storm). Show Luma's `detail` string raw on the card (accurate, but "source: image
+  exceeds 50 MB limit" is not what Ellie needs to read).
+- **Why:** The brief's operator is not an engineer; the card and the banner are the only
+  place an error is seen. The mapping is exact because Luma documents every status and
+  `failure_code` (docs.agents.lumalabs.ai/guides/error-handling). Pausing on 401/403
+  protects the attempt budget and spend from a wrong key, the failure we actually hit
+  during Task 4.
+- **Cost accepted:** A bigger error module than the plan had. Luma's wording changes are
+  absorbed by `detail`, so a new `failure_code` shows as "Luma failed on its side" until
+  the table is extended.
+- **Revisit trigger:** A new `failure_code` appears in logs more than once.

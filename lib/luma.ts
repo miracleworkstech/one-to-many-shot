@@ -1,4 +1,20 @@
 import { env } from "./env";
+import {
+  LumaError,
+  buildFailure,
+  invalidResponse,
+  statusError,
+} from "./luma-errors";
+import type { LumaFailureCode } from "./luma-errors";
+
+export {
+  LUMA_ERROR_CODES,
+  LumaError,
+  LumaBudgetError,
+  LumaRateLimitError,
+  LUMA_FAILURE_CODES,
+} from "./luma-errors";
+export type { LumaErrorCode, LumaFailureCode } from "./luma-errors";
 
 const API = "https://agents.lumalabs.ai/v1";
 
@@ -9,9 +25,6 @@ export const GENERATION_STATES = [
   "failed",
 ] as const;
 export type GenerationState = (typeof GENERATION_STATES)[number];
-
-export class LumaBudgetError extends Error {}
-export class LumaRateLimitError extends Error {}
 
 interface LumaResponse {
   id: string;
@@ -36,19 +49,38 @@ async function call(
   path: string,
   body?: unknown,
 ): Promise<LumaResponse> {
-  const res = await fetch(`${API}${path}`, {
-    method,
-    headers: {
-      Authorization: `Bearer ${env.lumaKey}`,
-      "Content-Type": "application/json",
-    },
-    body: body ? JSON.stringify(body) : undefined,
-    signal: AbortSignal.timeout(30_000),
-  });
-  const text = await res.text();
-  if (res.status === 402) throw new LumaBudgetError("Luma: not enough credits");
-  if (res.status === 429) throw new LumaRateLimitError("Luma: rate limited");
-  if (!res.ok) throw new Error(`Luma ${res.status}: ${text.slice(0, 200)}`);
+  let res: Response;
+  let text: string;
+  try {
+    res = await fetch(`${API}${path}`, {
+      method,
+      headers: {
+        Authorization: `Bearer ${env.lumaKey}`,
+        "Content-Type": "application/json",
+      },
+      body: body ? JSON.stringify(body) : undefined,
+      signal: AbortSignal.timeout(30_000),
+    });
+    text = await res.text(); // a body that dies mid-stream is a network failure too
+  } catch (err) {
+    const name = err instanceof Error ? err.name : "";
+    const detail = err instanceof Error ? err.message : String(err);
+    if (name === "AbortError" || name === "TimeoutError")
+      throw new LumaError({
+        code: "timeout",
+        userMessage: "Luma did not answer within 30 s. Retrying.",
+        detail,
+        retryable: true,
+      });
+    throw new LumaError({
+      code: "network",
+      userMessage: "Could not reach Luma. Retrying.",
+      detail,
+      retryable: true,
+    });
+  }
+  if (!res.ok)
+    throw statusError(res.status, text, res.headers.get("Retry-After"));
   let json: unknown;
   try {
     json = JSON.parse(text);
@@ -57,7 +89,7 @@ async function call(
   }
   // ponytail: no id/state is treated the same as invalid JSON (both mean "not a generation")
   if (!isLumaResponse(json))
-    throw new Error(`Luma ${res.status}: ${text.slice(0, 200)}`);
+    throw invalidResponse(text.slice(0, 200), res.status);
   return json;
 }
 
@@ -75,22 +107,32 @@ export async function submitEdit(args: {
   return gen.id;
 }
 
-export async function getGeneration(
-  id: string,
-): Promise<{ state: GenerationState; url?: string; failure?: string }> {
+export async function getGeneration(id: string): Promise<{
+  state: GenerationState;
+  url?: string;
+  failure?: {
+    code: LumaFailureCode;
+    userMessage: string;
+    retryable: boolean;
+    detail: string;
+  };
+}> {
   const g = await call("GET", `/generations/${id}`);
   if (!GENERATION_STATES.includes(g.state as GenerationState))
-    throw new Error(`Luma: unexpected generation state "${g.state}"`);
+    throw invalidResponse(g.state);
+  const state = g.state as GenerationState;
   const rawUrl = g.output?.[0]?.url;
   const url = typeof rawUrl === "string" && rawUrl ? rawUrl : undefined;
   // A completed generation always carries output; without it the worker would re-poll forever.
-  if (g.state === "completed" && !url)
-    throw new Error(`Luma: generation ${id} completed without an output url`);
+  if (state === "completed" && !url)
+    throw invalidResponse(`generation ${id} completed without an output url`);
+
   return {
-    state: g.state as GenerationState,
+    state,
     url,
-    failure: g.failure_reason
-      ? `${g.failure_code ?? ""} ${g.failure_reason}`.trim()
-      : undefined,
+    failure:
+      state === "failed"
+        ? buildFailure(g.failure_code, g.failure_reason)
+        : undefined,
   };
 }
