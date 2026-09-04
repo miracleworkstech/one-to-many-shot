@@ -1,5 +1,21 @@
 import type { CandidateState } from "./types";
 
+/** Reading order for the review page, not the database: what Ellie still has to decide
+ *  comes first, then what is on its way, then what she already decided, then what broke.
+ *  Newest first within a rank. */
+const RANK: Record<CandidateState, number> = {
+  completed: 0,
+  processing: 1,
+  queued: 1,
+  approved: 2,
+  rejected: 3,
+  failed: 4,
+};
+export const byReadingOrder = (
+  a: { state: CandidateState; id: number },
+  b: { state: CandidateState; id: number },
+) => RANK[a.state] - RANK[b.state] || b.id - a.id;
+
 export const PRODUCT_STATUSES = [
   "no_idea",
   "idea_ready",

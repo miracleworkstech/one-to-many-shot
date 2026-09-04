@@ -135,7 +135,8 @@ export function photoUrlProblem(url: string): string | null {
 export async function fetchPhoto(url: string): Promise<Buffer> {
   const problem = photoUrlProblem(url);
   // Covers rows imported before this guard existed, not just newly-imported CSVs.
-  if (problem) throw new PhotoError(problem, false);
+  // Every PhotoError message starts with "photo": the review page keys its repair hint on it.
+  if (problem) throw new PhotoError(`photo URL ${problem}`, false);
   let current = url;
   let redirects = 0;
   let res: Response;
@@ -165,7 +166,8 @@ export async function fetchPhoto(url: string): Promise<Buffer> {
       throw new PhotoError(`photo not reachable (HTTP ${res.status})`, false);
     const next = new URL(location, current).toString();
     const nextProblem = photoUrlProblem(next);
-    if (nextProblem) throw new PhotoError(nextProblem, false);
+    if (nextProblem)
+      throw new PhotoError(`photo redirect URL ${nextProblem}`, false);
     current = next;
   }
   if (!res.ok)

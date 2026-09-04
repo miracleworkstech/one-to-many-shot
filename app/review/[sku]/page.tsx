@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { productDetail } from "@/lib/queries";
-import { STATUS_LABEL } from "@/lib/status";
-import type { Candidate, CandidateState } from "@/lib/types";
+import { STATUS_LABEL, byReadingOrder } from "@/lib/status";
+import type { CandidateState } from "@/lib/types";
 import { env } from "@/lib/env";
 import { decide, updateIdea } from "@/lib/actions/review";
 import { DECISIONS } from "@/lib/review";
@@ -23,21 +23,9 @@ const DECIDED_FILL = {
   rejected: "bg-red-700 text-white border-red-700",
 };
 
-/** Reading order for the page, not the database: what Ellie still has to decide comes
- *  first, then what is on its way, then what she already decided, then what broke. */
-const RANK: Record<CandidateState, number> = {
-  completed: 0,
-  processing: 1,
-  queued: 1,
-  approved: 2,
-  rejected: 3,
-  failed: 4,
-};
-const byReadingOrder = (a: Candidate, b: Candidate) =>
-  RANK[a.state] - RANK[b.state] || b.id - a.id;
-
-/** The photo host answered but refused us (lib/photos.ts). The fix is in the sheet, not here. */
-const isPhotoProblem = (reason: string | null) => /photo/i.test(reason ?? "");
+/** Every PhotoError message starts with "photo" (lib/photos.ts): the fix is the link in the
+ *  sheet, not another attempt. Anything else came back from Luma. */
+const isPhotoProblem = (reason: string | null) => /^photo/i.test(reason ?? "");
 
 export default async function Review({
   params,
@@ -99,7 +87,7 @@ export default async function Review({
           <p className="mt-1 text-sm text-stone-700">Note: {p.notes}</p>
         )}
         <details className="mt-1 text-sm" open={!p.shot_idea}>
-          <summary className="inline-flex min-h-10 cursor-pointer select-none items-center text-stone-700 underline">
+          <summary className="inline-flex min-h-11 cursor-pointer select-none items-center text-stone-700 underline">
             {p.shot_idea ? "Edit the idea" : "Write the shot idea"}
           </summary>
           {/* The keys keep no client state across products: a half-typed idea cannot follow
@@ -154,7 +142,9 @@ export default async function Review({
                   <p className="mt-1 text-red-800">
                     {isPhotoProblem(c.failure_reason)
                       ? "Check the Photo link for this row in the sheet, re-import, then try again."
-                      : "Try again below for a fresh set."}
+                      : status === "generating"
+                        ? "Wait for the one in progress, then try again below."
+                        : "Try again below for a fresh set."}
                   </p>
                 </div>
               ) : (
