@@ -11,9 +11,10 @@ on the user's go, `git checkout -b task/4-luma` and run Task 4 (Luma client, pho
 through implementer, evaluator, and Codex, then open a PR and stop. The Task 3 Codex
 findings were decided 2026-09-04: sheet wins on re-import (D10 addendum).
 
-**Update 2026-09-04: Task 6 passed all three checks and is on `task/6-review` with PR #5
-open.** Next action: user review, ff-merge, delete the branch, then Task 7 (exports) on
-`task/7-exports`; its brief is at `.superpowers/sdd/task-7-brief.md`. Notes for Task 5 from the Task 4 reviewers: write the
+**Update 2026-09-04: Task 7 passed all three checks and is on `task/7-exports` with PR #6
+open.** Next action: user review, ff-merge, delete the branch, then Task 8 (access gate,
+Docker, Railway) on `task/8-deploy`; its brief is at `.superpowers/sdd/task-8-brief.md`. Task 8's middleware must accept `?k=` on `/img/[id]` (the CSV links carry
+it) as well as on `/`, and gate `/export/*`. Notes for Task 5 from the Task 4 reviewers: write the
 `GenerationState` to `CandidateState` mapping out explicitly (the vocabularies coincide so
 a bare pass-through would typecheck); an unexpected-state or completed-without-url throw
 from `getGeneration` fires after the $0.0434 was committed, so it must not be counted like
@@ -32,8 +33,8 @@ candidate with no retry and shows `failure.userMessage` on the card.
 | 3 Import, suggestions, read model, status page | merged | PR #2 | evaluator PASS round 2 (8 mutants / 5 killed, then 3/5, survivors need network or a React renderer); Codex: 4 findings, 2 fixed (2 MB upload cap, honest `suggested` count), 2 to the user; manual check with Haiku: 40 rows, 24 model ideas |
 | 4 Luma client, photo fetch | merged | PR #3 | evaluator PASS round 2 (8 mutants / 7 killed; the survivor is the timeout value); Codex: 6 findings, 4 fixed (JPEG magic bytes, 15 MB photo cap, url must be a string, empty id and completed-without-url throw), then D11 (user's ask): every Luma status and failure_code maps to a typed code and plain-English message in `lib/luma-errors.ts`; evaluator PASS (16 mutants / 14 killed, survivors fixed), Codex: 3 findings fixed (key redaction, Retry-After clamp, body-read failure). 74 tests. Live: key authenticates, 402 no credits, $0 spent |
 | 5 Admission control, worker, notify, analytics | merged | PR #4 | evaluator FAIL→PASS (19 then 9 mutants; live 402 pause at $0 twice); Codex: 7 findings, 6 fixed (shared worker lock across hot reloads, positive env bounds, no double-counted processing cost, bounded download retries, retryable photo errors, integer n), 1 accepted (per-settlement Slack message, D12 addendum) |
-| 6 Review page, image route | PR open | task/6-review | evaluator FAIL→PASS (8 mutants, 5 killed by tests, 3 browser-only killed by hand; 375 px check at $0 twice); Codex: 8 findings, 7 fixed (kind validation, retry note only with an idea, length limits, decide bound to sku, keyed forms, IdeaForm pending state, updated_at restore), 1 deferred to Task 8 (img route auth = the token middleware); D13 |
-| 7 Exports | not started | | |
+| 6 Review page, image route | merged | PR #5 | evaluator FAIL→PASS (8 mutants, 5 killed by tests, 3 browser-only killed by hand; 375 px check at $0 twice); Codex: 8 findings, 7 fixed (kind validation, retry note only with an idea, length limits, decide bound to sku, keyed forms, IdeaForm pending state, updated_at restore), 1 deferred to Task 8 (img route auth = the token middleware); D13 |
+| 7 Exports | PR open | task/7-exports | evaluator PASS (9 mutants / 8 killed, survivor fixed; full-catalog round trip 40 rows 0 diffs, $0); Codex: 8 findings, 5 fixed (formula neutralisation with a leading space, SKU slug in zip names, missing-file warning, UTF-8 BOM + charset, memory ceiling named), 3 accepted (in-process snapshots, second-resolution ties, streaming zip later); A16 |
 | 8 Access gate, Docker, Railway | not started | | the middleware must gate `/img/[id]` and `/export/*` too (Codex on Task 6: candidate images are enumerable without it) |
 | 9 Final docs, video, submit | not started | | |
 

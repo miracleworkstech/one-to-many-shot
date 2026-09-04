@@ -1368,7 +1368,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - Consumes: `db`, `storage`, `approvedFilename`, `productStatus`, `STATUS_LABEL`, `REQUIRED_HEADERS`, `spendBySku`.
 - Produces: `queries.approvedByProduct()`; `exportCsv(): string`; `exportZip(): Uint8Array`.
 
-- [ ] **Step 1: approvedByProduct query**
+- [x] **Step 1: approvedByProduct query**
 
 Append to `lib/queries.ts`:
 ```ts
@@ -1385,7 +1385,7 @@ export function approvedByProduct() {
 }
 ```
 
-- [ ] **Step 2: lib/export.ts (formats only)**
+- [x] **Step 2: lib/export.ts (formats only)**
 
 ```ts
 import { stringify } from "csv-stringify/sync";
@@ -1416,7 +1416,7 @@ export function exportZip(): Uint8Array {
 }
 ```
 
-- [ ] **Step 3: Routes**
+- [x] **Step 3: Routes**
 
 `app/export/csv/route.ts`:
 ```ts
@@ -1435,7 +1435,7 @@ export async function GET() {
 }
 ```
 
-- [ ] **Step 4: Manual check, commit**
+- [x] **Step 4: Manual check, commit**
 
 Download both from the status page. Expected: CSV opens in Sheets with the original nine columns first; zip contains `HG-xxx-...-01.jpg` files plus `manifest.csv`.
 

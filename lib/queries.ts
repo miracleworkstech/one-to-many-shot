@@ -1,6 +1,7 @@
 import { db } from "./db";
 import type { Product, Candidate, CandidateState } from "./types";
 import { productStatus, type ProductStatus } from "./status";
+import { approvedFilename } from "./names";
 
 export function overview() {
   const d = db();
@@ -46,4 +47,38 @@ export function productDetail(sku: string) {
   const prev: string | undefined = nav[i - 1];
   const next: string | undefined = nav[i + 1];
   return { p, cands, status: productStatus(!!p.shot_idea, cands), prev, next };
+}
+
+/** Every product with its approved candidates, named in approval order, for the exports.
+ *  ponytail: loads all products and all candidates in two queries and joins them in memory
+ *  rather than a per-product query — fine at ~300 products / a few thousand candidates,
+ *  the scale named in CLAUDE.md. A join in SQL is the upgrade if the catalog grows an
+ *  order of magnitude. */
+export function approvedByProduct() {
+  const d = db();
+  const products = d
+    .prepare("select * from products order by sku")
+    .all() as Product[];
+  const cands = d
+    .prepare("select * from candidates order by id")
+    .all() as Candidate[];
+  return products.map((p) => {
+    const mine = cands.filter((c) => c.sku === p.sku);
+    const approved = mine
+      .filter((c) => c.state === "approved")
+      // ponytail: ordered by decided_at (the actual approval order), id as the tiebreaker
+      // when decided_at ties or is null. Un-approving a candidate later renumbers everything
+      // after it in this ordering, and editing the shot idea renames every file for the SKU
+      // (the slug is built from the current idea). A stored filename column on the candidate
+      // row is the upgrade the day a downloaded zip must stay stable across edits.
+      .sort(
+        (a, b) =>
+          (a.decided_at ?? "").localeCompare(b.decided_at ?? "") || a.id - b.id,
+      )
+      .map((c, i) => ({
+        c,
+        name: approvedFilename(p.sku, p.shot_idea, i + 1),
+      }));
+    return { p, approved, status: productStatus(!!p.shot_idea, mine) };
+  });
 }

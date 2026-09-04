@@ -12,3 +12,12 @@ test("deterministic filenames", () => {
   );
   assert.equal(approvedFilename("HG-001", null, 1), "HG-001-styled-01.jpg");
 });
+test("a hostile SKU cannot become a zip path", () => {
+  const name = approvedFilename("../../etc/x", "idea", 1);
+  assert.ok(
+    !name.includes("/") && !name.includes(String.fromCharCode(92)),
+    "no path separators",
+  );
+  assert.doesNotMatch(name, /\.\./);
+  assert.equal(name, "-etc-x-idea-01.jpg");
+});
