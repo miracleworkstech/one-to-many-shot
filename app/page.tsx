@@ -1,18 +1,18 @@
 import Link from "next/link";
-import { ChevronDown, ChevronRight, Download } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { overview } from "@/lib/queries";
-import { recentBatches, spendSummary } from "@/lib/analytics";
+import { spendSummary } from "@/lib/analytics";
+import { pageOf, pageParam } from "@/lib/paging";
 import {
   DONE_AT,
   STATUS_LABEL,
   STATUS_TONE,
-  shortDate,
   type ProductStatus,
 } from "@/lib/status";
 import type { Product } from "@/lib/types";
 import { ImportForm } from "@/components/ImportForm";
 import { GenerateForm } from "@/components/GenerateForm";
-import { StateDot } from "@/components/StateDot";
+import { StateDot, type Tone } from "@/components/StateDot";
 import { resumeWorker } from "@/lib/actions/generate";
 import { env } from "@/lib/env";
 import { PRIMARY, QUIET } from "@/components/buttons";
@@ -21,16 +21,16 @@ export const dynamic = "force-dynamic";
 
 const ICON = { size: 20, strokeWidth: 1.75, "aria-hidden": true } as const;
 
-/** The page has three zones in reading order: what needs a person, what the machine is
- *  doing (Generate, then the passive states folded), and what comes out (approved images,
- *  Done). Not the enum's order, which is the lifecycle. */
+/** Reading order is who has to act: the reviewer's queue, then the batch trigger, then
+ *  what needs nobody. Not the enum's order, which is the lifecycle. The queue and Ready
+ *  open on every load; the rest fold to a count. */
 const PASSIVE: readonly ProductStatus[] = [
-  "idea_ready",
   "generating",
   "failed",
   "no_idea",
+  "done",
 ];
-/** Rows shown before a list folds the rest. A 40-product drop fits; 300 done do not. */
+/** Rows per page. A 40-product drop is four pages of Ready at most; 300 done is 25. */
 const PAGE = 12;
 
 const usd = (n: number) => `$${n.toFixed(2)}`;
@@ -41,6 +41,8 @@ type Row = {
   toDecide: number;
   approved: number;
 };
+/** Flat query string, first value of a repeated key, for the pagers' links. */
+type Params = Record<string, string>;
 
 /** Anything a reviewer can act on, whatever the lifecycle status says: a product with a
  *  second batch in flight still has its first candidates to decide, and a done product
@@ -81,69 +83,192 @@ function Item(r: Row) {
   );
 }
 
-function Rows({ rows }: { rows: Row[] }) {
-  const head = rows.slice(0, PAGE);
-  const rest = rows.slice(PAGE);
+const PAGER =
+  "inline-flex min-h-11 min-w-22 items-center justify-center gap-1 rounded-lg px-2 font-medium";
+
+/** "1–12 of 33" with Previous and Next as plain links: a query parameter per group and
+ *  the group's anchor, so the reload lands back on the list it came from. */
+function Pager({
+  id,
+  label,
+  page,
+  pages,
+  from,
+  to,
+  total,
+  params,
+}: {
+  id: string;
+  label: string;
+  page: number;
+  pages: number;
+  from: number;
+  to: number;
+  total: number;
+  params: Params;
+}) {
+  if (pages <= 1) return null;
+  const href = (n: number) => {
+    const q = new URLSearchParams(params);
+    q.set(id, String(n));
+    return `?${q}#${id}`;
+  };
+  const off = `${PAGER} text-stone-400`;
+  const on = `${PAGER} text-stone-800 hover:bg-stone-100`;
   return (
-    <>
-      <ul className="divide-y divide-stone-200">
-        {head.map((r) => (
-          <Item key={r.p.sku} {...r} />
-        ))}
-      </ul>
-      {rest.length > 0 && (
-        <details className="mt-1">
-          <summary className="inline-flex min-h-11 cursor-pointer select-none items-center gap-1 rounded-lg px-2 text-sm font-medium text-stone-700 hover:bg-stone-100">
-            <ChevronDown {...ICON} className="chevron" />
-            Show {rest.length} more
-          </summary>
-          <ul className="divide-y divide-stone-200">
-            {rest.map((r) => (
-              <Item key={r.p.sku} {...r} />
-            ))}
-          </ul>
-        </details>
-      )}
-    </>
+    <nav
+      aria-label={`${label} pages`}
+      className="flex items-center justify-between px-2 pt-1 text-sm"
+    >
+      <span className="text-stone-600 tabular-nums">
+        {from}–{to} of {total}
+      </span>
+      <span className="flex gap-1">
+        {page > 1 ? (
+          <a href={href(page - 1)} className={on}>
+            <ChevronLeft {...ICON} />
+            Previous
+          </a>
+        ) : (
+          <span className={off} aria-disabled="true">
+            <ChevronLeft {...ICON} />
+            Previous
+          </span>
+        )}
+        {page < pages ? (
+          <a href={href(page + 1)} className={on}>
+            Next
+            <ChevronRight {...ICON} />
+          </a>
+        ) : (
+          <span className={off} aria-disabled="true">
+            Next
+            <ChevronRight {...ICON} />
+          </span>
+        )}
+      </span>
+    </nav>
   );
 }
 
-/** A folded list for a state nobody has to act on: one line with a dot and a count,
- *  the rows behind a chevron. Closed by default; the count is the information. */
-function Folded({ status, rows }: { status: ProductStatus; rows: Row[] }) {
+/** One group: a disclosure whose summary is the heading, a dot and the count, then a
+ *  page of rows. `open` groups open on every load; a page link also opens its group. */
+function Group({
+  id,
+  label,
+  tone,
+  rows,
+  open,
+  params,
+  empty,
+  children,
+}: {
+  id: string;
+  label: string;
+  tone: Tone;
+  rows: Row[];
+  open: boolean;
+  params: Params;
+  empty?: string;
+  children?: React.ReactNode;
+}) {
+  const pg = pageOf(rows, pageParam(params[id]), PAGE);
   return (
-    <details className="border-t border-stone-200">
-      <summary className="flex min-h-11 cursor-pointer select-none items-center rounded-lg px-2 hover:bg-stone-100">
-        <h2 className="flex flex-1 items-center gap-2 text-sm font-medium text-stone-800">
+    <details
+      id={id}
+      open={open || params[id] !== undefined}
+      className="border-t border-stone-300"
+    >
+      <summary className="flex min-h-14 cursor-pointer select-none items-center rounded-lg px-2 hover:bg-stone-100">
+        <h2 className="flex flex-1 items-center gap-2.5 text-xl font-semibold text-stone-900">
           <ChevronDown {...ICON} className="chevron text-stone-500" />
-          <StateDot tone={STATUS_TONE[status]} />
-          <span className="flex-1">{STATUS_LABEL[status]}</span>
-          <span className="text-stone-600 tabular-nums">
+          <StateDot tone={tone} />
+          <span className="flex-1">{label}</span>
+          <span className="font-normal text-stone-500 tabular-nums">
             <span className="sr-only">, </span>
             {rows.length}
           </span>
         </h2>
       </summary>
-      <div className="pb-2">
-        <Rows rows={rows} />
+      <div className="pb-3">
+        {children}
+        {rows.length > 0 ? (
+          <ul className="divide-y divide-stone-200">
+            {pg.items.map((r) => (
+              <Item key={r.p.sku} {...r} />
+            ))}
+          </ul>
+        ) : (
+          <p className="px-2 py-2 text-sm text-stone-600">{empty}</p>
+        )}
+        <Pager
+          id={id}
+          label={label}
+          page={pg.page}
+          pages={pg.pages}
+          from={pg.from}
+          to={pg.to}
+          total={rows.length}
+          params={params}
+        />
       </div>
     </details>
   );
 }
 
-export default function Home() {
+/** A thin bar of the drop: done in moss, needing a decision in ochre, the rest stone.
+ *  Colour only where the page already gives it meaning. */
+function Bar({
+  parts,
+  label,
+}: {
+  parts: { n: number; className: string }[];
+  label: string;
+}) {
+  const total = parts.reduce((s, p) => s + p.n, 0);
+  return (
+    <div
+      role="img"
+      aria-label={label}
+      className="flex h-2 overflow-hidden rounded-full bg-stone-200"
+    >
+      {parts.map((p, i) =>
+        p.n > 0 ? (
+          <div
+            key={i}
+            className={p.className}
+            style={{ width: `${(100 * p.n) / Math.max(total, 1)}%` }}
+          />
+        ) : null,
+      )}
+    </div>
+  );
+}
+
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const raw = await searchParams;
+  const params: Params = {};
+  for (const [k, v] of Object.entries(raw)) {
+    const first = Array.isArray(v) ? v[0] : v;
+    if (first !== undefined) params[k] = first;
+  }
+
   const { rows, pausedReason } = overview();
   const spend = spendSummary();
-  const batches = recentBatches(5);
   const total = rows.length;
   const queue = rows.filter(needsDecision);
-  // Every row lands in exactly one list: the queue wins over Done and the passive states.
-  const done = rows.filter((r) => r.status === "done" && !needsDecision(r));
+  // Every row lands in exactly one list: the queue wins over the lifecycle groups.
   const byStatus = new Map<ProductStatus, Row[]>();
   for (const r of rows)
-    if (!needsDecision(r) && r.status !== "done")
+    if (!needsDecision(r))
       byStatus.set(r.status, [...(byStatus.get(r.status) ?? []), r]);
   const ready = byStatus.get("idea_ready") ?? [];
+  const done = byStatus.get("done") ?? [];
+  const toGo = total - done.length - queue.length;
 
   return (
     <main className="mx-auto max-w-2xl px-4 pt-3 pb-10">
@@ -151,7 +276,19 @@ export default function Home() {
         <h1 className="text-xl font-semibold">Styled shots</h1>
         {total > 0 && (
           <div className="ml-auto flex items-center gap-2 [anchor-name:--sheet]">
-            <ImportForm />
+            <button type="button" popoverTarget="csv" className={QUIET}>
+              CSV
+              <ChevronDown {...ICON} className="text-stone-500" />
+            </button>
+            {/* The sheet's two directions: the updated export out, a new export in. */}
+            <div id="csv" popover="auto" className="sheet space-y-2 text-sm">
+              <a href="/export/csv" className={`${QUIET} w-full`}>
+                <Download {...ICON} />
+                Updated CSV
+              </a>
+              <ImportForm />
+            </div>
+
             <button
               type="button"
               popoverTarget="spend"
@@ -160,70 +297,75 @@ export default function Home() {
               {usd(spend.spent)} spent
               <ChevronDown {...ICON} className="text-stone-500" />
             </button>
-            {/* Spend is a bound, not a receipt: total first, the rest as prose, one tap
-                away from the running total in the header (D20, amended). */}
-            <div
-              id="spend"
-              popover="auto"
-              className="sheet space-y-2 text-sm text-stone-800"
-            >
-              <p className="text-base font-semibold text-stone-900 tabular-nums">
-                {usd(spend.spent)} spent of {usd(env.maxTotalSpend)}
-              </p>
+            {/* Spend is a bound, not a receipt: the total against the cap, then one line
+                on where it went (D20, amended; D23). */}
+            <div id="spend" popover="auto" className="sheet text-sm">
               <p className="tabular-nums">
-                {usd(spend.spentApproved)} on approved images,{" "}
+                <span className="text-xl font-semibold text-stone-900">
+                  {usd(spend.spent)}
+                </span>{" "}
+                <span className="text-stone-600">
+                  of {usd(env.maxTotalSpend)} budget
+                </span>
+              </p>
+              <div className="mt-2">
+                <Bar
+                  parts={[
+                    { n: spend.spent, className: "bg-stone-900" },
+                    {
+                      n: Math.max(env.maxTotalSpend - spend.spent, 0),
+                      className: "",
+                    },
+                  ]}
+                  label={`${usd(spend.spent)} spent of the ${usd(env.maxTotalSpend)} budget`}
+                />
+              </div>
+              <p className="mt-2 text-xs text-stone-600 tabular-nums">
+                {usd(spend.spentApproved)} on approved images ·{" "}
                 {usd(spend.spentWasted)} on rejected or failed
                 {spend.spentPending > 0 &&
-                  `, ${usd(spend.spentPending)} still being decided`}
-                .
+                  ` · ${usd(spend.spentPending)} undecided`}
               </p>
-              {spend.costPerApproved != null && (
-                <p className="tabular-nums">
-                  About {usd(spend.costPerApproved)} per approved image
-                  {spend.approvalRate != null &&
-                    `, ${Math.round(spend.approvalRate * 100)}% of decisions approve`}
-                  .
-                </p>
-              )}
-              {batches.length > 0 && (
-                <ul className="divide-y divide-stone-200 border-t border-stone-200 pt-1 text-stone-700">
-                  {batches.map((b) => (
-                    <li key={b.id} className="flex gap-3 py-1.5 tabular-nums">
-                      <time
-                        dateTime={`${b.created_at.replace(" ", "T")}Z`}
-                        title={`${b.created_at} UTC`}
-                        className="w-14 shrink-0"
-                      >
-                        {shortDate(b.created_at)}
-                      </time>
-                      <span>
-                        {b.images} {b.images === 1 ? "image" : "images"} ·{" "}
-                        {usd(b.actual_usd)} · {b.approved} approved
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
             </div>
           </div>
         )}
       </header>
+
       {total > 0 && (
-        <p className="mt-3 font-medium text-stone-900 tabular-nums">
-          {done.length} of {total} done
-          {queue.length > 0 && (
-            <>
-              {" · "}
+        <div className="mt-4">
+          <p className="flex flex-wrap items-center gap-x-4 gap-y-1 font-medium text-stone-900 tabular-nums">
+            <span className="inline-flex items-center gap-1.5">
+              <StateDot tone="ok" />
+              {done.length} of {total} done
+            </span>
+            {queue.length > 0 ? (
               <a
                 href="#decide"
-                className="-my-3 py-3 underline-offset-4 hover:underline"
+                className="-my-3 inline-flex items-center gap-1.5 rounded-lg py-3 hover:bg-stone-100"
               >
+                <StateDot tone="wait" />
                 {queue.length} {queue.length === 1 ? "needs" : "need"} a
                 decision
               </a>
-            </>
-          )}
-        </p>
+            ) : (
+              <span className="inline-flex items-center gap-1.5">
+                <StateDot tone="wait" />
+                Nothing to decide
+              </span>
+            )}
+            {toGo > 0 && <span className="text-stone-600">{toGo} to go</span>}
+          </p>
+          <div className="mt-2">
+            <Bar
+              parts={[
+                { n: done.length, className: "bg-moss" },
+                { n: queue.length, className: "bg-ochre" },
+                { n: toGo, className: "" },
+              ]}
+              label={`${done.length} done, ${queue.length} need a decision, ${toGo} to go, of ${total}`}
+            />
+          </div>
+        </div>
       )}
 
       {pausedReason && (
@@ -251,92 +393,78 @@ export default function Home() {
           </div>
         </section>
       ) : (
-        <>
-          {/* Zone 1: the reviewer's queue is the page, never a disclosure. */}
-          <section id="decide" className="mt-8">
-            <h2 className="flex items-center gap-2 px-2 text-base font-semibold text-stone-900">
-              <StateDot tone="wait" />
-              Needs a decision
-              <span className="text-sm font-normal text-stone-600 tabular-nums">
-                <span className="sr-only">, </span>
-                {queue.length}
-              </span>
-            </h2>
-            <div className="mt-2 border-t border-stone-300">
-              {queue.length > 0 ? (
-                <Rows rows={queue} />
-              ) : (
-                <p className="px-2 py-3 text-sm text-stone-600">
-                  Nothing needs a decision right now.
-                </p>
-              )}
-            </div>
-          </section>
-
-          {/* Zone 2: the machine. The batch trigger, then the states nobody acts on, folded. */}
+        <div className="mt-6 border-b border-stone-300">
+          <Group
+            id="decide"
+            label="Needs a decision"
+            tone="wait"
+            rows={queue}
+            open
+            params={params}
+            empty="Nothing needs a decision right now."
+          />
           {ready.length > 0 && (
-            <section className="mt-8">
-              <h2 className="px-2 text-base font-medium text-stone-900">
-                Next batch
-              </h2>
-              <div className="mt-2 px-2">
-                <GenerateForm
-                  perProduct={env.candidatesPerProduct}
-                  ready={ready.length}
-                />
-              </div>
-            </section>
-          )}
-          <div className="mt-6 border-b border-stone-200">
-            {PASSIVE.map((s) =>
-              (byStatus.get(s) ?? []).length > 0 ? (
-                <Folded key={s} status={s} rows={byStatus.get(s) ?? []} />
-              ) : null,
-            )}
-          </div>
-
-          {/* Zone 3: what comes out. The zip holds every approved image, including ones on
-              products still short of done, so the count is approved images, not products. */}
-          <section className="mt-8">
-            <h2 className="flex items-center gap-2 px-2 text-base font-semibold text-stone-900">
-              <StateDot tone="ok" />
-              Approved images
-              <span className="text-sm font-normal text-stone-600 tabular-nums">
-                <span className="sr-only">, </span>
-                {spend.approved}
-              </span>
-            </h2>
-            {spend.approved > 0 ? (
-              <div className="mt-3 grid grid-cols-1 gap-2 px-2 sm:grid-cols-2">
-                <a href="/export/zip" className={PRIMARY}>
-                  <Download {...ICON} />
-                  Download {spend.approved}{" "}
-                  {spend.approved === 1 ? "image" : "images"}
-                </a>
-                <a href="/export/csv" className={`${QUIET} min-h-12`}>
-                  <Download {...ICON} />
-                  Updated CSV
-                </a>
-              </div>
-            ) : (
-              <p className="mt-2 px-2 text-sm text-stone-600">
-                No approved images yet. The updated CSV is still available:{" "}
-                <a
-                  href="/export/csv"
-                  className="font-medium text-stone-900 underline-offset-4 hover:underline"
+            <Group
+              id="ready"
+              label={STATUS_LABEL.idea_ready}
+              tone={STATUS_TONE.idea_ready}
+              rows={ready}
+              open
+              params={params}
+            >
+              {/* The batch trigger is its own interaction: a button, then a sheet with
+                  the count and the answer. Money stays behind one deliberate tap. */}
+              <div className="px-2 pt-1 pb-3">
+                <button
+                  type="button"
+                  popoverTarget="batch"
+                  className={`${PRIMARY} sm:w-auto`}
                 >
-                  Updated CSV
-                </a>
-                .
-              </p>
-            )}
-            {done.length > 0 && (
-              <div className="mt-4 border-b border-stone-200">
-                <Folded status="done" rows={done} />
+                  Generate a batch
+                </button>
               </div>
-            )}
-          </section>
-        </>
+            </Group>
+          )}
+          {/* The sheet lives outside the Ready group so its answer survives a batch that
+              takes every ready product: the group unmounts, the sheet and its result stay. */}
+          <div id="batch" popover="auto" className="lightbox">
+            <GenerateForm
+              perProduct={env.candidatesPerProduct}
+              ready={ready.length}
+            />
+          </div>
+          {PASSIVE.map((s) =>
+            (byStatus.get(s) ?? []).length > 0 ? (
+              <Group
+                key={s}
+                id={s}
+                label={STATUS_LABEL[s]}
+                tone={STATUS_TONE[s]}
+                rows={byStatus.get(s) ?? []}
+                open={false}
+                params={params}
+              />
+            ) : null,
+          )}
+        </div>
+      )}
+
+      {/* The way out, on its own at the end: the zip holds every approved image,
+          including ones on products still short of done, so the count is images. */}
+      {total > 0 && (
+        <section className="mt-8">
+          {spend.approved > 0 ? (
+            <a href="/export/zip" className={PRIMARY}>
+              <Download {...ICON} />
+              Download {spend.approved} approved{" "}
+              {spend.approved === 1 ? "image" : "images"}
+            </a>
+          ) : (
+            <p className="text-center text-sm text-stone-600">
+              No approved images to download yet.
+            </p>
+          )}
+        </section>
       )}
     </main>
   );

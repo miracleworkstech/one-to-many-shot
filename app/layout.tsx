@@ -7,7 +7,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    // Extensions and the in-app browser's device emulation add attributes to <html>
+    // before React hydrates; suppress that one element's attribute diff, nothing else.
+    <html lang="en" suppressHydrationWarning>
       <body className="bg-stone-50 text-stone-900 antialiased">{children}</body>
     </html>
   );

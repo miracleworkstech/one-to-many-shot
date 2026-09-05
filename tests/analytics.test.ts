@@ -8,8 +8,7 @@ const dir = fs.mkdtempSync(path.join(os.tmpdir(), "shots-analytics-"));
 process.env.DATA_DIR = dir;
 
 const { db } = await import("../lib/db.ts");
-const { spendSummary, recentBatches, spendBySku } =
-  await import("../lib/analytics.ts");
+const { spendSummary, spendBySku } = await import("../lib/analytics.ts");
 
 const d = db();
 after(() => {
@@ -40,27 +39,6 @@ test("spend by outcome, cost per approved, approval rate", () => {
   assert.equal(s.approved, 1);
   assert.equal(s.costPerApproved?.toFixed(2), "0.12");
   assert.equal(s.approvalRate, 0.5); // 1 approved of 2 decided
-});
-
-test("recent batches show estimate vs actual", () => {
-  const [row] = recentBatches(5);
-  assert.ok(row);
-  assert.equal(row.kind, "next");
-  assert.equal(row.estimated_usd, 0.16);
-  assert.equal(row.actual_usd.toFixed(2), "0.12");
-  assert.equal(row.images, 4);
-});
-
-test("a batch that queued nothing is not a recent batch", () => {
-  const before = recentBatches(5).length;
-  d.prepare("insert into batches (kind) values ('next')").run();
-  const rows = recentBatches(5);
-  assert.equal(
-    rows.length,
-    before,
-    "empty batches are left out before the limit",
-  );
-  assert.ok(rows.every((r) => r.images > 0));
 });
 
 test("spend by sku is what the CSV export reports", () => {

@@ -2,9 +2,11 @@
 import { useActionState, useState } from "react";
 import { generateNext } from "@/lib/actions/generate";
 import type { EnqueueResult } from "@/lib/enqueue";
+import { PRIMARY } from "./buttons";
 
-/** The batch trigger, one line inside "Ready to generate". No estimate before the tap
- *  (D20); the caps' answer (queued, skipped or refused) comes back under it. */
+/** The batch trigger, inside the "Generate a batch" sheet. No estimate before the tap
+ *  (D20); the caps' answer (queued, skipped or refused) comes back under the button, and
+ *  the sheet stays open so the answer is read where the tap happened. */
 export function GenerateForm({
   perProduct,
   ready,
@@ -26,46 +28,45 @@ export function GenerateForm({
     setPrevMax(max);
     if (n > max) setN(max);
   }
+  const images = Math.min(Math.max(n, 1), max) * perProduct;
   return (
-    <form action={formAction} className="text-sm">
-      {/* Two designed lines on a phone (the sentence, then the button), one line on a
-          laptop; never a sentence broken by flex. */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <p className="flex flex-1 flex-wrap items-center gap-x-2 gap-y-1 text-stone-700">
-          <label htmlFor="n" className="inline-flex min-h-11 items-center">
-            Generate the next
-          </label>
-          <input
-            id="n"
-            type="number"
-            name="n"
-            value={n}
-            min={1}
-            max={max}
-            onChange={(e) => {
-              const v = e.target.valueAsNumber;
-              setN(Number.isFinite(v) ? v : Math.min(10, max));
-            }}
-            className="w-16 min-h-11 rounded-lg border border-stone-300 bg-white px-2 py-1 text-base tabular-nums"
-          />
-          <span className="whitespace-nowrap">of {ready}</span>
-          <span className="whitespace-nowrap text-xs text-stone-600">
-            {perProduct} candidates each
-          </span>
-        </p>
-        <button
-          disabled={isPending || ready === 0}
-          className="min-h-12 w-full rounded-lg bg-stone-900 px-4 py-2 text-base font-medium text-white hover:bg-stone-800 disabled:opacity-50 sm:min-h-11 sm:w-auto sm:text-sm"
-        >
-          {ready === 0
-            ? "Nothing to generate"
-            : isPending
-              ? "Starting…"
-              : "Generate"}
-        </button>
-      </div>
+    <form action={formAction} className="space-y-3 text-sm">
+      <h2 className="text-base font-semibold text-stone-900">
+        Generate a batch
+      </h2>
+      <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-stone-700">
+        <label htmlFor="n" className="inline-flex min-h-11 items-center">
+          The next
+        </label>
+        <input
+          id="n"
+          type="number"
+          name="n"
+          aria-label="Products in this batch"
+          value={n}
+          min={1}
+          max={max}
+          onChange={(e) => {
+            const v = e.target.valueAsNumber;
+            setN(Number.isFinite(v) ? v : Math.min(10, max));
+          }}
+          className="w-16 min-h-11 rounded-lg border border-stone-300 bg-white px-2 py-1 text-base tabular-nums"
+        />
+        <span className="whitespace-nowrap">of {ready} ready</span>
+      </p>
+      <p className="text-xs text-stone-600 tabular-nums">
+        {perProduct} candidates each, {images}{" "}
+        {images === 1 ? "image" : "images"}.
+      </p>
+      <button disabled={isPending || ready === 0} className={PRIMARY}>
+        {ready === 0
+          ? "Nothing to generate"
+          : isPending
+            ? "Starting…"
+            : "Generate"}
+      </button>
       {state && (
-        <p role="status" className="mt-2">
+        <p role="status">
           {state.refused ? (
             <span className="font-medium text-stone-900">{state.refused}</span>
           ) : state.queued === 0 ? (

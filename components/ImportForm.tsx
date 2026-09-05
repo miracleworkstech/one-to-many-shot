@@ -8,8 +8,8 @@ type ImportResult = { imported: number; suggested: number; errors: string[] };
 
 /** The entry point for a new export. The file chooser submits on pick, so the flow is
  *  two taps; the one helper line answers the fear that stops a re-import. `primary` is
- *  the empty catalog, where importing is the only thing to do and the control sits
- *  inline; `quiet` is the header control, which opens a sheet holding the same form. */
+ *  the empty catalog, where importing is the only thing to do; `quiet` sits in the Files
+ *  sheet under the two downloads. */
 export function ImportForm({
   variant = "quiet",
 }: {
@@ -20,11 +20,11 @@ export function ImportForm({
     FormData
   >((_prev, formData) => importCatalog(formData), null);
   const form = useRef<HTMLFormElement>(null);
-  const body = (
-    <>
+  return (
+    <div>
       <form ref={form} action={formAction}>
         <label
-          className={`${PRIMARY} cursor-pointer focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-stone-900 ${isPending ? "opacity-50" : ""}`}
+          className={`${variant === "primary" ? PRIMARY : `${QUIET} w-full`} cursor-pointer focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-stone-900 ${isPending ? "opacity-50" : ""}`}
         >
           <Upload size={20} strokeWidth={1.75} aria-hidden="true" />
           {isPending ? "Importing…" : "Import CSV"}
@@ -63,20 +63,6 @@ export function ImportForm({
           )}
         </div>
       )}
-    </>
-  );
-  if (variant === "primary") return body;
-  return (
-    <>
-      <button type="button" popoverTarget="import" className={QUIET}>
-        <Upload size={20} strokeWidth={1.75} aria-hidden="true" />
-        Import CSV
-      </button>
-      {/* The sheet stays open through the server action, so the result lands in it. */}
-      <div id="import" popover="auto" className="sheet space-y-3 text-sm">
-        <p className="text-stone-800">Import a new export from the sheet.</p>
-        {body}
-      </div>
-    </>
+    </div>
   );
 }
