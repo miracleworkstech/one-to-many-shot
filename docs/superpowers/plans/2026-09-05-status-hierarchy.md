@@ -67,3 +67,29 @@ and desktop → evaluator → Codex → update PR #12 → stop for review.
 - Tinted group headings (closer to the dashboard anti-reference).
 - "Generate all 35" (the 40 cap and the default of 10 stand; revisit if Maya asks).
 - Cancelling a queued batch (a worker feature, not a page feature).
+
+## Amended 2026-09-05 after the user's review of PR #12 (D22)
+
+Second critique: 27/40, one P0 (a product with a decidable candidate and a second batch in
+flight was filed under Generating and missing from the header count). The user's notes:
+stronger hierarchy and CTAs, no accordion stack, merge the two human-wait groups, rows with a
+real affordance and no idea line, Spend as its own control with a popout, buttons aligned and
+full width, Download beside Done. Agreed, with these amendments to "Decisions taken":
+
+- **Three zones replace the tiers.** Zone 1 "Needs a decision" is a plain `<section>`, never a
+  `<details>`: `toDecide > 0 || status === "needs_more"`, so a generating product with
+  candidates to decide stays in the queue. Rows: name 16/500, SKU 12 px under it, one fact
+  on the right ("2 to decide", "1 of 2 approved · try again"), a `ChevronRight`, 56 px,
+  hover and active tints. Empty state stated in words. Zone 2 "Next batch" (the form, hidden
+  when nothing is ready) then Ready, Generating, Failed, Needs an idea as `Folded` one-line
+  counts at 14/500, closed. Zone 3 "Approved images N": Download primary + Updated CSV,
+  stacked full width under 640 px, a two-column grid above; Done folded beneath.
+- **Header controls, not an action row.** "Import CSV" and "$x.xx spent" as two `QUIET`
+  buttons right of the title, each a native popover `.sheet` (bottom sheet on a phone,
+  anchored panel on a laptop). The import sheet holds the file button, the helper line and
+  the result; the spend sheet holds total first, two sentences, then batches newest first
+  with 0-image batches dropped. The running total on the control amends D20.
+- **Shared:** `components/buttons.ts` (`PRIMARY`, `QUIET`) used by both pages; the popover
+  anchor is `--sheet` on both. `overview()` rows carry `approved` for the "1 of 2" fact.
+- **Dropped from this plan:** the action row, the three tiers, the Spend disclosure, the
+  "Nothing here." copy, the idea line on rows.

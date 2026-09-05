@@ -5,7 +5,14 @@
 
 ## Phase
 
-**Update 2026-09-05 (latest): PR #11 merged fast-forward (main at 1051ff4): the review page
+**Update 2026-09-05 (latest, later): the user reviewed PR #12 and asked for stronger hierarchy,
+no accordion stack, merged human-wait groups, real row affordances, Spend as a control with a
+popout, aligned full-width buttons, Download beside Done. A second critique (27/40) found a
+P0 (decidable candidates hidden under Generating). Rebuilt on `task/11-status-page` as D22
+(three zones, header sheets), evaluator + Codex, PR #12 updated, waiting for the user's
+review. Next action after #12 merges: `/impeccable document` for DESIGN.md, then Task 9.**
+
+**Update 2026-09-05 (earlier): PR #11 merged fast-forward (main at 1051ff4): the review page
 rebuilt under Impeccable (Tasks 10 and 12), D18–D21. `task/11-status-page` is rebased onto
 main and force-pushed; PR #12 stays open. Task 13 is built and in PR #12 (waiting for the user's review). Next action after #12 merges: `/impeccable document` for DESIGN.md, then Task 9. Task 13 was built per
 `docs/superpowers/plans/2026-09-05-status-hierarchy.md`, following the contract in
@@ -74,7 +81,7 @@ candidate with no retry and shows `failure.userMessage` on the card.
 | 8d Idea snapshot on candidates | PR open | task/8d-idea-snapshot | user's call on finding 3: `candidates.shot_idea` written at enqueue, additive migration + one-time backfill in one transaction, filenames from `c.shot_idea ?? p.shot_idea`; evaluator FAIL→PASS (untested write side, fixed), 6 + 3 mutants; Codex 1 finding fixed (transactional migration); D17 |
 | 9 Final docs, video, submit | not started | | |
 | 10 Review page layout (Impeccable) | merged in #11 | | init + critique (26/40) + layout, quieter, harden; Codex 4 findings fixed; D18. PRODUCT.md and .impeccable/ added |
-| 13 Status page hierarchy, action row, spend disclosure | planned | | plan `docs/superpowers/plans/2026-09-05-status-hierarchy.md`; critique 25/40; built on task/11 after the cross-page consistency review |
+| 13 Status page hierarchy, then three zones (D22) | in PR #12 | task/11-status-page | plan `docs/superpowers/plans/2026-09-05-status-hierarchy.md` + amendment; critique 25 → 27/40; rebuilt after the user's review: Needs a decision as a plain section (P0: toDecide > 0 stays in the queue), Next batch, folded passive states, Approved images with Download + CSV, header sheets for Import and Spend (running total); evaluator PASS (6/6 mutants, 2 non-blocking fixed); Codex 2 findings fixed (queue wins over Done, empty batches dropped in SQL) |
 | 11 Status page layout (Impeccable) | PR #12 open, rebased on main | task/11-status-page | grouped by next action, counts in headings, generate inside Ready, spend behind a disclosure; D19 |
 
 ## How a task runs (D8)

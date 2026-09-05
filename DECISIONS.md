@@ -479,3 +479,38 @@ the reviewer's queue heaviest, Ready to generate as one line holding the form wi
 folded, and passive groups lighter; Spend fully behind a disclosure as prose, total first;
 state colour as the shared `StateDot` beside neutral text; no caps sentence, no estimate,
 no name. `SpendPanel` deleted; `overview()` rows carry `toDecide`.
+
+## D22 — The status page is three zones, not an accordion stack; the spend total sits in the header (2026-09-05)
+
+- **Decision:** From the user's review of PR #12 and a second critique (27/40, snapshot
+  `.impeccable/critique/2026-09-05T17-29-05Z__app-page-tsx.md`). Zone 1, "Needs a decision",
+  merges Waiting for review and Needs more and takes any product with a candidate to decide
+  whatever its lifecycle status says (a second batch in flight no longer hides the first
+  batch's candidates, the critique's P0). It is a plain section of tappable rows (name, SKU,
+  one fact, a right chevron), never a disclosure. Zone 2, "Next batch", holds the generate
+  form, then the passive states (Ready, Generating, Failed, Needs an idea) as folded one-line
+  counts. Zone 3, "Approved images N", holds Download (the filled primary) and Updated CSV,
+  with Done folded under it; the count is approved images, not done products, because the
+  zip includes approvals on products still short of done. The header carries the title and
+  two quiet controls, "Import CSV" and "$x.xx spent", each opening the native popover sheet
+  the review page already uses (anchor renamed `--sheet`, button classes shared in
+  `components/buttons.ts`). Rows drop the idea line. Buttons stack full width on a phone and
+  fill an equal-column grid on a laptop. Batches that queued nothing stay out of the spend list
+  (dropped in the query, before the limit). Every product lands in exactly one list: a done
+  product with a spare finished candidate sits in the queue, not under Done, because the
+  candidate cost money and stays "still being decided" until someone looks (Codex finding).
+- **Alternatives:** A segmented filter (one list, query-parameter tabs: compact, scales to
+  300, but hides the shape of the drop and puts Ellie's queue one tap away). A flat page
+  with no folding (a wall of Ready rows at 300). Download inside Done (the counts do not
+  match). Three stacked full-width buttons on desktop (a stretched phone app). A JavaScript
+  modal for spend (the native popover is zero JavaScript and already on the review page).
+- **Why:** The brief: Maya sees where the drop stands and what has been spent without
+  asking; Ellie gets to what needs her decision. PRODUCT.md: status before action, money
+  always visible. The running total on the header control amends D20: the estimate stays
+  off trigger buttons, and the total is not a trigger.
+- **Cost accepted:** Two filled buttons on one page (Generate for Maya, Download for the web
+  person); they serve two people and never share a phone screen. The passive states are
+  still disclosures, four at most. The import sheet relies on a native popover staying open
+  across the server action's re-render (DOM state, not React state).
+- **Revisit trigger:** Anyone asks to filter or search the list (the segmented filter is the
+  next step). A browser closes the import sheet before the result lands.
