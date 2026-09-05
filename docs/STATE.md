@@ -63,6 +63,7 @@ candidate with no retry and shows `failure.userMessage` on the card.
 | 8d Idea snapshot on candidates | PR open | task/8d-idea-snapshot | user's call on finding 3: `candidates.shot_idea` written at enqueue, additive migration + one-time backfill in one transaction, filenames from `c.shot_idea ?? p.shot_idea`; evaluator FAIL→PASS (untested write side, fixed), 6 + 3 mutants; Codex 1 finding fixed (transactional migration); D17 |
 | 9 Final docs, video, submit | not started | | |
 | 10 Review page layout (Impeccable) | PR #11 | task/10-review-page | init + critique (26/40) + layout, quieter, harden; Codex 4 findings fixed; D18. PRODUCT.md and .impeccable/ added |
+| 13 Status page hierarchy, action row, spend disclosure | planned | | plan `docs/superpowers/plans/2026-09-05-status-hierarchy.md`; critique 25/40; built on task/11 after the cross-page consistency review |
 | 11 Status page layout (Impeccable) | PR open | task/11-status-page | grouped by next action, counts in headings, generate inside Ready, spend behind a disclosure; D19 |
 
 ## How a task runs (D8)
