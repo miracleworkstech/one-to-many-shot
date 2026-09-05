@@ -26,7 +26,9 @@ export function Sheet({
       onToggle={(e) => {
         if (e.newState === "open") e.currentTarget.focus();
       }}
-      className={`${className} outline-none`}
+      // No outline override: a sheet opened from the keyboard gets the page's focus ring,
+      // like any other element that takes focus; a tap does not trigger :focus-visible.
+      className={className}
       {...label}
     >
       {children}

@@ -19,6 +19,7 @@ export const storage = {
   /** The review page's smaller copy (lib/images.ts), beside the original. Reading falls
    *  back to the original for candidates saved before the copy existed. */
   reviewPath: (id: number) => path.join(dir(), `${id}-review.jpg`),
+  hasReview: (id: number) => fs.existsSync(storage.reviewPath(id)),
   saveReview: (id: number, buf: Buffer) =>
     fs.writeFileSync(storage.reviewPath(id), buf),
   readReview: (id: number): Buffer | null => {
