@@ -1,5 +1,17 @@
 @import "tailwindcss";
 
+/* Three state hues, one meaning each, tuned to the stone neutrals: moss is approved or
+   done, clay is rejected, failed or paused, ochre is waiting on a person. They colour a
+   dot or a mark beside neutral text, never the text itself; the two tints are the only
+   coloured surfaces (the failed card and the paused banner). */
+@theme {
+  --color-moss: oklch(0.52 0.09 150);
+  --color-clay: oklch(0.55 0.13 30);
+  --color-ochre: oklch(0.66 0.13 75);
+  --color-clay-tint: oklch(0.97 0.012 30);
+  --color-ochre-tint: oklch(0.97 0.02 80);
+}
+
 /* The parts we did not draw still carry the design: focus, selection, numerals. */
 :focus-visible {
   outline: 2px solid var(--color-stone-900);

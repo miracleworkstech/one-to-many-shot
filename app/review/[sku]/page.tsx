@@ -27,14 +27,20 @@ import { GenerateProductForm } from "@/components/GenerateProductForm";
 export const dynamic = "force-dynamic";
 
 const ICON = { size: 20, strokeWidth: 1.75, "aria-hidden": true } as const;
-const SMALL = { size: 16, strokeWidth: 1.75, "aria-hidden": true } as const;
 
-const TONE = {
-  amber: "bg-amber-100 text-amber-900",
-  green: "bg-green-100 text-green-900",
-  red: "bg-red-100 text-red-900",
-  neutral: "bg-stone-200/70 text-stone-800",
+/** A state is a dot beside neutral text, never a tinted badge. */
+const DOT = {
+  wait: "bg-ochre",
+  ok: "bg-moss",
+  stop: "bg-clay",
+  neutral: "bg-stone-400",
 };
+const Dot = ({ tone }: { tone: keyof typeof DOT }) => (
+  <span
+    aria-hidden="true"
+    className={`inline-block size-2 shrink-0 rounded-full ${DOT[tone]}`}
+  />
+);
 
 /** "4 Sep" from SQLite's `datetime('now')` (UTC); the full stamp goes in the title. */
 const MONTHS = "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split(" ");
@@ -80,14 +86,13 @@ export default async function Review({
           <ArrowLeft {...ICON} />
           <span className="hidden sm:inline">All products</span>
         </Link>
-        <p className="flex min-w-0 items-center gap-2 text-xs whitespace-nowrap">
-          <span
-            className={`rounded-full px-2 py-1 font-medium ${TONE[STATUS_TONE[status]]}`}
-          >
+        <p className="flex min-w-0 items-center gap-2 text-sm whitespace-nowrap">
+          <span className="inline-flex items-center gap-1.5 font-medium text-stone-900">
+            <Dot tone={STATUS_TONE[status]} />
             {STATUS_LABEL[status]}
           </span>
           {toDecide > 0 && (
-            <span className="font-medium text-amber-800 tabular-nums">
+            <span className="text-stone-600 tabular-nums">
               {toDecide} to decide
             </span>
           )}
@@ -219,11 +224,14 @@ export default async function Review({
                 ) : c.state === "failed" ? (
                   <div
                     role="status"
-                    className="flex aspect-[4/5] max-h-[60svh] flex-col justify-center rounded-lg border border-red-200 bg-red-50 p-5 text-sm text-red-900"
+                    className="flex aspect-[4/5] max-h-[60svh] flex-col justify-center rounded-lg border border-clay/30 bg-clay-tint p-5 text-sm text-stone-900"
                   >
-                    <p className="font-medium">This one didn&apos;t come out</p>
+                    <p className="inline-flex items-center gap-1.5 font-medium">
+                      <Dot tone="stop" />
+                      This one didn&apos;t come out
+                    </p>
                     <p className="mt-1">{friendlyFailure(c.failure_reason)}</p>
-                    <p className="mt-2 text-red-800">
+                    <p className="mt-2 text-stone-700">
                       {isPhotoProblem(c.failure_reason) ? (
                         <>
                           Fix the Photo link for this row in the sheet, then{" "}
@@ -277,10 +285,10 @@ export default async function Review({
               {c.state === "approved" && (
                 <div className="mt-3 flex flex-col items-center gap-2 text-center">
                   <p
-                    className="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-900"
+                    className="inline-flex items-center gap-1.5 py-1 text-sm font-medium text-stone-900"
                     aria-label={`Approved, slide ${i + 1}`}
                   >
-                    <Check {...SMALL} />
+                    <Dot tone="ok" />
                     Approved
                     {c.decided_at && (
                       <>
@@ -320,8 +328,8 @@ export default async function Review({
               <div className="flex aspect-[4/5] max-h-[60svh] flex-col justify-center rounded-lg border border-stone-300 bg-white p-5 text-base">
                 {end.kind === "done" ? (
                   <>
-                    <p className="inline-flex items-center gap-2 font-semibold text-green-800">
-                      <Check {...ICON} />
+                    <p className="inline-flex items-center gap-2 font-semibold text-stone-900">
+                      <Check {...ICON} className="text-moss" />
                       Done · {end.approved} approved
                     </p>
                     <p className="mt-1 text-sm text-stone-700">
@@ -398,9 +406,12 @@ export default async function Review({
                   </>
                 )}
                 {ideaNudge && end.kind !== "done" && (
-                  <p className="mt-3 text-sm text-amber-900">
-                    {rejected.length} rejected so far. Change the idea above
-                    before asking for another set.
+                  <p className="mt-3 inline-flex items-start gap-1.5 text-sm font-medium text-stone-900">
+                    <Dot tone="wait" />
+                    <span>
+                      {rejected.length} rejected so far. Change the idea above
+                      before asking for another set.
+                    </span>
                   </p>
                 )}
               </div>
@@ -450,7 +461,8 @@ export default async function Review({
                     className="block max-h-[70svh] w-full rounded-lg bg-stone-200/60 object-contain"
                   />
                   <div className="mt-3 flex items-center justify-between gap-3">
-                    <p className="inline-flex items-center gap-1.5 rounded-full bg-red-100 px-3 py-1 text-sm font-medium text-red-900">
+                    <p className="inline-flex items-center gap-1.5 py-1 text-sm font-medium text-stone-900">
+                      <Dot tone="stop" />
                       Rejected
                       {c.decided_at && (
                         <>

@@ -11,10 +11,14 @@ wider measure (`max-w-lg` review, `max-w-2xl` status).
 
 ## Colour: one hue per meaning, on marks only
 
-- Green = approved or done. Red = rejected, failed or broken. Amber = waiting on a person.
-- Colour appears only on pressed decision buttons, counts, marks and the two tinted state
-  cards that already exist (paused banner amber-50, failed card red-50). Never on headings,
-  rows, or page backgrounds. Neutrals are Tailwind stone; page background stone-50.
+- Three theme tokens, one meaning each: `moss` (oklch 0.52 0.09 150) is approved or done,
+  `clay` (0.55 0.13 30) is rejected, failed or paused, `ochre` (0.66 0.13 75) is waiting on
+  a person. Not Tailwind's green, red and amber.
+- A state is a **dot beside neutral text**, never a tinted badge with same-hue text (the
+  Tailwind badge is a tell). Colour appears only on those dots, on a mark (a moss check),
+  on counts, and on the two tinted surfaces (`clay-tint` failed card, `ochre-tint` paused
+  banner). Never on headings, rows, page backgrounds or body text. Neutrals are stone;
+  page background stone-50.
 
 ## Money
 

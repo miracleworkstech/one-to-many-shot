@@ -126,10 +126,10 @@ test("STATUS_TONE: one hue per meaning, every status covered", () => {
       no_idea: "neutral",
       idea_ready: "neutral",
       generating: "neutral",
-      in_review: "amber",
-      needs_more: "amber",
-      done: "green",
-      failed: "red",
+      in_review: "wait",
+      needs_more: "wait",
+      done: "ok",
+      failed: "stop",
     },
   );
 });

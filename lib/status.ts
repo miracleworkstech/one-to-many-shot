@@ -61,19 +61,20 @@ export function friendlyFailure(reason: string | null): string {
   return plain || "Something went wrong while generating this one.";
 }
 
-/** One hue per meaning (shared visual system): amber waits on a person, green is done,
- *  red is broken, everything else is neutral. */
+/** One hue per meaning (shared visual system): `wait` is on a person (ochre), `ok` is done
+ *  (moss), `stop` is broken (clay), everything else is neutral. The page maps a tone to a
+ *  dot beside neutral text; the tone never colours the text. */
 export const STATUS_TONE: Record<
   ProductStatus,
-  "amber" | "green" | "red" | "neutral"
+  "wait" | "ok" | "stop" | "neutral"
 > = {
   no_idea: "neutral",
   idea_ready: "neutral",
   generating: "neutral",
-  in_review: "amber",
-  needs_more: "amber",
-  done: "green",
-  failed: "red",
+  in_review: "wait",
+  needs_more: "wait",
+  done: "ok",
+  failed: "stop",
 };
 
 /** Two rounds turned down with nothing kept is a sign the idea is wrong, not the luck; the

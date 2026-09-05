@@ -56,7 +56,7 @@ export function GenerateProductForm({
       {state && (
         <p role="status" className="w-full">
           {state.refused ? (
-            <span className="text-amber-800">{state.refused}</span>
+            <span className="font-medium text-stone-900">{state.refused}</span>
           ) : state.queued === 0 ? (
             `Nothing to generate: ${state.skipped.join(", ") || "already generating or no idea"}`
           ) : (

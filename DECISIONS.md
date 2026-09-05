@@ -444,3 +444,8 @@ each with a quiet "Approve instead"), and the end card nudges "change the idea" 
 rounds have been turned down. Archive got worse as numbers grew (one tap per image, no way
 back) and hid spend already paid for; the grid wraps to dozens and hides nothing. The
 `archived_at` column was reverted before any deployment carried it.
+
+**D20 amended (2026-09-05):** state labels are a coloured dot beside neutral text, not a
+tinted pill with same-hue text (Tailwind's default badge, which reads as generated). The
+hues are three theme tokens tuned to the stone neutrals, moss / clay / ochre, instead of
+green / red / amber. `STATUS_TONE` names meanings (`wait`, `ok`, `stop`, `neutral`), not hues.
