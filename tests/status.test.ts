@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   productStatus,
   byCreation,
+  justDecided,
   canRetry,
   isPhotoProblem,
   carouselEnd,
@@ -30,6 +31,14 @@ test("failures are visible, not folded into needs_more", () => {
   assert.equal(productStatus(true, c("failed", "rejected")), "needs_more"); // Ellie saw one; she can try again
   assert.equal(productStatus(true, c("failed", "approved")), "needs_more"); // partial success
   assert.equal(productStatus(true, c("failed", "queued")), "generating");
+});
+test("justDecided: only a stamp from the last few seconds", () => {
+  const now = Date.UTC(2026, 8, 5, 12, 0, 30);
+  assert.equal(justDecided("2026-09-05 12:00:25", now), true);
+  assert.equal(justDecided("2026-09-05 12:00:00", now), false);
+  assert.equal(justDecided("2026-09-04 12:00:29", now), false);
+  assert.equal(justDecided(null, now), false);
+  assert.equal(justDecided("not a date", now), false);
 });
 test("byCreation: oldest first whatever the state, so a decision never moves a card", () => {
   const cs = [
