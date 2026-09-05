@@ -56,9 +56,11 @@ wider measure (`max-w-lg` review, `max-w-2xl` status).
 
 - lucide-react, 20 px, `strokeWidth` 1.75, `aria-hidden` unless the icon is the only
   content. Exactly: ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, Pencil,
-  MoreHorizontal, Check, X, Download, Upload, AlertCircle. Nothing else without a reason.
+  Check, X, Download, Upload, AlertCircle. Nothing else without a reason. (MoreHorizontal
+  left with the More menu, D25.)
   Gauge marks the spend control on the status page (2026-09-05, user's call: a meter,
-  not a chevron).
+  not a chevron). LoaderCircle is the one pending mark, turning beside the pending verb
+  ("Approving…", "Starting…"); still under reduced motion (D25).
 
 ## Shape, rhythm, motion
 

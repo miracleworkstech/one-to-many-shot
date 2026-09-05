@@ -1,5 +1,10 @@
 # Task 12 — Review flow: carousel, pinned context, follow-ups behind a menu (planned)
 
+> Shipped in PR #11. Two of its decisions were reversed on 2026-09-05 after the user tested
+> the result (D25, `2026-09-05-review-carousel-stability.md`): `byCreation` replaces
+> `byReadingOrder` (oldest first, never re-sorted, so a decision does not move the card),
+> and the follow-ups left the More menu for an end card that is always present.
+
 Agreed 2026-09-05 from the second Impeccable critique of `app/review/[sku]/page.tsx`
 (28/40, snapshot `.impeccable/critique/2026-09-05T14-04-22Z__app-review-sku-page-tsx.md`)
 and the user's own review of PR #11. Not started. Branch `task/12-review-flow`, one commit
