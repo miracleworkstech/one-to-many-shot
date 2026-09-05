@@ -82,11 +82,11 @@ export function GenerateForm({
           ) : state.queued === 0 ? (
             "Nothing to generate."
           ) : (
-            `${state.queued} images queued.`
+            `${state.queued} images on the way. Each lands on its product's page.`
           )}
           {state.skipped.length > 0 && (
             <span className="block text-xs text-stone-600">
-              Skipped (already generating or no idea):{" "}
+              Skipped, already generating or without an idea yet:{" "}
               {state.skipped.join(", ")}
             </span>
           )}

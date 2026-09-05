@@ -67,13 +67,13 @@ export function GenerateProductForm({
           {state.refused ? (
             <span className="font-medium text-stone-900">{state.refused}</span>
           ) : state.queued === 0 ? (
-            `Nothing to generate: ${state.skipped.join(", ") || "already generating or no idea"}`
+            "Nothing started: this product is already generating, or has no idea yet."
           ) : (
             // Kept, not dead: a successful enqueue flips the product to "generating" and the
             // page's gate unmounts this form, so today the in-flight cards are the feedback.
             // Delete the gate and this line is what a reviewer sees; the refusal and
             // nothing-to-generate branches above do render, because the status does not change.
-            `${state.queued} images queued.`
+            `${state.queued} images on the way. They land here on their own.`
           )}
         </p>
       )}

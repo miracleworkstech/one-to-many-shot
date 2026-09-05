@@ -606,3 +606,31 @@ one element only.
   server render per tick; it pauses when the tab is hidden.
 - **Revisit trigger:** A product with dozens of candidates where "undecided first" would
   save swipes; then a "next to decide" jump, not a re-sort.
+
+## D26 — Copy: refusals say what to do, "on the way" not "queued", links say where they go (2026-09-05)
+
+- **Decision:** `/impeccable clarify` over both pages and the server messages they show.
+  The two cap refusals now name what stopped, why, and the next step in the team's words
+  ("38 images are still in flight and 40 at once is the limit, so this batch of 20 has to
+  wait. Try again once some have finished."; the budget one points at Spend and names the
+  setting as a setting, not a tap). "N images queued" becomes "N images on the way" with
+  where they land. "These go into the next export" becomes "Both are in the download on the
+  status page". The photo-failure card and the failed card no longer say "re-import" or "Go
+  to import": import lives inside the status page's CSV sheet now, so they say "import the
+  new export from the status page" and the button reads "Status page". Import's result
+  counts products, not bare numbers. Everything else read cleanly and stays.
+- **Alternatives:** Dropping the environment variable name from the budget refusal
+  entirely (the person who can change it needs the name; it is framed as a setting).
+- **Why:** Errors name the problem and the next step; the team's words, not ours.
+- **Cost accepted:** None material. Tests pin the phrase "in flight", which is kept.
+- **Revisit trigger:** A team member asks what "in flight" means.
+
+**D24 amended (2026-09-05, after the user's test):** the cross-document cross-fade is gone
+and both pages navigate with `next/link` again. In practice the cross-fade flickered: the old
+page was held, the new one faded in, and the approval marks then animated on top of it on
+every visit. In-app navigation swaps the content without a blank paint, which is the
+continuity the cross-fade was reaching for. The approval's dot and check now animate only
+on the render right after the decision (`justDecided`, a 15-second window on `decided_at`),
+never on a later visit. The generating placeholder's ring turns again: the breathing rule had
+replaced the spin utility's animation, so the ring pulsed instead of turning; both run on it
+now. The lint exception for plain anchors is removed.

@@ -69,8 +69,9 @@ wider measure (`max-w-lg` review, `max-w-2xl` status).
 - Motion explains state, feedback and continuity, never decorates (D24). Colour
   transitions at 150 ms on controls; sheets rise 8 px and fade in over 250 ms and leave in
   150 ms; disclosure contents unfold over 200 ms where the browser can; an answer landing
-  under a form fades in over 150 ms; full navigations cross-fade over 200 ms. One authored
-  moment: an approval's dot lands and its check draws (300–400 ms). Reduced motion keeps
+  under a form fades in over 150 ms. One authored moment: an approval's dot lands and its
+  check draws (300–400 ms), on the render right after the decision only. Navigation is
+  Next's in-app kind: no cross-fade, no blank paint (D24 amended). Reduced motion keeps
   every opacity change and drops every movement. No page-load choreography, no hover lift,
   no staggered lists, nothing on the money buttons beyond their pending text.
 

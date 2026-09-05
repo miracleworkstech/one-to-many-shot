@@ -26,12 +26,6 @@ const eslintConfig = [
       "@typescript-eslint/ban-ts-comment": "error",
     },
   },
-  {
-    // Both pages navigate with plain anchors on purpose: a full load is one small server
-    // render here, and it is what lets the cross-document view transition run (D24).
-    files: ["app/page.tsx", "app/review/*/page.tsx"], // [sku] would read as a glob class
-    rules: { "@next/next/no-html-link-for-pages": "off" },
-  },
 ];
 
 export default eslintConfig;
