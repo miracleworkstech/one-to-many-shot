@@ -17,6 +17,7 @@ import {
   carouselEnd,
   friendlyFailure,
   isPhotoProblem,
+  needsNewIdea,
 } from "@/lib/status";
 import { env } from "@/lib/env";
 import { decide, updateIdea } from "@/lib/actions/review";
@@ -66,8 +67,7 @@ export default async function Review({
   const end = p.shot_idea ? carouselEnd(all, status) : null;
   const meta = [p.color, p.material, p.price].filter(Boolean).join(" · ");
   const slides = cands.length + (end ? 1 : 0);
-  // Two rounds of Try again with nothing kept is a sign the idea is wrong, not the luck.
-  const ideaNudge = rejected.length >= 2 * env.candidatesPerProduct;
+  const ideaNudge = needsNewIdea(rejected.length, env.candidatesPerProduct);
 
   return (
     <main className="mx-auto max-w-lg px-4 pt-2 pb-20 sm:pb-6">
@@ -422,7 +422,12 @@ export default async function Review({
           <ul className="mt-2 grid grid-cols-4 gap-2 sm:grid-cols-5">
             {rejected.map((c, i) => (
               <li key={c.id} className="text-center">
-                <a href={`/img/${c.id}`} target="_blank" rel="noopener">
+                <a
+                  href={`/img/${c.id}`}
+                  target="_blank"
+                  rel="noopener"
+                  aria-label={`Rejected ${i + 1}, open the full image in a new tab`}
+                >
                   {/* eslint-disable-next-line @next/next/no-img-element -- served by our own /img route from local disk. */}
                   <img
                     src={`/img/${c.id}`}

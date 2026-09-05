@@ -9,6 +9,7 @@ import {
   friendlyFailure,
   STATUS_TONE,
   PRODUCT_STATUSES,
+  needsNewIdea,
 } from "../lib/status.ts";
 import type { CandidateState } from "../lib/types.ts";
 const c = (...states: CandidateState[]) => states.map((state) => ({ state }));
@@ -131,4 +132,10 @@ test("STATUS_TONE: one hue per meaning, every status covered", () => {
       failed: "red",
     },
   );
+});
+test("needsNewIdea: two full rounds turned down, not one", () => {
+  assert.equal(needsNewIdea(3, 2), false);
+  assert.equal(needsNewIdea(4, 2), true);
+  assert.equal(needsNewIdea(5, 3), false);
+  assert.equal(needsNewIdea(6, 3), true);
 });

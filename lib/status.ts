@@ -76,6 +76,11 @@ export const STATUS_TONE: Record<
   failed: "red",
 };
 
+/** Two rounds turned down with nothing kept is a sign the idea is wrong, not the luck; the
+ *  end card says so and points at the idea instead of another set. */
+export const needsNewIdea = (rejected: number, perProduct: number) =>
+  rejected >= 2 * perProduct;
+
 export const byReadingOrder = (
   a: { state: CandidateState; id: number },
   b: { state: CandidateState; id: number },
