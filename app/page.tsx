@@ -1,5 +1,11 @@
 import Link from "next/link";
-import { ChevronDown, ChevronLeft, ChevronRight, Download } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  Gauge,
+} from "lucide-react";
 import { overview } from "@/lib/queries";
 import { spendSummary } from "@/lib/analytics";
 import { pageOf, pageParam } from "@/lib/paging";
@@ -30,8 +36,9 @@ const PASSIVE: readonly ProductStatus[] = [
   "no_idea",
   "done",
 ];
-/** Rows per page. A 40-product drop is four pages of Ready at most; 300 done is 25. */
-const PAGE = 12;
+/** Rows per page: a heading, six rows and the pager fit one phone screen. A 40-product
+ *  drop is seven pages of Ready at most; 300 done is 50, which nobody pages through. */
+const PAGE = 6;
 
 const usd = (n: number) => `$${n.toFixed(2)}`;
 
@@ -294,8 +301,8 @@ export default async function Home({
               popoverTarget="spend"
               className={`${QUIET} tabular-nums`}
             >
+              <Gauge {...ICON} className="text-stone-500" />
               {usd(spend.spent)} spent
-              <ChevronDown {...ICON} className="text-stone-500" />
             </button>
             {/* Spend is a bound, not a receipt: the total against the cap, then one line
                 on where it went (D20, amended; D23). */}
