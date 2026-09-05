@@ -56,7 +56,8 @@ export function ImportForm({
       {state && (
         <div role="status" className="arrive mt-2 text-sm">
           <p>
-            {state.imported} imported
+            {state.imported} {state.imported === 1 ? "product" : "products"}{" "}
+            imported
             {state.suggested > 0 && `, ${state.suggested} ideas suggested`}
           </p>
           {state.errors.length > 0 && (
