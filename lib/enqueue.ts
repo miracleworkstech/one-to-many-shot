@@ -67,7 +67,7 @@ export function enqueue(
         queued: 0,
         skipped,
         estimatedUsd,
-        refused: `${flight.inFlight} images already in flight; adding ${planned} would exceed the ${env.maxInFlight} in-flight cap. Wait for the current batch.`,
+        refused: `${flight.inFlight} images are still in flight and ${env.maxInFlight} at once is the limit, so this batch of ${planned} has to wait. Try again once some have finished.`,
       };
     if (
       spent + flight.queued * env.costPerImage + estimatedUsd >
@@ -77,7 +77,7 @@ export function enqueue(
         queued: 0,
         skipped,
         estimatedUsd,
-        refused: `This would take spending past the budget cap. See Spend on the status page, or raise MAX_TOTAL_SPEND_USD to continue.`,
+        refused: `This batch would go past the spending budget, so nothing was started. Spend, at the top of the status page, shows where the budget stands; the limit itself is a setting (MAX_TOTAL_SPEND_USD), not a tap.`,
       };
     const batchId = Number(
       d

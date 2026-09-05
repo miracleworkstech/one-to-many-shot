@@ -83,6 +83,18 @@ export function shortDate(sqlite: string | null): string {
 
 /** Carousel order: oldest first, so nothing moves after a decision and a new set appends
  *  at the end. The approved marker shows what is decided; the order does not have to. */
+/** True for a decision made moments ago: the re-render right after the tap, not a later
+ *  visit. SQLite's `datetime('now')` is UTC without a zone; a few seconds either way covers
+ *  the round trip and a little clock drift. */
+export const justDecided = (
+  sqlite: string | null,
+  now = Date.now(),
+  windowMs = 15_000,
+) => {
+  const t = Date.parse(`${(sqlite ?? "").replace(" ", "T")}Z`);
+  return Number.isFinite(t) && Math.abs(now - t) < windowMs;
+};
+
 export const byCreation = (a: { id: number }, b: { id: number }) => a.id - b.id;
 
 export const PRODUCT_STATUSES = [

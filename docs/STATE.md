@@ -5,7 +5,18 @@
 
 ## Phase
 
-**Update 2026-09-05 (latest): Task 15 (D25) on `task/15-review-flow`, chained on task/14: the
+**Update 2026-09-05 (latest, end of session): the user approved and merged PRs #13 to #17, but
+#15 (copy, D26) and #17 (navigation flicker, D24 amended) were chained on task branches that had
+already been merged, so main (eca9b61) lacks them. `task/18-land-copy-and-nav` merges
+`origin/task/16-copy` (which holds both) onto main; **PR #18 is the next thing to merge**
+(fast-forward is not possible because main carries merge commits; a merge commit is fine).
+After that: `/impeccable document` (answers taken: North Star "The Contact Sheet", token
+names kept, "refined and restrained"), then Task 9. APPROACH.md holds another session's
+uncommitted draft (stashed as "other session's APPROACH.md draft" in this checkout; `git
+stash pop` restores it). Dev server: `.claude/launch.json` (`next-dev`), open
+`http://localhost:3000/?k=critique-local` once.**
+
+**Update 2026-09-05 (Task 15): Task 15 (D25) on `task/15-review-flow`, chained on task/14: the
 user's test of #13 found the carousel re-sorting after a decision (the jump, and the hidden
 approval motion), the follow-ups buried in the More menu, and static pending text. Fixed per
 `docs/superpowers/plans/2026-09-05-review-carousel-stability.md`; evaluator, Codex, PR, stop for review.
@@ -104,8 +115,10 @@ candidate with no retry and shows `failure.userMessage` on the card.
 | 8b Deploy hotfix | merged | PR #8 | `HOSTNAME=::` in the Dockerfile: Next standalone binds to HOSTNAME and Docker sets it to the container id, so Railway's proxy got connection refused |
 | 8c Codex whole-codebase fixes | PR open | task/8c-codex-fixes | user's call: findings 1, 2, 5, 6 (estimate tracks N; budget_exhausted pauses; SSRF guard on photo URLs incl. redirect hops; ASSUMPTIONS row 14); 3 and 4 accepted as documented costs. Evaluator PASS x2 (6/8 then 7/7 mutants); Codex 4 findings all fixed; D16 |
 | 8d Idea snapshot on candidates | PR open | task/8d-idea-snapshot | user's call on finding 3: `candidates.shot_idea` written at enqueue, additive migration + one-time backfill in one transaction, filenames from `c.shot_idea ?? p.shot_idea`; evaluator FAIL→PASS (untested write side, fixed), 6 + 3 mutants; Codex 1 finding fixed (transactional migration); D17 |
-| 14 Motion (D24) | PR #13 open | task/14-motion | plan `docs/superpowers/plans/2026-09-05-motion.md` |
-| 15 Review flow (D25) | PR open, chained on task/14 | task/15-review-flow | plan `docs/superpowers/plans/2026-09-05-review-carousel-stability.md`; evaluator PASS (3/3 mutants, 2 fixed), Codex 5 findings fixed (in-flight read off candidates, no Generate on the photo card, ring-only pulse, two doc slips) |
+| 14 Motion (D24) | merged (#13, #16) | | plan `docs/superpowers/plans/2026-09-05-motion.md` |
+| 15 Review flow (D25) | merged (#14, main eca9b61) | | plan `docs/superpowers/plans/2026-09-05-review-carousel-stability.md`; evaluator PASS (3/3 mutants, 2 fixed), Codex 5 findings fixed (in-flight read off candidates, no Generate on the photo card, ring-only pulse, two doc slips) |
+| 16 Copy (D26) | merged into task/15 only; landing via PR #18 | task/18-land-copy-and-nav | `/impeccable clarify`: refusals, "on the way", download not export, status-page links; copy only, check green, no evaluator round |
+| 17 Navigation flicker, replaying marks, static ring (D24 amended) | merged into task/16 only; landing via PR #18 | task/18-land-copy-and-nav | `next/link` back, cross-fade removed, marks gated on `justDecided`, ring turns; check green |
 | 9 Final docs, video, submit | not started | | |
 | 10 Review page layout (Impeccable) | merged in #11 | | init + critique (26/40) + layout, quieter, harden; Codex 4 findings fixed; D18. PRODUCT.md and .impeccable/ added |
 | 13 Status page hierarchy, then three zones (D22), then bolder (D23) | merged in #12 | | plan `docs/superpowers/plans/2026-09-05-status-hierarchy.md` + amendment; critique 25 → 27/40; rebuilt after the user's review: Needs a decision as a plain section (P0: toDecide > 0 stays in the queue), Next batch, folded passive states, Approved images with Download + CSV, header sheets for Import and Spend (running total); evaluator PASS (6/6 mutants, 2 non-blocking fixed); Codex 2 findings fixed (queue wins over Done, empty batches dropped in SQL) |

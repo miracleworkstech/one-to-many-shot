@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {
   ChevronDown,
   ChevronLeft,
@@ -68,7 +69,7 @@ function Item(r: Row) {
   const f = fact(r);
   return (
     <li>
-      <a
+      <Link
         href={`/review/${r.p.sku}`}
         className="flex min-h-14 items-center gap-3 rounded-lg px-2 py-2 hover:bg-stone-100 active:bg-stone-200 transition-colors duration-150 ease-out motion-reduce:transition-none"
       >
@@ -84,7 +85,7 @@ function Item(r: Row) {
           </span>
         )}
         <ChevronRight {...ICON} className="shrink-0 text-stone-400" />
-      </a>
+      </Link>
     </li>
   );
 }
@@ -131,10 +132,10 @@ function Pager({
       </span>
       <span className="flex gap-1">
         {page > 1 ? (
-          <a href={href(page - 1)} className={on}>
+          <Link href={href(page - 1)} className={on}>
             <ChevronLeft {...ICON} />
             Previous
-          </a>
+          </Link>
         ) : (
           <span className={off} aria-disabled="true">
             <ChevronLeft {...ICON} />
@@ -142,10 +143,10 @@ function Pager({
           </span>
         )}
         {page < pages ? (
-          <a href={href(page + 1)} className={on}>
+          <Link href={href(page + 1)} className={on}>
             Next
             <ChevronRight {...ICON} />
-          </a>
+          </Link>
         ) : (
           <span className={off} aria-disabled="true">
             Next
@@ -345,14 +346,14 @@ export default async function Home({
               {done.length} of {total} done
             </span>
             {queue.length > 0 ? (
-              <a
+              <Link
                 href="#decide"
                 className="-my-3 inline-flex items-center gap-1.5 rounded-lg py-3 hover:bg-stone-100"
               >
                 <StateDot tone="wait" />
                 {queue.length} {queue.length === 1 ? "needs" : "need"} a
                 decision
-              </a>
+              </Link>
             ) : (
               <span className="inline-flex items-center gap-1.5">
                 <StateDot tone="wait" />
