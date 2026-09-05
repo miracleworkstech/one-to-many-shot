@@ -61,3 +61,20 @@ details[open] > summary .chevron {
     transition: none;
   }
 }
+
+/* A rejected thumbnail opens as a lightbox: the image large, its one action beneath. */
+[popover].lightbox {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  width: min(100% - 2rem, 32rem);
+  max-height: calc(100svh - 2rem);
+  overflow: auto;
+  border: 1px solid var(--color-stone-300);
+  border-radius: 0.5rem;
+  background: var(--color-stone-50);
+  padding: 1rem;
+}
+[popover].lightbox::backdrop {
+  background: rgb(28 25 23 / 0.6);
+}

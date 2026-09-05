@@ -302,9 +302,9 @@ export default async function Review({
                       <input type="hidden" name="state" value="rejected" />
                       <button
                         className={QUIET}
-                        aria-label={`Reject slide ${i + 1} instead`}
+                        aria-label={`Reject slide ${i + 1}`}
                       >
-                        Reject instead
+                        Reject
                       </button>
                     </form>
                   </div>
@@ -421,31 +421,68 @@ export default async function Review({
           </summary>
           <ul className="mt-2 grid grid-cols-4 gap-2 sm:grid-cols-5">
             {rejected.map((c, i) => (
-              <li key={c.id} className="text-center">
-                <a
-                  href={`/img/${c.id}`}
-                  target="_blank"
-                  rel="noopener"
-                  aria-label={`Rejected ${i + 1}, open the full image in a new tab`}
+              <li key={c.id}>
+                <button
+                  type="button"
+                  popoverTarget={`rejected-${c.id}`}
+                  aria-label={`Rejected ${i + 1} of ${rejected.length}, look closer`}
+                  className="block w-full rounded-lg hover:opacity-90"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element -- served by our own /img route from local disk. */}
                   <img
                     src={`/img/${c.id}`}
-                    alt={`Rejected ${i + 1} of ${rejected.length}: ${p.name}, ${p.shot_idea ?? "candidate shot"}`}
+                    alt=""
                     className="aspect-[4/5] w-full rounded-lg bg-stone-200/60 object-cover"
                   />
-                </a>
-                <form action={decide}>
-                  <input type="hidden" name="id" value={c.id} />
-                  <input type="hidden" name="sku" value={sku} />
-                  <input type="hidden" name="state" value="approved" />
-                  <button
-                    aria-label={`Approve rejected ${i + 1} instead`}
-                    className="mt-1 min-h-11 w-full rounded-lg text-xs font-medium text-stone-700 hover:bg-stone-100"
-                  >
-                    Approve instead
-                  </button>
-                </form>
+                </button>
+                {/* The action lives here, not under every thumbnail: it appears only when
+                    someone chooses to look at this one. Tap outside or Escape closes. */}
+                <div
+                  id={`rejected-${c.id}`}
+                  popover="auto"
+                  className="lightbox"
+                  aria-label={`Rejected ${i + 1} of ${rejected.length}`}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element -- served by our own /img route from local disk. */}
+                  <img
+                    src={`/img/${c.id}`}
+                    alt={`${p.name}: ${p.shot_idea ?? "candidate shot"}`}
+                    className="block max-h-[70svh] w-full rounded-lg bg-stone-200/60 object-contain"
+                  />
+                  <div className="mt-3 flex items-center justify-between gap-3">
+                    <p className="inline-flex items-center gap-1.5 rounded-full bg-red-100 px-3 py-1 text-sm font-medium text-red-900">
+                      Rejected
+                      {c.decided_at && (
+                        <>
+                          <span aria-hidden="true">·</span>
+                          <time
+                            dateTime={`${c.decided_at.replace(" ", "T")}Z`}
+                            title={`${c.decided_at} UTC`}
+                            className="font-normal"
+                          >
+                            {shortDate(c.decided_at)}
+                          </time>
+                        </>
+                      )}
+                    </p>
+                    <div className="flex gap-2">
+                      <form action={decide}>
+                        <input type="hidden" name="id" value={c.id} />
+                        <input type="hidden" name="sku" value={sku} />
+                        <input type="hidden" name="state" value="approved" />
+                        <button className={QUIET}>Approve</button>
+                      </form>
+                      <button
+                        type="button"
+                        popoverTarget={`rejected-${c.id}`}
+                        popoverTargetAction="hide"
+                        className={QUIET}
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </li>
             ))}
           </ul>
