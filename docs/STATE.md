@@ -5,7 +5,19 @@
 
 ## Phase
 
-**Update 2026-09-05 (latest, third review): the user asked for a bolder page: no split
+**Update 2026-09-05 (latest): Task 14, motion (D24), on `task/14-motion` per
+`docs/superpowers/plans/2026-09-05-motion.md`: sheets rise and fade, disclosures unfold, answers
+arrive, the approval dot lands and its check draws, full navigations cross-fade (plain anchors
+replace `next/link`). Evaluator PASS (5 non-blocking, 2 fixed), Codex 3 findings (clip margin fixed, lint
+exception scoped, bfcache popover accepted). PR #13 open, waiting for review. The `/impeccable document`
+pass is paused with its three answers taken (North Star "The Contact Sheet", token names kept,
+"refined and restrained"); it resumes after Task 14 merges so DESIGN.md records the motion.**
+
+**Update 2026-09-05 (earlier): PR #12 approved and merged fast-forward (main at 3f18a6b, branch
+deleted). Running `/impeccable document` to write DESIGN.md from both shipped pages. Next:
+Task 9 (docs, video, submit) on the user's go.**
+
+**Update 2026-09-05 (third review): the user asked for a bolder page: no split
 accordions, spend at a glance, paged lists, a collapsible queue, the batch trigger as its own
 interaction, heading separation, a visual cue for the drop, file buttons in a dropdown.
 Built as D23 (`/impeccable bolder`): drop bar, six accordions with Previous / Next pages,
@@ -86,10 +98,11 @@ candidate with no retry and shows `failure.userMessage` on the card.
 | 8b Deploy hotfix | merged | PR #8 | `HOSTNAME=::` in the Dockerfile: Next standalone binds to HOSTNAME and Docker sets it to the container id, so Railway's proxy got connection refused |
 | 8c Codex whole-codebase fixes | PR open | task/8c-codex-fixes | user's call: findings 1, 2, 5, 6 (estimate tracks N; budget_exhausted pauses; SSRF guard on photo URLs incl. redirect hops; ASSUMPTIONS row 14); 3 and 4 accepted as documented costs. Evaluator PASS x2 (6/8 then 7/7 mutants); Codex 4 findings all fixed; D16 |
 | 8d Idea snapshot on candidates | PR open | task/8d-idea-snapshot | user's call on finding 3: `candidates.shot_idea` written at enqueue, additive migration + one-time backfill in one transaction, filenames from `c.shot_idea ?? p.shot_idea`; evaluator FAIL→PASS (untested write side, fixed), 6 + 3 mutants; Codex 1 finding fixed (transactional migration); D17 |
+| 14 Motion (D24) | PR #13 open | task/14-motion | plan `docs/superpowers/plans/2026-09-05-motion.md` |
 | 9 Final docs, video, submit | not started | | |
 | 10 Review page layout (Impeccable) | merged in #11 | | init + critique (26/40) + layout, quieter, harden; Codex 4 findings fixed; D18. PRODUCT.md and .impeccable/ added |
-| 13 Status page hierarchy, then three zones (D22) | in PR #12 | task/11-status-page | plan `docs/superpowers/plans/2026-09-05-status-hierarchy.md` + amendment; critique 25 → 27/40; rebuilt after the user's review: Needs a decision as a plain section (P0: toDecide > 0 stays in the queue), Next batch, folded passive states, Approved images with Download + CSV, header sheets for Import and Spend (running total); evaluator PASS (6/6 mutants, 2 non-blocking fixed); Codex 2 findings fixed (queue wins over Done, empty batches dropped in SQL) |
-| 11 Status page layout (Impeccable) | PR #12 open, rebased on main | task/11-status-page | grouped by next action, counts in headings, generate inside Ready, spend behind a disclosure; D19 |
+| 13 Status page hierarchy, then three zones (D22), then bolder (D23) | merged in #12 | | plan `docs/superpowers/plans/2026-09-05-status-hierarchy.md` + amendment; critique 25 → 27/40; rebuilt after the user's review: Needs a decision as a plain section (P0: toDecide > 0 stays in the queue), Next batch, folded passive states, Approved images with Download + CSV, header sheets for Import and Spend (running total); evaluator PASS (6/6 mutants, 2 non-blocking fixed); Codex 2 findings fixed (queue wins over Done, empty batches dropped in SQL) |
+| 11 Status page layout (Impeccable) | merged in #12 (main 3f18a6b) | | grouped by next action, counts in headings, generate inside Ready, spend behind a disclosure; D19 |
 
 ## How a task runs (D8)
 
