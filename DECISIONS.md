@@ -671,5 +671,5 @@ now. The lint exception for plain anchors is removed.
 - **Addendum (Codex, same day):** two should-fix findings, both taken. The sheet no longer
   suppresses its outline, so a sheet opened from the keyboard shows the page's focus ring.
   `/img/[id]` makes a missing review copy on the first request (candidates from before
-  D26, or a resize the worker could not do) instead of serving the 2048 px original for
+  D27, or a resize the worker could not do) instead of serving the 2048 px original for
   good; an original that will not decode is served as-is with a warning.
