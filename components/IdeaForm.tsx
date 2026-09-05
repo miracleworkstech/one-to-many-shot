@@ -1,6 +1,7 @@
 "use client";
 import { useActionState, useState } from "react";
 import { MAX_IDEA_CHARS } from "@/lib/types";
+import { Spinner } from "./Pending";
 
 /** The shot idea, shown as text and edited in place: the textarea *is* the caption, with no
  *  border until it has focus, so the criterion the reviewer judges against is never shown
@@ -58,9 +59,17 @@ export function IdeaForm({
         {dirty && (
           <button
             disabled={isPending}
-            className="min-h-11 rounded-lg bg-stone-900 px-3 text-sm font-medium text-white hover:bg-stone-800 disabled:opacity-50"
+            aria-busy={isPending}
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-stone-900 px-3 text-sm font-medium text-white hover:bg-stone-800 disabled:opacity-60"
           >
-            {isPending ? "Saving…" : "Save idea"}
+            {isPending ? (
+              <>
+                <Spinner />
+                Saving…
+              </>
+            ) : (
+              "Save idea"
+            )}
           </button>
         )}
         {saved && !dirty && (
