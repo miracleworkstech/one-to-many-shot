@@ -401,6 +401,28 @@ live in `ASSUMPTIONS.md`, not here.
 - **Revisit trigger:** Ellie asks for swipe or auto-advance, or candidates come back in a
   taller aspect ratio than 4:5.
 
+## D19 — The status page groups products by what happens next; counts live in the group headings (2026-09-04)
+
+- **Decision:** `/impeccable layout app/page.tsx`. The page opens with one sentence
+  ("1 of 40 done · 1 waiting for review · $0.35 of $25.00 spent"), then the products grouped
+  by status in action order: waiting for review, needs more, generation failed, generating,
+  ready to generate, needs an idea, done. Each group is a native `<details>` with its count in
+  the heading; the actionable groups open by default, Done is closed. A group past 12 rows
+  folds the rest behind "Show N more". The generate-next form lives inside "Ready to
+  generate", capped at that count, with the estimate on the button. The seven count tiles
+  and the standalone list are gone; spend and recent batches sit behind a disclosure; import
+  and the two downloads sit last under "The sheet". An empty database shows only the import.
+- **Alternatives:** Keep the flat list with a status filter (one more control, no grouping).
+  Client-side pagination (JavaScript for what `<details>` does). Tabs per status (hides the
+  whole picture Maya wants at a glance).
+- **Why:** PRODUCT.md: status before action, the abandoned KPI dashboard as anti-reference,
+  nothing to learn. The user named the problem: too much information, no hierarchy, no
+  grouping or pagination. Native disclosures give grouping and paging with no client code.
+- **Cost accepted:** A 300-product Done group still renders its rows into the DOM behind a
+  closed disclosure (fine at this scale). "Show N more" is one fold, not real pagination.
+- **Revisit trigger:** The catalog passes about a thousand products, or the team asks to
+  search or filter.
+
 ## D20 — One visual system for both pages; no price on trigger buttons; no names in the UI (2026-09-05)
 
 - **Decision:** The cross-page consistency review after the two critiques (review page 28/40,
@@ -449,24 +471,3 @@ back) and hid spend already paid for; the grid wraps to dozens and hides nothing
 tinted pill with same-hue text (Tailwind's default badge, which reads as generated). The
 hues are three theme tokens tuned to the stone neutrals, moss / clay / ochre, instead of
 green / red / amber. `STATUS_TONE` names meanings (`wait`, `ok`, `stop`, `neutral`), not hues.
-## D19 — The status page groups products by what happens next; counts live in the group headings (2026-09-04)
-
-- **Decision:** `/impeccable layout app/page.tsx`. The page opens with one sentence
-  ("1 of 40 done · 1 waiting for review · $0.35 of $25.00 spent"), then the products grouped
-  by status in action order: waiting for review, needs more, generation failed, generating,
-  ready to generate, needs an idea, done. Each group is a native `<details>` with its count in
-  the heading; the actionable groups open by default, Done is closed. A group past 12 rows
-  folds the rest behind "Show N more". The generate-next form lives inside "Ready to
-  generate", capped at that count, with the estimate on the button. The seven count tiles
-  and the standalone list are gone; spend and recent batches sit behind a disclosure; import
-  and the two downloads sit last under "The sheet". An empty database shows only the import.
-- **Alternatives:** Keep the flat list with a status filter (one more control, no grouping).
-  Client-side pagination (JavaScript for what `<details>` does). Tabs per status (hides the
-  whole picture Maya wants at a glance).
-- **Why:** PRODUCT.md: status before action, the abandoned KPI dashboard as anti-reference,
-  nothing to learn. The user named the problem: too much information, no hierarchy, no
-  grouping or pagination. Native disclosures give grouping and paging with no client code.
-- **Cost accepted:** A 300-product Done group still renders its rows into the DOM behind a
-  closed disclosure (fine at this scale). "Show N more" is one fold, not real pagination.
-- **Revisit trigger:** The catalog passes about a thousand products, or the team asks to
-  search or filter.
