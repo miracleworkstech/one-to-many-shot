@@ -10,8 +10,9 @@ after #18 merged: the four P2 findings of `/impeccable audit` (15/20). Sheets ar
 that take focus (`components/Sheet.tsx`), review pages are titled by product, the worker
 keeps a 1024 px review copy of every image (`lib/images.ts`, sharp declared) that `/img`
 serves with the original as fallback, slides are lazy in a fixed 4:5 box, and the idea
-textarea is capped at four lines until focused. `npm run check` green (172 tests). Next:
-evaluator, Codex, PR, stop for review. Remaining P3s from the audit: the batch input's
+textarea is capped at four lines until focused. `npm run check` green (175 tests). Evaluator PASS (4
+non-blocking, 2 taken), Codex 2 should-fix (both taken), Save idea made quiet on the user's
+note. PR #19 open, waiting for the user's review; merge is fast-forward after approval. Remaining P3s from the audit: the batch input's
 label-in-name, inline button strings, two literal backdrop colours.**
 
 **Update 2026-09-05 (end of session): the user approved and merged PRs #13 to #17, but
