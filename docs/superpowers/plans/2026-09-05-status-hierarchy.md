@@ -93,3 +93,24 @@ full width, Download beside Done. Agreed, with these amendments to "Decisions ta
   anchor is `--sheet` on both. `overview()` rows carry `approved` for the "1 of 2" fact.
 - **Dropped from this plan:** the action row, the three tiers, the Spend disclosure, the
   "Nothing here." copy, the idea line on rows.
+
+## Amended again 2026-09-05 (D23, `/impeccable bolder`)
+
+The user's third review: approved images should not split the accordions; the spend sheet
+is too text heavy (total against budget at a glance); long lists should page; the queue
+should be collapsible too; the batch trigger should be its own interaction; headings need
+to separate from product names; a visual cue for done vs needing a decision vs total; the
+file buttons grouped in a dropdown. Built as:
+
+- Header: title, "CSV" sheet (Updated CSV, Import CSV with helper and result), "$x.xx spent"
+  sheet (figure, bar against the cap, one line). "Download N approved images" is the filled
+  call to action at the foot of the page.
+- Status line with dots and a drop bar: done (moss), needs a decision (ochre), to go.
+- Six `<details>` groups, heading 20/600 + count 20/400: Needs a decision (open), Ready to
+  generate (open, "Generate a batch" primary opening the `.lightbox` sheet with
+  `GenerateForm`), Generating, Generation failed, Needs an idea, Done (closed). Empty groups
+  are omitted except the queue, which states its empty state.
+- `lib/paging.ts` (`pageOf`, `pageParam`, tested): 12 rows a page, Previous / Next links
+  `?<group>=<n>#<group>`; a page link opens its group.
+- Gone: the batch list, the per-image prose, the "Next batch" section, the Approved images
+  section, `recentBatches` on this page.

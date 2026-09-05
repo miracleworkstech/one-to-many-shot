@@ -5,7 +5,14 @@
 
 ## Phase
 
-**Update 2026-09-05 (latest, later): the user reviewed PR #12 and asked for stronger hierarchy,
+**Update 2026-09-05 (latest, third review): the user asked for a bolder page: no split
+accordions, spend at a glance, paged lists, a collapsible queue, the batch trigger as its own
+interaction, heading separation, a visual cue for the drop, file buttons in a dropdown.
+Built as D23 (`/impeccable bolder`): drop bar, six accordions with Previous / Next pages,
+Files and Spend sheets in the header, "Generate a batch" sheet inside Ready. Evaluator +
+Codex, PR #12 updated, waiting for the user's review.**
+
+**Update 2026-09-05 (second review): the user reviewed PR #12 and asked for stronger hierarchy,
 no accordion stack, merged human-wait groups, real row affordances, Spend as a control with a
 popout, aligned full-width buttons, Download beside Done. A second critique (27/40) found a
 P0 (decidable candidates hidden under Generating). Rebuilt on `task/11-status-page` as D22

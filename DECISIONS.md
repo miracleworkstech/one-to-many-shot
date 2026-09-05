@@ -514,3 +514,40 @@ no name. `SpendPanel` deleted; `overview()` rows carry `toDecide`.
   across the server action's re-render (DOM state, not React state).
 - **Revisit trigger:** Anyone asks to filter or search the list (the segmented filter is the
   next step). A browser closes the import sheet before the result lands.
+
+## D23 — Bolder status page: one bar for the drop, six accordions with pages, three sheets (2026-09-05)
+
+- **Decision:** `/impeccable bolder app/page.tsx` after the user's second review. The system's
+  own devices turned up, nothing new added: the dot motif becomes one thin bar under the
+  status line (moss done, ochre needs a decision, stone to go) with the three counts beside
+  it; group headings step to 20/600 with the count at 20/400 stone-500, the largest step the
+  type scale allows, so they read as a different level from product names; every group,
+  the queue included, is a `<details>` whose summary is the heading, with "Needs a decision"
+  and "Ready to generate" open on every load and never remembered closed; lists page at 12
+  with Previous / Next links (a query parameter per group and the group's anchor, so the
+  reload lands back on the list); the batch trigger is a filled "Generate a batch" button
+  inside Ready that opens a centred sheet holding the count and the answer; CSV (Updated
+  CSV out, Import CSV in with its helper) and Spend are two header controls opening sheets;
+  "Download N approved images" is the one filled call to action at the foot of the page,
+  after the groups (the user's call: the way out stands alone). The spend sheet is the total
+  against the cap as a figure and a bar, then one line on where it went; the batch list and
+  the per-image prose go, and `recentBatches` with them (no caller left).
+- **Alternatives:** The queue as a plain section (the user chose consistency; the cost is a
+  mis-tap folding it, mitigated by opening on every load). "Show 12 more" instead of pages
+  (one link, longer page at 300). The files row at the top or the bottom (the user chose a
+  dropdown). Generate in the header beside Spend (the user chose the Ready group). A
+  `<meter>` for spend (the same bar primitive as the drop, one fewer thing to style).
+- **Why:** Scanability for Maya and Ellie: a squint now shows the bar, two open groups and
+  one black button. The bolder rule: amplify what the system owns, add no primitive.
+- **Cost accepted:** Pagination reloads the page (no client state) and jumps to the anchor.
+  Six headings at 20 px make the folded strip taller than the 14 px lines it replaces. The
+  generate sheet and the files sheet stay open across their server actions by DOM
+  stability, not React state.
+- **Revisit trigger:** Anyone asks for the batch history back (a "Batches" line in the spend
+  sheet). Someone closes the queue and cannot find it.
+
+Also in this change: `<html suppressHydrationWarning>` in `app/layout.tsx`. The dev overlay
+reported an empty `style` attribute on `<html>` that the server never rendered; nothing in
+the app sets it, so it comes from a browser extension or the in-app browser's device
+emulation touching the root before React hydrates. The flag silences attribute diffs on that
+one element only.
