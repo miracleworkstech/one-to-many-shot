@@ -1,5 +1,5 @@
 // Decisions on a candidate. One responsibility: the approve/reject write.
-import { db, inStates, st } from "./db";
+import { db, inStates } from "./db";
 import { MAX_SKU_CHARS, MAX_WHO_CHARS } from "./types";
 
 export const DECISIONS = ["approved", "rejected"] as const;
@@ -28,29 +28,6 @@ export function decideCandidate(
        where id=? and sku=? and state in ${inStates("completed", "approved", "rejected")}`,
     )
     .run(state, who, id, sku).changes;
-}
-
-/** Archives a rejected candidate so it leaves the review carousel. Only a rejection can be
- *  archived (the image was seen and refused); the state stays "rejected", so nothing about
- *  counts, spend or exports changes. Returns rows changed. */
-export function archiveCandidate(id: number, sku: string): number {
-  return db()
-    .prepare(
-      `update candidates set archived_at=datetime('now')
-       where id=? and sku=? and state=${st("rejected")} and archived_at is null`,
-    )
-    .run(id, sku).changes;
-}
-
-/** Input handling for `archive`: an id and the SKU of the page, both from a form. */
-export function parseArchive(
-  formData: FormData,
-): { id: number; sku: string } | null {
-  const id = Number(formData.get("id"));
-  const sku = String(formData.get("sku") ?? "").trim();
-  if (!Number.isInteger(id) || id <= 0) return null;
-  if (!sku || sku.length > MAX_SKU_CHARS) return null;
-  return { id, sku };
 }
 
 /** The whole of the `decide` action's input handling, pure so it can be tested. Everything

@@ -49,7 +49,6 @@ export interface Candidate {
   decided_by: string | null;
   created_at: string;
   decided_at: string | null;
-  archived_at: string | null;
 }
 
 /** Free-text limits at the trust boundary. They live here, not in `lib/review.ts` or

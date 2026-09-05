@@ -9,8 +9,7 @@ const dir = fs.mkdtempSync(path.join(os.tmpdir(), "shots-review-"));
 process.env.DATA_DIR = dir;
 
 const { db } = await import("../lib/db.ts");
-const { decideCandidate, archiveCandidate, parseArchive } =
-  await import("../lib/review.ts");
+const { decideCandidate } = await import("../lib/review.ts");
 
 after(() => {
   db().close();
@@ -126,32 +125,4 @@ test("the decide action writes nothing for a form parseDecision rejects", async 
   fd.set("state", "deleted");
   await decide(fd);
   assert.equal(read(id).state, "completed");
-});
-test("archive: only a rejected candidate on its own page, once", () => {
-  const rejected = candidate("rejected");
-  const approved = candidate("approved");
-  assert.equal(
-    archiveCandidate(approved, "HG-002"),
-    0,
-    "approved stays visible",
-  );
-  assert.equal(
-    archiveCandidate(rejected, "HG-999"),
-    0,
-    "wrong page changes nothing",
-  );
-  assert.equal(archiveCandidate(rejected, "HG-002"), 1);
-  assert.equal(read(rejected).state, "rejected", "the state does not change");
-  assert.ok(read(rejected).archived_at, "archived_at is set");
-  assert.equal(
-    archiveCandidate(rejected, "HG-002"),
-    0,
-    "archiving twice changes nothing",
-  );
-  const fd = new FormData();
-  fd.set("id", String(rejected));
-  fd.set("sku", "HG-002");
-  assert.deepEqual(parseArchive(fd), { id: rejected, sku: "HG-002" });
-  fd.set("id", "-1");
-  assert.equal(parseArchive(fd), null);
 });

@@ -34,7 +34,6 @@ create table if not exists candidates (
   batch_id integer not null references batches(id),
   prompt text not null, luma_generation_id text, state text not null default ${st("queued")} check (state in (${list(CANDIDATE_STATES)})),
   shot_idea text,
-  archived_at text,
   cost_usd real not null default 0, failure_reason text, attempts integer not null default 0,
   decided_by text, created_at text not null default (datetime('now')), decided_at text
 );
@@ -72,10 +71,6 @@ export function db(): Database.Database {
   const candidateCols = (
     d.prepare("pragma table_info(candidates)").all() as { name: string }[]
   ).map((c) => c.name);
-  // A rejected candidate can be archived to leave the review carousel (2026-09-05). Additive,
-  // like shot_idea: the state stays "rejected" so counts, spend and exports do not change.
-  if (!candidateCols.includes("archived_at"))
-    d.exec("alter table candidates add column archived_at text");
   if (!candidateCols.includes("shot_idea"))
     // One transaction: a crash after the alter but before the backfill would otherwise
     // leave the column present and the backfill skipped forever (Codex, Task 8d).

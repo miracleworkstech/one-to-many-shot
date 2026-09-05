@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
-  Archive,
   ArrowLeft,
   Check,
   ChevronLeft,
@@ -21,7 +20,7 @@ import {
   isPhotoProblem,
 } from "@/lib/status";
 import { env } from "@/lib/env";
-import { archive, decide, updateIdea } from "@/lib/actions/review";
+import { decide, updateIdea } from "@/lib/actions/review";
 import { IdeaForm } from "@/components/IdeaForm";
 import { GenerateProductForm } from "@/components/GenerateProductForm";
 
@@ -56,16 +55,20 @@ export default async function Review({
   const detail = productDetail(sku);
   if (!detail) notFound();
   const { p, status, prev, next, position, total } = detail;
-  // Archived rejections leave the carousel; they still count for status, spend and exports.
-  const archived = detail.cands.filter((c) => c.archived_at).length;
-  const cands = detail.cands.filter((c) => !c.archived_at).sort(byReadingOrder);
+  const all = [...detail.cands].sort(byReadingOrder);
+  // Rejections leave the carousel for a folded grid below it: the carousel is for what is
+  // still worth a look, the grid is the record. Both still count for status and spend.
+  const rejected = all.filter((c) => c.state === "rejected");
+  const cands = all.filter((c) => c.state !== "rejected");
   const toDecide = cands.filter((c) => c.state === "completed").length;
   const canGenerate = !!p.shot_idea && status !== "generating";
-  const canRetry = !!p.shot_idea && retryAllowed(cands, status);
+  const canRetry = !!p.shot_idea && retryAllowed(all, status);
   // The end card closes the carousel once nothing is undecided or in flight (lib/status.ts).
-  const end = p.shot_idea ? carouselEnd(cands, status) : null;
+  const end = p.shot_idea ? carouselEnd(all, status) : null;
   const meta = [p.color, p.material, p.price].filter(Boolean).join(" · ");
   const slides = cands.length + (end ? 1 : 0);
+  // Two rounds of Try again with nothing kept is a sign the idea is wrong, not the luck.
+  const ideaNudge = rejected.length >= 2 * env.candidatesPerProduct;
 
   return (
     <main className="mx-auto max-w-lg px-4 pt-2 pb-20 sm:pb-6">
@@ -90,7 +93,7 @@ export default async function Review({
             </span>
           )}
         </p>
-        {(canGenerate || canRetry) && cands.length > 0 ? (
+        {(canGenerate || canRetry) && all.length > 0 ? (
           <>
             <button
               type="button"
@@ -182,7 +185,7 @@ export default async function Review({
       )}
 
       {/* Nothing to review yet: generating is the one thing to do, so it leads. */}
-      {canGenerate && cands.length === 0 && (
+      {canGenerate && all.length === 0 && (
         <div className="mt-6">
           <GenerateProductForm
             key={`${p.sku}:product`}
@@ -191,9 +194,6 @@ export default async function Review({
             label={`Generate ${env.candidatesPerProduct} candidates`}
             variant="primary"
           />
-          {archived > 0 && (
-            <p className="mt-3 text-xs text-stone-600">{archived} archived</p>
-          )}
         </div>
       )}
 
@@ -274,8 +274,8 @@ export default async function Review({
                 </div>
               )}
 
-              {/* Decided: the state is the loud thing, the ways to change it are quiet. */}
-              {(c.state === "approved" || c.state === "rejected") && (
+              {/* Approved: the state is the loud thing, the way to change it is quiet. */}
+              {c.state === "approved" && (
                 <div className="mt-3 flex flex-col items-center gap-2 text-center">
                   <p
                     className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium ${
@@ -319,16 +319,6 @@ export default async function Review({
                           : "Approve instead"}
                       </button>
                     </form>
-                    {c.state === "rejected" && (
-                      <form action={archive}>
-                        <input type="hidden" name="id" value={c.id} />
-                        <input type="hidden" name="sku" value={sku} />
-                        <button className={QUIET}>
-                          <Archive {...SMALL} />
-                          Archive
-                        </button>
-                      </form>
-                    )}
                   </div>
                 </div>
               )}
@@ -419,15 +409,51 @@ export default async function Review({
                     </div>
                   </>
                 )}
-                {archived > 0 && (
-                  <p className="mt-3 text-xs text-stone-600">
-                    {archived} archived
+                {ideaNudge && end.kind !== "done" && (
+                  <p className="mt-3 text-sm text-amber-900">
+                    {rejected.length} rejected so far. Change the idea above
+                    before asking for another set.
                   </p>
                 )}
               </div>
             </li>
           )}
         </ul>
+      )}
+
+      {/* The record of what was turned down: folded, wrapping, scales to dozens. */}
+      {rejected.length > 0 && (
+        <details className="mt-2">
+          <summary className="inline-flex min-h-11 cursor-pointer select-none items-center gap-1 rounded-lg px-1 text-sm font-medium text-stone-700 hover:bg-stone-100">
+            <ChevronRight
+              {...ICON}
+              className="chevron transition-transform duration-150 ease-out motion-reduce:transition-none"
+            />
+            {rejected.length} rejected
+          </summary>
+          <ul className="mt-2 grid grid-cols-4 gap-2 sm:grid-cols-5">
+            {rejected.map((c) => (
+              <li key={c.id} className="text-center">
+                <a href={`/img/${c.id}`} target="_blank" rel="noopener">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- served by our own /img route from local disk. */}
+                  <img
+                    src={`/img/${c.id}`}
+                    alt={`Rejected: ${p.name}, ${p.shot_idea ?? "candidate shot"}`}
+                    className="aspect-[4/5] w-full rounded-lg bg-stone-200/60 object-cover"
+                  />
+                </a>
+                <form action={decide}>
+                  <input type="hidden" name="id" value={c.id} />
+                  <input type="hidden" name="sku" value={sku} />
+                  <input type="hidden" name="state" value="approved" />
+                  <button className="mt-1 min-h-11 w-full rounded-lg text-xs font-medium text-stone-700 hover:bg-stone-100">
+                    Approve instead
+                  </button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        </details>
       )}
 
       <nav

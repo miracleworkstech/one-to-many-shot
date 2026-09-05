@@ -437,3 +437,10 @@ live in `ASSUMPTIONS.md`, not here.
 - **Cost accepted:** An archived rejection is invisible from the page; the CSV and the spend
   disclosure still count it. Un-archive is a follow-up if anyone asks.
 - **Revisit trigger:** A request to see or restore archived candidates.
+
+**Amended the same day:** Archive was replaced before it shipped. Rejections now leave the
+carousel for a folded grid below it ("n rejected", closed by default, four thumbnails a row,
+each with a quiet "Approve instead"), and the end card nudges "change the idea" once two
+rounds have been turned down. Archive got worse as numbers grew (one tap per image, no way
+back) and hid spend already paid for; the grid wraps to dozens and hides nothing. The
+`archived_at` column was reverted before any deployment carried it.
