@@ -624,3 +624,13 @@ one element only.
 - **Why:** Errors name the problem and the next step; the team's words, not ours.
 - **Cost accepted:** None material. Tests pin the phrase "in flight", which is kept.
 - **Revisit trigger:** A team member asks what "in flight" means.
+
+**D24 amended (2026-09-05, after the user's test):** the cross-document cross-fade is gone
+and both pages navigate with `next/link` again. In practice the cross-fade flickered: the old
+page was held, the new one faded in, and the approval marks then animated on top of it on
+every visit. In-app navigation swaps the content without a blank paint, which is the
+continuity the cross-fade was reaching for. The approval's dot and check now animate only
+on the render right after the decision (`justDecided`, a 15-second window on `decided_at`),
+never on a later visit. The generating placeholder's ring turns again: the breathing rule had
+replaced the spin utility's animation, so the ring pulsed instead of turning; both run on it
+now. The lint exception for plain anchors is removed.

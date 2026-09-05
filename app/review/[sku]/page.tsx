@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   ArrowLeft,
@@ -16,6 +17,7 @@ import {
   carouselEnd,
   friendlyFailure,
   isPhotoProblem,
+  justDecided,
   needsNewIdea,
   shortDate,
 } from "@/lib/status";
@@ -64,7 +66,15 @@ export default async function Review({
   const endKind =
     end?.kind ??
     (isGenerating ? "generating" : status === "done" ? "done" : "open");
-  const approved = all.filter((c) => c.state === "approved").length;
+  const approvedCands = all.filter((c) => c.state === "approved");
+  const approved = approvedCands.length;
+  // The done check draws once, on the render right after the approval that made it so.
+  const justDone = justDecided(
+    approvedCands
+      .map((c) => c.decided_at ?? "")
+      .sort()
+      .at(-1) ?? null,
+  );
   const showEnd = !!p.shot_idea && all.length > 0;
   const meta = [p.color, p.material, p.price].filter(Boolean).join(" · ");
   const slides = cands.length + (showEnd ? 1 : 0);
@@ -73,14 +83,14 @@ export default async function Review({
   return (
     <main className="mx-auto max-w-lg px-4 pt-2 pb-20 sm:pb-6">
       <header className="flex items-center justify-between gap-2 text-sm">
-        <a
+        <Link
           href="/"
           aria-label="All products"
           className="inline-flex min-h-11 min-w-11 items-center gap-1 rounded-lg font-medium text-stone-900 hover:bg-stone-100 sm:pr-2"
         >
           <ArrowLeft {...ICON} />
           <span className="hidden sm:inline">All products</span>
-        </a>
+        </Link>
         <p className="flex min-w-0 items-center gap-2 text-sm whitespace-nowrap">
           <span className="inline-flex items-center gap-1.5 font-medium text-stone-900">
             <Dot tone={STATUS_TONE[status]} />
@@ -201,12 +211,12 @@ export default async function Review({
                         <>
                           Fix the Photo link for this row in the sheet, then
                           import the new export from the{" "}
-                          <a
+                          <Link
                             href="/"
                             className="-my-3 inline-block py-3 font-medium underline-offset-2 hover:underline"
                           >
                             status page
-                          </a>
+                          </Link>
                           .
                         </>
                       ) : status === "generating" ? (
@@ -253,7 +263,7 @@ export default async function Review({
               {c.state === "approved" && (
                 <div className="mt-3 flex flex-col items-center gap-2 text-center">
                   <p
-                    className="approved-in inline-flex items-center gap-1.5 py-1 text-sm font-medium text-stone-900"
+                    className={`${justDecided(c.decided_at) ? "approved-in " : ""}inline-flex items-center gap-1.5 py-1 text-sm font-medium text-stone-900`}
                     aria-label={`Approved, slide ${i + 1}`}
                   >
                     <Dot tone="ok" className="dot" />
@@ -299,7 +309,10 @@ export default async function Review({
                 {endKind === "done" ? (
                   <>
                     <p className="inline-flex items-center gap-2 font-semibold text-stone-900">
-                      <Check {...ICON} className="draw text-moss" />
+                      <Check
+                        {...ICON}
+                        className={`${justDone ? "draw " : ""}text-moss`}
+                      />
                       Done · {approved} approved
                     </p>
                     <p className="mt-1 text-sm text-stone-700">
@@ -350,16 +363,16 @@ export default async function Review({
                 )}
                 <div className="mt-4 space-y-2">
                   {endKind === "done" && next && (
-                    <a href={`/review/${next}`} className={PRIMARY}>
+                    <Link href={`/review/${next}`} className={PRIMARY}>
                       Next product
                       <ChevronRight {...ICON} />
-                    </a>
+                    </Link>
                   )}
                   {endKind === "photo" && (
-                    <a href="/" className={PRIMARY}>
+                    <Link href="/" className={PRIMARY}>
                       Status page
                       <ChevronRight {...ICON} />
-                    </a>
+                    </Link>
                   )}
                   {canRetry && endKind !== "done" && endKind !== "photo" && (
                     <GenerateProductForm
@@ -379,10 +392,10 @@ export default async function Review({
                       variant={endKind === "more" ? "primary" : "quiet"}
                     />
                   )}
-                  <a href="#idea" className={`${QUIET} w-full`}>
+                  <Link href="#idea" className={`${QUIET} w-full`}>
                     <Pencil {...ICON} />
                     Change the idea
-                  </a>
+                  </Link>
                 </div>
                 {ideaNudge && endKind !== "done" && (
                   <p className="mt-3 inline-flex items-start gap-1.5 text-sm font-medium text-stone-900">
@@ -490,13 +503,13 @@ export default async function Review({
       >
         <div className="mx-auto flex max-w-lg items-center justify-between gap-2 px-2 py-1 text-sm sm:px-0">
           {prev ? (
-            <a
+            <Link
               href={`/review/${prev}`}
               className="inline-flex min-h-11 min-w-24 items-center gap-1 rounded-lg px-2 font-medium text-stone-900 hover:bg-stone-100"
             >
               <ChevronLeft {...ICON} />
               Previous
-            </a>
+            </Link>
           ) : (
             <span className="inline-flex min-h-11 min-w-24 items-center gap-1 px-2 text-stone-500">
               <ChevronLeft {...ICON} />
@@ -507,13 +520,13 @@ export default async function Review({
             {position} of {total}
           </span>
           {next ? (
-            <a
+            <Link
               href={`/review/${next}`}
               className="inline-flex min-h-11 min-w-24 items-center justify-end gap-1 rounded-lg px-2 font-medium text-stone-900 hover:bg-stone-100"
             >
               Next
               <ChevronRight {...ICON} />
-            </a>
+            </Link>
           ) : (
             <span className="inline-flex min-h-11 min-w-24 items-center justify-end gap-1 px-2 text-stone-500">
               Next

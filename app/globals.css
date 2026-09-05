@@ -199,24 +199,22 @@ details[open] > summary .chevron {
 
 /* 4b. A placeholder waiting on the worker breathes, slowly, so it reads as alive rather
    than stuck. The ring beside its text turns (Tailwind's animate-spin). */
-/* Only the ring breathes; the words stay at full contrast. */
+/* Only the ring moves: it turns and breathes; the words stay at full contrast. The
+   turn is spelled out here because this rule replaces the utility's animation. */
 .breathe > svg {
-  animation: breathe 2.4s ease-in-out infinite;
+  animation:
+    turn 1s linear infinite,
+    breathe 2.4s ease-in-out infinite;
+}
+@keyframes turn {
+  to {
+    transform: rotate(360deg);
+  }
 }
 @keyframes breathe {
   50% {
     opacity: 0.55;
   }
-}
-
-/* 5. Continuity between pages: a short cross-fade on every full navigation (product to
-   product, page to page of a list) instead of a white flash. */
-@view-transition {
-  navigation: auto;
-}
-::view-transition-old(root),
-::view-transition-new(root) {
-  animation-duration: 200ms;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -235,8 +233,5 @@ details[open] > summary .chevron {
   .draw path,
   .breathe > svg {
     animation: none;
-  }
-  @view-transition {
-    navigation: none;
   }
 }
