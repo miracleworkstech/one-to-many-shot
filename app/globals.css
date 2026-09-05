@@ -90,3 +90,140 @@ details[open] > summary .chevron {
 [popover].lightbox::backdrop {
   background: rgb(28 25 23 / 0.6);
 }
+
+/* Motion (D24). Four jobs, all CSS, transform and opacity only, exits faster than
+   entrances, and a reduced-motion path that keeps the feedback and drops the movement.
+   1. Sheets rise 8 px and fade in; the backdrop fades with them. */
+[popover].sheet,
+[popover].lightbox {
+  opacity: 0;
+  transform: translateY(8px);
+  transition:
+    opacity 150ms ease-out,
+    transform 150ms ease-out,
+    overlay 150ms allow-discrete,
+    display 150ms allow-discrete;
+}
+[popover].sheet:popover-open,
+[popover].lightbox:popover-open {
+  opacity: 1;
+  transform: none;
+  transition-duration: 250ms;
+  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+/* Top level on purpose: nested inside the rule, the compiler flattens the starting
+   values into the open state and the sheet never appears. */
+@starting-style {
+  [popover].sheet:popover-open,
+  [popover].lightbox:popover-open {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+[popover].sheet::backdrop,
+[popover].lightbox::backdrop {
+  opacity: 0;
+  transition:
+    opacity 150ms ease-out,
+    overlay 150ms allow-discrete,
+    display 150ms allow-discrete;
+}
+[popover].sheet:popover-open::backdrop,
+[popover].lightbox:popover-open::backdrop {
+  opacity: 1;
+  transition-duration: 250ms;
+}
+@starting-style {
+  [popover].sheet:popover-open::backdrop,
+  [popover].lightbox:popover-open::backdrop {
+    opacity: 0;
+  }
+}
+
+/* 2. Disclosure contents unfold instead of appearing. Browsers without animatable
+   `height: auto` keep the instant reveal. */
+@supports (interpolate-size: allow-keywords) {
+  :root {
+    interpolate-size: allow-keywords;
+  }
+  details::details-content {
+    block-size: 0;
+    overflow-y: clip;
+    /* The clip edge sits 4 px out, so a row's focus ring (2 px offset, 2 px wide) is
+       never cut off once the group is open. */
+    overflow-clip-margin: 4px;
+    transition:
+      block-size 200ms ease-out,
+      content-visibility 200ms allow-discrete;
+  }
+  details[open]::details-content {
+    block-size: auto;
+  }
+}
+
+/* 3. An answer landing in a sheet or under a form arrives, rather than having always
+   been there. Opacity only, so it survives reduced motion as the feedback it is. */
+.arrive {
+  animation: arrive 150ms ease-out both;
+}
+@keyframes arrive {
+  from {
+    opacity: 0;
+  }
+}
+
+/* 4. The approval: the one authored moment. The dot lands and the check draws itself. */
+.approved-in {
+  animation: arrive 300ms ease-out both;
+}
+.approved-in .dot {
+  animation: land 300ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes land {
+  from {
+    transform: scale(0);
+  }
+}
+.draw path {
+  stroke-dasharray: 24;
+  animation: draw 400ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes draw {
+  from {
+    stroke-dashoffset: 24;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* 5. Continuity between pages: a short cross-fade on every full navigation (product to
+   product, page to page of a list) instead of a white flash. */
+@view-transition {
+  navigation: auto;
+}
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 200ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [popover].sheet,
+  [popover].lightbox,
+  [popover].sheet::backdrop,
+  [popover].lightbox::backdrop {
+    /* The fade stays (it is the feedback); the rise goes. */
+    transform: none;
+    transition-property: opacity, overlay, display;
+  }
+  details::details-content {
+    transition: none;
+  }
+  .approved-in .dot,
+  .draw path {
+    animation: none;
+  }
+  @view-transition {
+    navigation: none;
+  }
+}

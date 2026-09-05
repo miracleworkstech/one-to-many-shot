@@ -1,4 +1,3 @@
-import Link from "next/link";
 import {
   ChevronDown,
   ChevronLeft,
@@ -69,7 +68,7 @@ function Item(r: Row) {
   const f = fact(r);
   return (
     <li>
-      <Link
+      <a
         href={`/review/${r.p.sku}`}
         className="flex min-h-14 items-center gap-3 rounded-lg px-2 py-2 hover:bg-stone-100 active:bg-stone-200 transition-colors duration-150 ease-out motion-reduce:transition-none"
       >
@@ -85,7 +84,7 @@ function Item(r: Row) {
           </span>
         )}
         <ChevronRight {...ICON} className="shrink-0 text-stone-400" />
-      </Link>
+      </a>
     </li>
   );
 }

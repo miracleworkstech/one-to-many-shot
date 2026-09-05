@@ -54,7 +54,7 @@ export function GenerateProductForm({
         {isPending ? "Starting…" : label}
       </button>
       {state && (
-        <p role="status" className="w-full">
+        <p role="status" className="arrive w-full">
           {state.refused ? (
             <span className="font-medium text-stone-900">{state.refused}</span>
           ) : state.queued === 0 ? (

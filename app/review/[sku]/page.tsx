@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   ArrowLeft,
@@ -57,14 +56,14 @@ export default async function Review({
   return (
     <main className="mx-auto max-w-lg px-4 pt-2 pb-20 sm:pb-6">
       <header className="flex items-center justify-between gap-2 text-sm">
-        <Link
+        <a
           href="/"
           aria-label="All products"
           className="inline-flex min-h-11 min-w-11 items-center gap-1 rounded-lg font-medium text-stone-900 hover:bg-stone-100 sm:pr-2"
         >
           <ArrowLeft {...ICON} />
           <span className="hidden sm:inline">All products</span>
-        </Link>
+        </a>
         <p className="flex min-w-0 items-center gap-2 text-sm whitespace-nowrap">
           <span className="inline-flex items-center gap-1.5 font-medium text-stone-900">
             <Dot tone={STATUS_TONE[status]} />
@@ -214,12 +213,12 @@ export default async function Review({
                       {isPhotoProblem(c.failure_reason) ? (
                         <>
                           Fix the Photo link for this row in the sheet, then{" "}
-                          <Link
+                          <a
                             href="/"
                             className="font-medium underline-offset-2 hover:underline"
                           >
                             re-import
-                          </Link>
+                          </a>
                           .
                         </>
                       ) : status === "generating" ? (
@@ -264,10 +263,10 @@ export default async function Review({
               {c.state === "approved" && (
                 <div className="mt-3 flex flex-col items-center gap-2 text-center">
                   <p
-                    className="inline-flex items-center gap-1.5 py-1 text-sm font-medium text-stone-900"
+                    className="approved-in inline-flex items-center gap-1.5 py-1 text-sm font-medium text-stone-900"
                     aria-label={`Approved, slide ${i + 1}`}
                   >
-                    <Dot tone="ok" />
+                    <Dot tone="ok" className="dot" />
                     Approved
                     {c.decided_at && (
                       <>
@@ -308,7 +307,7 @@ export default async function Review({
                 {end.kind === "done" ? (
                   <>
                     <p className="inline-flex items-center gap-2 font-semibold text-stone-900">
-                      <Check {...ICON} className="text-moss" />
+                      <Check {...ICON} className="draw text-moss" />
                       Done · {end.approved} approved
                     </p>
                     <p className="mt-1 text-sm text-stone-700">
@@ -316,10 +315,10 @@ export default async function Review({
                     </p>
                     <div className="mt-4 space-y-2">
                       {next && (
-                        <Link href={`/review/${next}`} className={PRIMARY}>
+                        <a href={`/review/${next}`} className={PRIMARY}>
                           Next product
                           <ChevronRight {...ICON} />
-                        </Link>
+                        </a>
                       )}
                       <GenerateProductForm
                         key={`${p.sku}:end-more`}
@@ -339,10 +338,10 @@ export default async function Review({
                       batch picks it up.
                     </p>
                     <div className="mt-4 space-y-2">
-                      <Link href="/" className={PRIMARY}>
+                      <a href="/" className={PRIMARY}>
                         Go to import
                         <ChevronRight {...ICON} />
-                      </Link>
+                      </a>
                       <GenerateProductForm
                         key={`${p.sku}:end-more`}
                         sku={p.sku}
@@ -486,13 +485,13 @@ export default async function Review({
       >
         <div className="mx-auto flex max-w-lg items-center justify-between gap-2 px-2 py-1 text-sm sm:px-0">
           {prev ? (
-            <Link
+            <a
               href={`/review/${prev}`}
               className="inline-flex min-h-11 min-w-24 items-center gap-1 rounded-lg px-2 font-medium text-stone-900 hover:bg-stone-100"
             >
               <ChevronLeft {...ICON} />
               Previous
-            </Link>
+            </a>
           ) : (
             <span className="inline-flex min-h-11 min-w-24 items-center gap-1 px-2 text-stone-500">
               <ChevronLeft {...ICON} />
@@ -503,13 +502,13 @@ export default async function Review({
             {position} of {total}
           </span>
           {next ? (
-            <Link
+            <a
               href={`/review/${next}`}
               className="inline-flex min-h-11 min-w-24 items-center justify-end gap-1 rounded-lg px-2 font-medium text-stone-900 hover:bg-stone-100"
             >
               Next
               <ChevronRight {...ICON} />
-            </Link>
+            </a>
           ) : (
             <span className="inline-flex min-h-11 min-w-24 items-center justify-end gap-1 px-2 text-stone-500">
               Next

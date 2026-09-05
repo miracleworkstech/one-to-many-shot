@@ -63,7 +63,11 @@ export function IdeaForm({
             {isPending ? "Saving…" : "Save idea"}
           </button>
         )}
-        {saved && !dirty && <span role="status">Saved</span>}
+        {saved && !dirty && (
+          <span role="status" className="arrive">
+            Saved
+          </span>
+        )}
       </div>
     </form>
   );
