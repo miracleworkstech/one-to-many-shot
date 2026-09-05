@@ -22,25 +22,12 @@ import {
 import { env } from "@/lib/env";
 import { decide, updateIdea } from "@/lib/actions/review";
 import { IdeaForm } from "@/components/IdeaForm";
+import { StateDot as Dot } from "@/components/StateDot";
 import { GenerateProductForm } from "@/components/GenerateProductForm";
 
 export const dynamic = "force-dynamic";
 
 const ICON = { size: 20, strokeWidth: 1.75, "aria-hidden": true } as const;
-
-/** A state is a dot beside neutral text, never a tinted badge. */
-const DOT = {
-  wait: "bg-ochre",
-  ok: "bg-moss",
-  stop: "bg-clay",
-  neutral: "bg-stone-400",
-};
-const Dot = ({ tone }: { tone: keyof typeof DOT }) => (
-  <span
-    aria-hidden="true"
-    className={`inline-block size-2 shrink-0 rounded-full ${DOT[tone]}`}
-  />
-);
 
 /** "4 Sep" from SQLite's `datetime('now')` (UTC); the full stamp goes in the title. */
 const MONTHS = "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split(" ");

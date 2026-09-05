@@ -58,6 +58,10 @@ test("overview: rows sorted priority desc then sku, correct status, counts, paus
   const after_ = overview();
   const mug = after_.rows.find((r) => r.p.sku === "HG-002")!;
   assert.equal(mug.status, "generating");
+  assert.equal(mug.toDecide, 0, "queued is not yet something to decide");
+  d.prepare("update candidates set state='completed' where sku='HG-002'").run();
+  assert.equal(overview().rows.find((r) => r.p.sku === "HG-002")!.toDecide, 1);
+  d.prepare("update candidates set state='queued' where sku='HG-002'").run();
   assert.equal(after_.counts.generating, 1);
   assert.equal(after_.counts.idea_ready, 2);
 });

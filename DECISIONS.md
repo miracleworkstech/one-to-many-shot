@@ -471,3 +471,11 @@ back) and hid spend already paid for; the grid wraps to dozens and hides nothing
 tinted pill with same-hue text (Tailwind's default badge, which reads as generated). The
 hues are three theme tokens tuned to the stone neutrals, moss / clay / ochre, instead of
 green / red / amber. `STATUS_TONE` names meanings (`wait`, `ok`, `stop`, `neutral`), not hues.
+**D19 amended (2026-09-05, Task 13):** built as planned in
+`docs/superpowers/plans/2026-09-05-status-hierarchy.md` with the D20 rules: the header
+sentence is status only; one action row (Download N approved images primary, Import CSV
+secondary with a two-tap file pick, the updated CSV as a text control); three tiers with
+the reviewer's queue heaviest, Ready to generate as one line holding the form with its rows
+folded, and passive groups lighter; Spend fully behind a disclosure as prose, total first;
+state colour as the shared `StateDot` beside neutral text; no caps sentence, no estimate,
+no name. `SpendPanel` deleted; `overview()` rows carry `toDecide`.

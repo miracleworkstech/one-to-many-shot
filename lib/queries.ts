@@ -14,10 +14,15 @@ export function overview() {
   >[];
   const bySku = new Map<string, { state: CandidateState }[]>();
   for (const c of cands) bySku.set(c.sku, [...(bySku.get(c.sku) ?? []), c]);
-  const rows = products.map((p) => ({
-    p,
-    status: productStatus(!!p.shot_idea, bySku.get(p.sku) ?? []),
-  }));
+  const rows = products.map((p) => {
+    const mine = bySku.get(p.sku) ?? [];
+    return {
+      p,
+      status: productStatus(!!p.shot_idea, mine),
+      // What a reviewer still has to look at on this product; the status page shows it.
+      toDecide: mine.filter((c) => c.state === "completed").length,
+    };
+  });
   const counts: Partial<Record<ProductStatus, number>> = {};
   for (const r of rows) counts[r.status] = (counts[r.status] ?? 0) + 1;
   const { paused_reason } = d

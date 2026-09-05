@@ -1,39 +1,55 @@
 "use client";
-import { useActionState } from "react";
+import { useActionState, useRef } from "react";
+import { Upload } from "lucide-react";
 import { importCatalog } from "@/lib/actions/import";
 
 type ImportResult = { imported: number; suggested: number; errors: string[] };
 
-export function ImportForm() {
+/** The entry point for a new export. One button that opens the file chooser and submits
+ *  on pick, so the flow is two taps; the one helper line answers the fear that stops a
+ *  re-import. `primary` is for the empty catalog, where importing is the only thing to do. */
+export function ImportForm({
+  variant = "quiet",
+}: {
+  variant?: "primary" | "quiet";
+}) {
   const [state, formAction, isPending] = useActionState<
     ImportResult | null,
     FormData
   >((_prev, formData) => importCatalog(formData), null);
+  const form = useRef<HTMLFormElement>(null);
+  const button =
+    variant === "primary"
+      ? "bg-stone-900 text-white hover:bg-stone-800"
+      : "border border-stone-300 bg-white text-stone-900 hover:bg-stone-100";
   return (
-    <form action={formAction} className="flex flex-wrap items-center gap-2">
-      <input
-        type="file"
-        name="file"
-        accept=".csv,text/csv"
-        required
-        className="min-h-11 text-sm"
-      />
-      <button
-        disabled={isPending}
-        className="min-h-11 rounded-lg bg-stone-900 px-3 py-2 text-sm text-white hover:bg-stone-800 disabled:opacity-50"
+    <form ref={form} action={formAction}>
+      <label
+        className={`inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-lg px-4 font-medium ${button} ${isPending ? "opacity-50" : ""}`}
       >
-        {isPending ? "Importing…" : "Import catalog CSV"}
-      </button>
-      <span className="text-xs text-stone-600">
-        Same columns as the export. Existing approvals are kept.
-      </span>
+        <Upload size={20} strokeWidth={1.75} aria-hidden="true" />
+        {isPending ? "Importing…" : "Import CSV"}
+        <input
+          type="file"
+          name="file"
+          accept=".csv,text/csv"
+          required
+          disabled={isPending}
+          onChange={() => form.current?.requestSubmit()}
+          className="sr-only"
+        />
+      </label>
+      <p className="mt-1 text-xs text-stone-600">
+        Existing approvals are kept.
+      </p>
       {state && (
-        <div className="w-full text-sm">
+        <div role="status" className="mt-2 text-sm">
           <p>
-            {state.imported} imported, {state.suggested} suggested
+            {state.imported} imported
+            {state.suggested > 0 && `, ${state.suggested} ideas suggested`}
           </p>
           {state.errors.length > 0 && (
-            <ul className="list-disc pl-5 text-amber-700">
+            <ul className="mt-1 list-disc pl-5 text-stone-900">
               {state.errors.map((e, i) => (
                 <li key={i}>{e}</li>
               ))}

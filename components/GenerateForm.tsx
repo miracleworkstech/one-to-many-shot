@@ -3,17 +3,13 @@ import { useActionState, useState } from "react";
 import { generateNext } from "@/lib/actions/generate";
 import type { EnqueueResult } from "@/lib/enqueue";
 
+/** The batch trigger, one line inside "Ready to generate". No estimate before the tap
+ *  (D20); the caps' answer (queued, skipped or refused) comes back under it. */
 export function GenerateForm({
   perProduct,
-  costPerImage,
-  maxInFlight,
-  maxTotalSpend,
   ready,
 }: {
   perProduct: number;
-  costPerImage: number;
-  maxInFlight: number;
-  maxTotalSpend: number;
   /** Products with an idea and no candidates yet: the most this form can usefully ask for. */
   ready: number;
 }) {
@@ -24,21 +20,18 @@ export function GenerateForm({
   >((_prev, formData) => generateNext(formData), null);
   const [n, setN] = useState(Math.min(10, max));
   // `ready` shrinks after every batch (revalidation re-renders with a smaller max) while
-  // `n` is preserved state; re-clamp during render, as IdeaForm re-syncs its textarea, so
-  // the input, the estimate on the button and the submitted count never disagree.
+  // `n` is preserved state; re-clamp during render so the input and the submitted count agree.
   const [prevMax, setPrevMax] = useState(max);
   if (max !== prevMax) {
     setPrevMax(max);
     if (n > max) setN(max);
   }
-  // Clamp only for the shown estimate; the input's own min/max already stop the user
-  // reaching an out-of-range value, this just covers a cleared or partial field.
-  const clampedN = Math.min(max, Math.max(1, n));
-  const estimate = (clampedN * perProduct * costPerImage).toFixed(2);
   return (
-    <form action={formAction} className="space-y-2 text-sm">
+    <form action={formAction} className="text-sm">
       <div className="flex flex-wrap items-center gap-2">
-        <label htmlFor="n">Generate the next</label>
+        <label htmlFor="n" className="text-stone-700">
+          Generate the next
+        </label>
         <input
           id="n"
           type="number"
@@ -52,43 +45,36 @@ export function GenerateForm({
           }}
           className="w-16 min-h-11 rounded-lg border border-stone-300 bg-white px-2 py-1 text-base tabular-nums"
         />
-        <span>
-          of {ready} ready · {perProduct} candidates each
+        <span className="text-stone-700">
+          of {ready} · {perProduct} candidates each
         </span>
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
         <button
           disabled={isPending || ready === 0}
-          className="min-h-11 rounded-lg bg-stone-900 px-3 py-2 text-white hover:bg-stone-800 disabled:opacity-50"
+          className="min-h-11 rounded-lg bg-stone-900 px-4 py-2 font-medium text-white hover:bg-stone-800 disabled:opacity-50"
         >
           {ready === 0
             ? "Nothing to generate"
             : isPending
               ? "Starting…"
-              : `Generate · about $${estimate}`}
+              : "Generate"}
         </button>
-        <span className="text-xs text-stone-600">
-          Caps: {maxInFlight} images in flight, ${maxTotalSpend} total.
-        </span>
       </div>
       {state && (
-        <div className="w-full">
+        <p role="status" className="mt-2">
           {state.refused ? (
-            <p className="text-amber-800">{state.refused}</p>
+            <span className="font-medium text-stone-900">{state.refused}</span>
+          ) : state.queued === 0 ? (
+            "Nothing to generate."
           ) : (
-            <p>
-              {state.queued === 0
-                ? "Nothing to generate."
-                : `${state.queued} images queued, about $${state.estimatedUsd.toFixed(2)}.`}
-            </p>
+            `${state.queued} images queued.`
           )}
           {state.skipped.length > 0 && (
-            <p className="text-xs text-stone-600">
+            <span className="block text-xs text-stone-600">
               Skipped (already generating or no idea):{" "}
               {state.skipped.join(", ")}
-            </p>
+            </span>
           )}
-        </div>
+        </p>
       )}
     </form>
   );
