@@ -3,6 +3,7 @@ import { useActionState, useState } from "react";
 import { generateNext } from "@/lib/actions/generate";
 import type { EnqueueResult } from "@/lib/enqueue";
 import { PRIMARY } from "./buttons";
+import { Spinner } from "./Pending";
 
 /** The batch trigger, inside the "Generate a batch" sheet. No estimate before the tap
  *  (D20); the caps' answer (queued, skipped or refused) comes back under the button, and
@@ -58,12 +59,21 @@ export function GenerateForm({
         {perProduct} candidates each, {images}{" "}
         {images === 1 ? "image" : "images"}.
       </p>
-      <button disabled={isPending || ready === 0} className={PRIMARY}>
-        {ready === 0
-          ? "Nothing to generate"
-          : isPending
-            ? "Starting…"
-            : "Generate"}
+      <button
+        disabled={isPending || ready === 0}
+        aria-busy={isPending}
+        className={`${PRIMARY} disabled:opacity-60`}
+      >
+        {ready === 0 ? (
+          "Nothing to generate"
+        ) : isPending ? (
+          <>
+            <Spinner />
+            Starting…
+          </>
+        ) : (
+          "Generate"
+        )}
       </button>
       {state && (
         <p role="status" className="arrive">

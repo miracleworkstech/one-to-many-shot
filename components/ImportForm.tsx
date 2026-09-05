@@ -3,6 +3,7 @@ import { useActionState, useRef } from "react";
 import { Upload } from "lucide-react";
 import { importCatalog } from "@/lib/actions/import";
 import { PRIMARY, QUIET } from "./buttons";
+import { Spinner } from "./Pending";
 
 type ImportResult = { imported: number; suggested: number; errors: string[] };
 
@@ -26,7 +27,11 @@ export function ImportForm({
         <label
           className={`${variant === "primary" ? PRIMARY : `${QUIET} w-full`} cursor-pointer focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-stone-900 ${isPending ? "opacity-50" : ""}`}
         >
-          <Upload size={20} strokeWidth={1.75} aria-hidden="true" />
+          {isPending ? (
+            <Spinner />
+          ) : (
+            <Upload size={20} strokeWidth={1.75} aria-hidden="true" />
+          )}
           {isPending ? "Importing…" : "Import CSV"}
           <input
             type="file"

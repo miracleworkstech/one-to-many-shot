@@ -581,3 +581,28 @@ one element only.
 - **Revisit trigger:** A product with dozens of candidates makes the review page heavy
   enough that a full load is felt; then the Prev / Next links go back to `next/link` and
   the cross-fade goes with them.
+
+## D25 — The carousel never reorders; the end card is always there; pending has a ring (2026-09-05)
+
+- **Decision:** From the user's test of PR #13. (1) Candidates sort oldest first
+  (`byCreation`) and are never re-sorted after a decision, so the card under the thumb
+  stays put and the approval lands where it was tapped; a new set appends at the end.
+  This replaces D13's reading order (undecided first), which moved the just-decided card out
+  of view on every re-render and hid the motion. (2) The end card is always the last slide
+  once the product has an idea and a candidate, in one of five states (done, photo,
+  generating, open, needs more) with every follow-up on it: Try again, Generate N more,
+  Next product, Change the idea. The More menu in the header is gone. (3) Every submit shows
+  a turning ring beside its pending verb and goes inert (`SubmitButton` on the plain
+  server-action forms, the same ring in the `useActionState` forms); the "Generating…"
+  placeholder breathes and says the page updates itself; a `Refresher` re-fetches the page
+  every 5 s while the product is generating and stops when nothing is in flight.
+- **Alternatives:** Keep undecided-first and scroll the carousel back to the decided card
+  with a script (still moves cards; a script for a problem the sort caused). Polling
+  always (wasted requests on a static page). A skeleton shimmer (decoration).
+- **Why:** The user saw the page jump and no animation; the follow-ups in a three-dot
+  menu were not found; static "Starting…" text read as stuck.
+- **Cost accepted:** The first slide may be an already-approved card; the marker says so
+  and the swipe is one gesture. `router.refresh()` every 5 s while generating is a small
+  server render per tick; it pauses when the tab is hidden.
+- **Revisit trigger:** A product with dozens of candidates where "undecided first" would
+  save swipes; then a "next to decide" jump, not a re-sort.

@@ -4,15 +4,15 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
-  MoreHorizontal,
   Pencil,
 } from "lucide-react";
 import { productDetail } from "@/lib/queries";
 import {
   STATUS_LABEL,
   STATUS_TONE,
-  byReadingOrder,
+  byCreation,
   canRetry as retryAllowed,
+  DONE_AT,
   carouselEnd,
   friendlyFailure,
   isPhotoProblem,
@@ -24,6 +24,8 @@ import { decide, updateIdea } from "@/lib/actions/review";
 import { IdeaForm } from "@/components/IdeaForm";
 import { StateDot as Dot } from "@/components/StateDot";
 import { GenerateProductForm } from "@/components/GenerateProductForm";
+import { Spinner, SubmitButton } from "@/components/Pending";
+import { Refresher } from "@/components/Refresher";
 import { PRIMARY, QUIET } from "@/components/buttons";
 
 export const dynamic = "force-dynamic";
@@ -39,18 +41,33 @@ export default async function Review({
   const detail = productDetail(sku);
   if (!detail) notFound();
   const { p, status, prev, next, position, total } = detail;
-  const all = [...detail.cands].sort(byReadingOrder);
+  // Oldest first and never re-sorted: a decision must not move the card under a thumb.
+  const all = [...detail.cands].sort(byCreation);
   // Rejections leave the carousel for a folded grid below it: the carousel is for what is
   // still worth a look, the grid is the record. Both still count for status and spend.
   const rejected = all.filter((c) => c.state === "rejected");
   const cands = all.filter((c) => c.state !== "rejected");
   const toDecide = cands.filter((c) => c.state === "completed").length;
-  const canGenerate = !!p.shot_idea && status !== "generating";
+  // In flight is read off the candidates, not the status: two approvals plus a set in
+  // flight is "done" to the status ladder but still generating here.
+  const isGenerating = all.some(
+    (c) => c.state === "queued" || c.state === "processing",
+  );
+  const canGenerate = !!p.shot_idea && !isGenerating;
   const canRetry = !!p.shot_idea && retryAllowed(all, status);
-  // The end card closes the carousel once nothing is undecided or in flight (lib/status.ts).
+  // The end card is always the last slide once there is an idea and a candidate: it holds
+  // where the product stands and every follow-up (D25). `carouselEnd` names the closed
+  // states; `open` is still deciding, `generating` is waiting on the worker.
   const end = p.shot_idea ? carouselEnd(all, status) : null;
+  // A done product with a spare finished card is still done; the header says so, and
+  // the end card must not contradict it.
+  const endKind =
+    end?.kind ??
+    (isGenerating ? "generating" : status === "done" ? "done" : "open");
+  const approved = all.filter((c) => c.state === "approved").length;
+  const showEnd = !!p.shot_idea && all.length > 0;
   const meta = [p.color, p.material, p.price].filter(Boolean).join(" · ");
-  const slides = cands.length + (end ? 1 : 0);
+  const slides = cands.length + (showEnd ? 1 : 0);
   const ideaNudge = needsNewIdea(rejected.length, env.candidatesPerProduct);
 
   return (
@@ -75,42 +92,7 @@ export default async function Review({
             </span>
           )}
         </p>
-        {(canGenerate || canRetry) && all.length > 0 ? (
-          <>
-            <button
-              type="button"
-              popoverTarget="more"
-              aria-label="More options"
-              className="inline-flex size-11 items-center justify-center rounded-lg text-stone-900 hover:bg-stone-100 [anchor-name:--sheet]"
-            >
-              <MoreHorizontal {...ICON} />
-            </button>
-            {/* Follow-ups live here, hidden during review: the next set, or a change of
-                direction. The end card surfaces the same actions when they are the next step. */}
-            <div id="more" popover="auto" className="sheet space-y-4 text-sm">
-              {canRetry && (
-                <GenerateProductForm
-                  key={`${p.sku}:retry`}
-                  sku={p.sku}
-                  kind="retry"
-                  label="Try again"
-                  variant="quiet"
-                />
-              )}
-              {canGenerate && (
-                <GenerateProductForm
-                  key={`${p.sku}:product`}
-                  sku={p.sku}
-                  kind="product"
-                  label={`Generate ${env.candidatesPerProduct} more`}
-                  variant="quiet"
-                />
-              )}
-            </div>
-          </>
-        ) : (
-          <span className="size-11" aria-hidden="true" />
-        )}
+        <span className="size-11" aria-hidden="true" />
       </header>
 
       <div className="mt-2">
@@ -160,6 +142,7 @@ export default async function Review({
         </p>
       )}
 
+      {isGenerating && <Refresher />}
       {cands.length > 0 && (
         <p role="status" className="sr-only">
           {toDecide === 0 ? "Nothing left to decide" : `${toDecide} to decide`}
@@ -179,7 +162,7 @@ export default async function Review({
         </div>
       )}
 
-      {(cands.length > 0 || end) && (
+      {(cands.length > 0 || showEnd) && (
         <ul
           aria-label="Candidate shots, scroll sideways for more"
           tabIndex={0}
@@ -195,9 +178,13 @@ export default async function Review({
                 {c.state === "queued" || c.state === "processing" ? (
                   <div
                     role="status"
-                    className="flex aspect-[4/5] max-h-[60svh] items-center justify-center rounded-lg bg-stone-200/60 px-4 text-center text-sm text-stone-700"
+                    className="breathe flex aspect-[4/5] max-h-[60svh] flex-col items-center justify-center gap-2 rounded-lg bg-stone-200/60 px-4 text-center text-sm text-stone-700"
                   >
-                    Generating…
+                    <Spinner className="text-stone-500" />
+                    <span>Generating…</span>
+                    <span className="text-xs text-stone-600">
+                      This page updates itself.
+                    </span>
                   </div>
                 ) : c.state === "failed" ? (
                   <div
@@ -248,12 +235,14 @@ export default async function Review({
                       <input type="hidden" name="id" value={c.id} />
                       <input type="hidden" name="sku" value={sku} />
                       <input type="hidden" name="state" value={s} />
-                      <button
+                      <SubmitButton
                         aria-label={`${s === "approved" ? "Approve" : "Reject"}, slide ${i + 1}`}
+                        label={s === "approved" ? "Approve" : "Reject"}
+                        pendingLabel={
+                          s === "approved" ? "Approving…" : "Rejecting…"
+                        }
                         className="inline-flex min-h-12 w-full items-center justify-center gap-1.5 rounded-lg border border-stone-300 bg-white px-3 text-base font-medium text-stone-900 transition-colors duration-150 ease-out hover:bg-stone-100 active:bg-stone-200 motion-reduce:transition-none"
-                      >
-                        {s === "approved" ? "Approve" : "Reject"}
-                      </button>
+                      />
                     </form>
                   ))}
                 </div>
@@ -286,50 +275,37 @@ export default async function Review({
                       <input type="hidden" name="id" value={c.id} />
                       <input type="hidden" name="sku" value={sku} />
                       <input type="hidden" name="state" value="rejected" />
-                      <button
+                      <SubmitButton
                         className={QUIET}
                         aria-label={`Reject slide ${i + 1}`}
-                      >
-                        Reject
-                      </button>
+                        label="Reject"
+                        pendingLabel="Rejecting…"
+                      />
                     </form>
                   </div>
                 </div>
               )}
             </li>
           ))}
-          {end && (
+          {showEnd && (
             <li
               className="w-[88%] shrink-0 snap-start sm:w-full"
               aria-label={`End, ${slides} of ${slides}`}
             >
+              {/* Where the product stands and every follow-up, always the last slide:
+                  nothing to hunt for in a menu. Money actions stay one deliberate tap. */}
               <div className="flex aspect-[4/5] max-h-[60svh] flex-col justify-center rounded-lg border border-stone-300 bg-white p-5 text-base">
-                {end.kind === "done" ? (
+                {endKind === "done" ? (
                   <>
                     <p className="inline-flex items-center gap-2 font-semibold text-stone-900">
                       <Check {...ICON} className="draw text-moss" />
-                      Done · {end.approved} approved
+                      Done · {approved} approved
                     </p>
                     <p className="mt-1 text-sm text-stone-700">
                       These go into the next export.
                     </p>
-                    <div className="mt-4 space-y-2">
-                      {next && (
-                        <a href={`/review/${next}`} className={PRIMARY}>
-                          Next product
-                          <ChevronRight {...ICON} />
-                        </a>
-                      )}
-                      <GenerateProductForm
-                        key={`${p.sku}:end-more`}
-                        sku={p.sku}
-                        kind="product"
-                        label={`Generate ${env.candidatesPerProduct} more`}
-                        variant="quiet"
-                      />
-                    </div>
                   </>
-                ) : end.kind === "photo" ? (
+                ) : endKind === "photo" ? (
                   <>
                     <p className="font-semibold">Nothing to review yet</p>
                     <p className="mt-1 text-sm text-stone-700">
@@ -337,53 +313,77 @@ export default async function Review({
                       link for this row in the sheet, then re-import; the next
                       batch picks it up.
                     </p>
-                    <div className="mt-4 space-y-2">
-                      <a href="/" className={PRIMARY}>
-                        Go to import
-                        <ChevronRight {...ICON} />
-                      </a>
-                      <GenerateProductForm
-                        key={`${p.sku}:end-more`}
-                        sku={p.sku}
-                        kind="product"
-                        label={`Generate ${env.candidatesPerProduct} more`}
-                        variant="quiet"
-                      />
-                    </div>
+                  </>
+                ) : endKind === "generating" ? (
+                  <>
+                    <p className="inline-flex items-center gap-2 font-semibold text-stone-900">
+                      <Spinner className="text-stone-500" />
+                      More on the way
+                    </p>
+                    <p className="mt-1 text-sm text-stone-700">
+                      {approved} of {DONE_AT} approved so far. The new set lands
+                      here on its own.
+                    </p>
+                  </>
+                ) : endKind === "open" ? (
+                  <>
+                    <p className="font-semibold">{toDecide} still to decide</p>
+                    <p className="mt-1 text-sm text-stone-700">
+                      {approved} of {DONE_AT} approved so far. Decide the rest,
+                      or ask for another set.
+                    </p>
                   </>
                 ) : (
                   <>
                     <p className="font-semibold">
-                      {end.approved === 0
+                      {approved === 0
                         ? "Nothing approved yet"
-                        : `${end.approved} approved so far`}
+                        : `${approved} of ${DONE_AT} approved so far`}
                     </p>
                     <p className="mt-1 text-sm text-stone-700">
-                      {end.kind === "retry"
+                      {endKind === "retry"
                         ? "Say what should change, or ask for another set."
                         : "Ask for another set."}
                     </p>
-                    <div className="mt-4 space-y-2">
-                      {end.kind === "retry" && (
-                        <GenerateProductForm
-                          key={`${p.sku}:end-retry`}
-                          sku={p.sku}
-                          kind="retry"
-                          label="Try again"
-                          variant="primary"
-                        />
-                      )}
-                      <GenerateProductForm
-                        key={`${p.sku}:end-more`}
-                        sku={p.sku}
-                        kind="product"
-                        label={`Generate ${env.candidatesPerProduct} more`}
-                        variant={end.kind === "retry" ? "quiet" : "primary"}
-                      />
-                    </div>
                   </>
                 )}
-                {ideaNudge && end.kind !== "done" && (
+                <div className="mt-4 space-y-2">
+                  {endKind === "done" && next && (
+                    <a href={`/review/${next}`} className={PRIMARY}>
+                      Next product
+                      <ChevronRight {...ICON} />
+                    </a>
+                  )}
+                  {endKind === "photo" && (
+                    <a href="/" className={PRIMARY}>
+                      Go to import
+                      <ChevronRight {...ICON} />
+                    </a>
+                  )}
+                  {canRetry && endKind !== "done" && endKind !== "photo" && (
+                    <GenerateProductForm
+                      key={`${p.sku}:end-retry`}
+                      sku={p.sku}
+                      kind="retry"
+                      label="Try again"
+                      variant={endKind === "retry" ? "primary" : "quiet"}
+                    />
+                  )}
+                  {canGenerate && endKind !== "photo" && (
+                    <GenerateProductForm
+                      key={`${p.sku}:end-more`}
+                      sku={p.sku}
+                      kind="product"
+                      label={`Generate ${env.candidatesPerProduct} more`}
+                      variant={endKind === "more" ? "primary" : "quiet"}
+                    />
+                  )}
+                  <a href="#idea" className={`${QUIET} w-full`}>
+                    <Pencil {...ICON} />
+                    Change the idea
+                  </a>
+                </div>
+                {ideaNudge && endKind !== "done" && (
                   <p className="mt-3 inline-flex items-start gap-1.5 text-sm font-medium text-stone-900">
                     <Dot tone="wait" />
                     <span>
@@ -460,7 +460,11 @@ export default async function Review({
                         <input type="hidden" name="id" value={c.id} />
                         <input type="hidden" name="sku" value={sku} />
                         <input type="hidden" name="state" value="approved" />
-                        <button className={QUIET}>Approve</button>
+                        <SubmitButton
+                          className={QUIET}
+                          label="Approve"
+                          pendingLabel="Approving…"
+                        />
                       </form>
                       <button
                         type="button"
