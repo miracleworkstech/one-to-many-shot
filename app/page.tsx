@@ -19,6 +19,7 @@ import type { Product } from "@/lib/types";
 import { ImportForm } from "@/components/ImportForm";
 import { GenerateForm } from "@/components/GenerateForm";
 import { StateDot, type Tone } from "@/components/StateDot";
+import { Sheet } from "@/components/Sheet";
 import { resumeWorker } from "@/lib/actions/generate";
 import { env } from "@/lib/env";
 import { PRIMARY, QUIET } from "@/components/buttons";
@@ -288,13 +289,17 @@ export default async function Home({
               <ChevronDown {...ICON} className="text-stone-500" />
             </button>
             {/* The sheet's two directions: the updated export out, a new export in. */}
-            <div id="csv" popover="auto" className="sheet space-y-2 text-sm">
+            <Sheet
+              id="csv"
+              aria-label="Catalog CSV"
+              className="sheet space-y-2 text-sm"
+            >
               <a href="/export/csv" className={`${QUIET} w-full`}>
                 <Download {...ICON} />
                 Updated CSV
               </a>
               <ImportForm />
-            </div>
+            </Sheet>
 
             <button
               type="button"
@@ -306,8 +311,12 @@ export default async function Home({
             </button>
             {/* Spend is a bound, not a receipt: the total against the cap, then one line
                 on where it went (D20, amended; D23). */}
-            <div id="spend" popover="auto" className="sheet text-sm">
-              <p className="tabular-nums">
+            <Sheet
+              id="spend"
+              aria-labelledby="spend-total"
+              className="sheet text-sm"
+            >
+              <p id="spend-total" className="tabular-nums">
                 <span className="text-xl font-semibold text-stone-900">
                   {usd(spend.spent)}
                 </span>{" "}
@@ -333,7 +342,7 @@ export default async function Home({
                 {spend.spentPending > 0 &&
                   ` · ${usd(spend.spentPending)} undecided`}
               </p>
-            </div>
+            </Sheet>
           </div>
         )}
       </header>
@@ -434,12 +443,12 @@ export default async function Home({
           )}
           {/* The sheet lives outside the Ready group so its answer survives a batch that
               takes every ready product: the group unmounts, the sheet and its result stay. */}
-          <div id="batch" popover="auto" className="lightbox">
+          <Sheet id="batch" aria-labelledby="batch-title" className="lightbox">
             <GenerateForm
               perProduct={env.candidatesPerProduct}
               ready={ready.length}
             />
-          </div>
+          </Sheet>
           {PASSIVE.map((s) =>
             (byStatus.get(s) ?? []).length > 0 ? (
               <Group

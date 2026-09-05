@@ -18,3 +18,18 @@ test("round-trips image bytes by candidate id", () => {
 test("missing image reads as null, not an error", () => {
   assert.equal(storage.readImage(999), null);
 });
+
+test("review copy is served when present and falls back to the original", () => {
+  const original = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x01]);
+  storage.saveImage(7, original);
+  assert.deepEqual(
+    storage.readReview(7),
+    original,
+    "no copy yet: the original",
+  );
+  const small = Buffer.from([0xff, 0xd8, 0xff, 0xe0]);
+  storage.saveReview(7, small);
+  assert.deepEqual(storage.readReview(7), small);
+  assert.deepEqual(storage.readImage(7), original, "the original is untouched");
+  assert.equal(storage.readReview(999), null);
+});

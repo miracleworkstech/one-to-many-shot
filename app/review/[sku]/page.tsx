@@ -7,7 +7,7 @@ import {
   ChevronRight,
   Pencil,
 } from "lucide-react";
-import { productDetail } from "@/lib/queries";
+import { productDetail, productName } from "@/lib/queries";
 import {
   STATUS_LABEL,
   STATUS_TONE,
@@ -28,11 +28,24 @@ import { StateDot as Dot } from "@/components/StateDot";
 import { GenerateProductForm } from "@/components/GenerateProductForm";
 import { Spinner, SubmitButton } from "@/components/Pending";
 import { Refresher } from "@/components/Refresher";
+import { Sheet } from "@/components/Sheet";
 import { PRIMARY, QUIET } from "@/components/buttons";
 
 export const dynamic = "force-dynamic";
 
 const ICON = { size: 20, strokeWidth: 1.75, "aria-hidden": true } as const;
+
+/** The tab, the history entry and a screen reader's page list name the product, not the
+ *  app: forty review pages must not all be called "Styled Shots". */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ sku: string }>;
+}) {
+  const { sku } = await params;
+  const name = productName(sku);
+  return { title: name ? `${name} · Styled Shots` : "Styled Shots" };
+}
 
 export default async function Review({
   params,
@@ -231,7 +244,12 @@ export default async function Review({
                   <img
                     src={`/img/${c.id}`}
                     alt={`${p.name}: ${p.shot_idea ?? "candidate shot"}`}
-                    className="block max-h-[60svh] w-full rounded-lg bg-stone-200/60 object-contain"
+                    // The same 4:5 box as the placeholder and end cards, reserved before
+                    // the bytes arrive, so Approve and Reject never jump under a thumb.
+                    // Only the first slide is on screen at load; the rest fetch as they near.
+                    loading={i === 0 ? "eager" : "lazy"}
+                    decoding="async"
+                    className="block aspect-[4/5] max-h-[60svh] w-full rounded-lg bg-stone-200/60 object-contain"
                   />
                 )}
                 <span className="absolute top-2 left-2 rounded-full bg-stone-900/70 px-2 py-0.5 text-xs font-medium text-white tabular-nums">
@@ -440,9 +458,8 @@ export default async function Review({
                 </button>
                 {/* The action lives here, not under every thumbnail: it appears only when
                     someone chooses to look at this one. Tap outside or Escape closes. */}
-                <div
+                <Sheet
                   id={`rejected-${c.id}`}
-                  popover="auto"
                   className="lightbox"
                   aria-label={`Rejected ${i + 1} of ${rejected.length}`}
                 >
@@ -450,6 +467,8 @@ export default async function Review({
                   <img
                     src={`/img/${c.id}`}
                     alt={`${p.name}: ${p.shot_idea ?? "candidate shot"}`}
+                    loading="lazy"
+                    decoding="async"
                     className="block max-h-[70svh] w-full rounded-lg bg-stone-200/60 object-contain"
                   />
                   <div className="mt-3 flex items-center justify-between gap-3">
@@ -490,7 +509,7 @@ export default async function Review({
                       </button>
                     </div>
                   </div>
-                </div>
+                </Sheet>
               </li>
             ))}
           </ul>

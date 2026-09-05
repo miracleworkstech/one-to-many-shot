@@ -132,3 +132,9 @@ test("productDetail: candidates newest first, status derived from them", () => {
   // One queued, one completed: generating wins (money is in flight).
   assert.equal(detail?.status, "generating");
 });
+
+test("productName: the name for a known SKU, null otherwise", async () => {
+  const { productName } = await import("../lib/queries.ts");
+  assert.equal(productName("HG-008"), "Salt + Pepper Cellar Set");
+  assert.equal(productName("NOPE-1"), null);
+});

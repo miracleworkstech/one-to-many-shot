@@ -32,7 +32,7 @@ export function GenerateForm({
   const images = Math.min(Math.max(n, 1), max) * perProduct;
   return (
     <form action={formAction} className="space-y-3 text-sm">
-      <h2 className="text-base font-semibold text-stone-900">
+      <h2 id="batch-title" className="text-base font-semibold text-stone-900">
         Generate a batch
       </h2>
       <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-stone-700">

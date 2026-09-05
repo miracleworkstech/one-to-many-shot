@@ -16,6 +16,16 @@ export const storage = {
     const p = storage.imagePath(id);
     return fs.existsSync(p) ? fs.readFileSync(p) : null;
   },
+  /** The review page's smaller copy (lib/images.ts), beside the original. Reading falls
+   *  back to the original for candidates saved before the copy existed. */
+  reviewPath: (id: number) => path.join(dir(), `${id}-review.jpg`),
+  hasReview: (id: number) => fs.existsSync(storage.reviewPath(id)),
+  saveReview: (id: number, buf: Buffer) =>
+    fs.writeFileSync(storage.reviewPath(id), buf),
+  readReview: (id: number): Buffer | null => {
+    const p = storage.reviewPath(id);
+    return fs.existsSync(p) ? fs.readFileSync(p) : storage.readImage(id);
+  },
   /** Byte size without reading the file, for the zip's exact Content-Length. */
   imageSize: (id: number): number | null => {
     try {

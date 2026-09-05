@@ -50,7 +50,10 @@ export function IdeaForm({
         maxLength={MAX_IDEA_CHARS}
         placeholder="Describe the scene for this product"
         aria-describedby={source === "suggested" ? "idea-source" : undefined}
-        className="field-sizing-content w-full resize-none rounded-lg border border-transparent bg-transparent px-1 py-0.5 text-base leading-snug text-stone-900 placeholder:text-stone-600 hover:border-stone-300 focus:border-stone-300 focus:bg-white"
+        // Grows with the text, but only to four lines while it is being read: the bar it
+        // sits in is sticky, and a long idea (retry notes append to it) must not pin
+        // over the candidate. Focus lifts the cap for editing.
+        className="field-sizing-content max-h-[5.75rem] w-full resize-none overflow-y-auto [scrollbar-width:thin] rounded-lg border border-transparent bg-transparent px-1 py-0.5 text-base leading-snug text-stone-900 placeholder:text-stone-600 hover:border-stone-300 focus:max-h-none focus:border-stone-300 focus:bg-white"
       />
       <div className="flex min-h-6 items-center gap-3 px-1 text-xs text-stone-600">
         {source === "suggested" && !dirty && (
@@ -60,7 +63,9 @@ export function IdeaForm({
           <button
             disabled={isPending}
             aria-busy={isPending}
-            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-stone-900 px-3 text-sm font-medium text-white hover:bg-stone-800 disabled:opacity-60"
+            // Quiet on purpose: it sits in the sticky bar above the image, so it must not
+            // outrank Approve. Same hover as the pencil beside it; 44 px tall for a thumb.
+            className="-ml-1 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-sm font-medium text-stone-900 hover:bg-stone-100 active:bg-stone-200 disabled:opacity-60"
           >
             {isPending ? (
               <>
