@@ -606,3 +606,21 @@ one element only.
   server render per tick; it pauses when the tab is hidden.
 - **Revisit trigger:** A product with dozens of candidates where "undecided first" would
   save swipes; then a "next to decide" jump, not a re-sort.
+
+## D26 — Copy: refusals say what to do, "on the way" not "queued", links say where they go (2026-09-05)
+
+- **Decision:** `/impeccable clarify` over both pages and the server messages they show.
+  The two cap refusals now name what stopped, why, and the next step in the team's words
+  ("38 images are still in flight and 40 at once is the limit, so this batch of 20 has to
+  wait. Try again once some have finished."; the budget one points at Spend and names the
+  setting as a setting, not a tap). "N images queued" becomes "N images on the way" with
+  where they land. "These go into the next export" becomes "Both are in the download on the
+  status page". The photo-failure card and the failed card no longer say "re-import" or "Go
+  to import": import lives inside the status page's CSV sheet now, so they say "import the
+  new export from the status page" and the button reads "Status page". Import's result
+  counts products, not bare numbers. Everything else read cleanly and stays.
+- **Alternatives:** Dropping the environment variable name from the budget refusal
+  entirely (the person who can change it needs the name; it is framed as a setting).
+- **Why:** Errors name the problem and the next step; the team's words, not ours.
+- **Cost accepted:** None material. Tests pin the phrase "in flight", which is kept.
+- **Revisit trigger:** A team member asks what "in flight" means.

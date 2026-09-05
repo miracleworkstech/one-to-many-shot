@@ -199,12 +199,13 @@ export default async function Review({
                     <p className="mt-2 text-stone-700">
                       {isPhotoProblem(c.failure_reason) ? (
                         <>
-                          Fix the Photo link for this row in the sheet, then{" "}
+                          Fix the Photo link for this row in the sheet, then
+                          import the new export from the{" "}
                           <a
                             href="/"
-                            className="font-medium underline-offset-2 hover:underline"
+                            className="-my-3 inline-block py-3 font-medium underline-offset-2 hover:underline"
                           >
-                            re-import
+                            status page
                           </a>
                           .
                         </>
@@ -302,7 +303,7 @@ export default async function Review({
                       Done · {approved} approved
                     </p>
                     <p className="mt-1 text-sm text-stone-700">
-                      These go into the next export.
+                      Both are in the download on the status page.
                     </p>
                   </>
                 ) : endKind === "photo" ? (
@@ -310,8 +311,8 @@ export default async function Review({
                     <p className="font-semibold">Nothing to review yet</p>
                     <p className="mt-1 text-sm text-stone-700">
                       We couldn&apos;t fetch the product photo. Fix the Photo
-                      link for this row in the sheet, then re-import; the next
-                      batch picks it up.
+                      link for this row in the sheet, then import the new export
+                      from the status page; the next batch picks it up.
                     </p>
                   </>
                 ) : endKind === "generating" ? (
@@ -356,7 +357,7 @@ export default async function Review({
                   )}
                   {endKind === "photo" && (
                     <a href="/" className={PRIMARY}>
-                      Go to import
+                      Status page
                       <ChevronRight {...ICON} />
                     </a>
                   )}
