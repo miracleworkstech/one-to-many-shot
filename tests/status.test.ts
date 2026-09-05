@@ -6,6 +6,7 @@ import {
   canRetry,
   isPhotoProblem,
   carouselEnd,
+  friendlyFailure,
 } from "../lib/status.ts";
 import type { CandidateState } from "../lib/types.ts";
 const c = (...states: CandidateState[]) => states.map((state) => ({ state }));
@@ -98,4 +99,19 @@ test("carouselEnd: every failure a photo problem points at the sheet, not Try ag
     ),
     { kind: "retry", approved: 0 },
   );
+});
+test("friendlyFailure never shows an HTTP status and names the sheet for photo problems", () => {
+  assert.equal(
+    friendlyFailure("photo not reachable (HTTP 403)"),
+    "We couldn't fetch the product photo from the sheet.",
+  );
+  assert.equal(
+    friendlyFailure("Luma moderated this image (HTTP 422)"),
+    "Luma moderated this image",
+  );
+  assert.equal(
+    friendlyFailure(null),
+    "Something went wrong while generating this one.",
+  );
+  assert.doesNotMatch(friendlyFailure("upstream error (HTTP 502)"), /HTTP/);
 });

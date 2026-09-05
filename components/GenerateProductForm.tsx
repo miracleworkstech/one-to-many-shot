@@ -49,7 +49,7 @@ export function GenerateProductForm({
       )}
       <button
         disabled={isPending}
-        className={`min-h-11 rounded-lg px-4 py-2 font-medium disabled:opacity-50 ${button}`}
+        className={`min-h-11 w-full rounded-lg px-4 py-2 font-medium disabled:opacity-50 ${button}`}
       >
         {isPending ? "Starting…" : label}
       </button>

@@ -1,7 +1,12 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { db, src } from "@/lib/db";
-import { decideCandidate, parseDecision } from "@/lib/review";
+import {
+  archiveCandidate,
+  decideCandidate,
+  parseArchive,
+  parseDecision,
+} from "@/lib/review";
 import { MAX_IDEA_CHARS } from "@/lib/types";
 
 export async function updateIdea(sku: string, idea: string) {
@@ -21,4 +26,13 @@ export async function decide(formData: FormData) {
   decideCandidate(d.id, d.state, d.who, d.sku);
   revalidatePath("/");
   revalidatePath(`/review/${d.sku}`);
+}
+
+/** Glue only: parse the form, archive the rejected candidate, revalidate. */
+export async function archive(formData: FormData) {
+  const a = parseArchive(formData);
+  if (!a) return;
+  archiveCandidate(a.id, a.sku);
+  revalidatePath("/");
+  revalidatePath(`/review/${a.sku}`);
 }

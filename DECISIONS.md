@@ -423,3 +423,17 @@ live in `ASSUMPTIONS.md`, not here.
   `decided_by` is null unless a name is supplied, so the audit trail loses "who" for now.
 - **Revisit trigger:** A budget surprise, or a request for per-person accountability on
   approvals.
+
+## D21 — A rejected candidate can be archived; it is a column, not a state (2026-09-05)
+
+- **Decision:** `candidates.archived_at`, additive like `shot_idea`, set by an Archive button
+  on a rejected slide. Archived candidates leave the review carousel; the state stays
+  `rejected`, so status, spend and exports are unchanged and an "n archived" note keeps the
+  count honest. Only a rejection can be archived. No un-archive yet.
+- **Alternatives:** A seventh candidate state (a CHECK-constraint change, so a table rebuild,
+  and every state switch gains a branch). Deleting the row (loses the spend record).
+- **Why:** The user asked to clear clutter after rejecting; a nullable column is the smallest
+  change that does that without touching the money ledger or the status ladder.
+- **Cost accepted:** An archived rejection is invisible from the page; the CSV and the spend
+  disclosure still count it. Un-archive is a follow-up if anyone asks.
+- **Revisit trigger:** A request to see or restore archived candidates.

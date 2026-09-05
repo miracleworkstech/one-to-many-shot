@@ -51,6 +51,31 @@ export function carouselEnd(
   return { kind: canRetry(cands, status) ? "retry" : "more", approved };
 }
 
+/** What a failed card says. A photo problem is the sheet's to fix and the reason carries an
+ *  HTTP status nobody on the team needs; anything else is Luma's own plain-English message,
+ *  with any "(HTTP nnn)" trimmed off just in case. */
+export function friendlyFailure(reason: string | null): string {
+  if (isPhotoProblem(reason))
+    return "We couldn't fetch the product photo from the sheet.";
+  const plain = (reason ?? "").replace(/\s*\(HTTP \d+\)/g, "").trim();
+  return plain || "Something went wrong while generating this one.";
+}
+
+/** One hue per meaning (shared visual system): amber waits on a person, green is done,
+ *  red is broken, everything else is neutral. */
+export const STATUS_TONE: Record<
+  ProductStatus,
+  "amber" | "green" | "red" | "neutral"
+> = {
+  no_idea: "neutral",
+  idea_ready: "neutral",
+  generating: "neutral",
+  in_review: "amber",
+  needs_more: "amber",
+  done: "green",
+  failed: "red",
+};
+
 export const byReadingOrder = (
   a: { state: CandidateState; id: number },
   b: { state: CandidateState; id: number },

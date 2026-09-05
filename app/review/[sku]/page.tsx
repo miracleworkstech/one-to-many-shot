@@ -1,49 +1,51 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
+  Archive,
   ArrowLeft,
   Check,
   ChevronLeft,
   ChevronRight,
   MoreHorizontal,
+  Pencil,
   X,
 } from "lucide-react";
 import { productDetail } from "@/lib/queries";
 import {
   STATUS_LABEL,
-  DONE_AT,
+  STATUS_TONE,
   byReadingOrder,
   canRetry as retryAllowed,
-  isPhotoProblem,
   carouselEnd,
+  friendlyFailure,
+  isPhotoProblem,
 } from "@/lib/status";
-import type { CandidateState } from "@/lib/types";
 import { env } from "@/lib/env";
-import { decide, updateIdea } from "@/lib/actions/review";
-import { DECISIONS } from "@/lib/review";
+import { archive, decide, updateIdea } from "@/lib/actions/review";
 import { IdeaForm } from "@/components/IdeaForm";
 import { GenerateProductForm } from "@/components/GenerateProductForm";
 
 export const dynamic = "force-dynamic";
 
 const ICON = { size: 20, strokeWidth: 1.75, "aria-hidden": true } as const;
+const SMALL = { size: 16, strokeWidth: 1.75, "aria-hidden": true } as const;
 
-const DECIDED: readonly CandidateState[] = [
-  "completed",
-  "approved",
-  "rejected",
-];
-const DECIDED_LABEL = { approved: "Approve", rejected: "Reject" };
-const DECIDED_DONE = { approved: "Approved", rejected: "Rejected" };
-const DECIDED_FILL = {
-  approved: "bg-green-700 text-white border-green-700",
-  rejected: "bg-red-700 text-white border-red-700",
+const TONE = {
+  amber: "bg-amber-100 text-amber-900",
+  green: "bg-green-100 text-green-900",
+  red: "bg-red-100 text-red-900",
+  neutral: "bg-stone-200/70 text-stone-800",
 };
 
 /** "4 Sep" from SQLite's `datetime('now')` (UTC); the full stamp goes in the title. */
 const MONTHS = "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split(" ");
 const shortDate = (sqlite: string) =>
   `${Number(sqlite.slice(8, 10))} ${MONTHS[Number(sqlite.slice(5, 7)) - 1]}`;
+
+const PRIMARY =
+  "inline-flex min-h-12 w-full items-center justify-center gap-1 rounded-lg bg-stone-900 px-4 font-medium text-white hover:bg-stone-800";
+const QUIET =
+  "inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-stone-300 bg-white px-3 text-sm font-medium text-stone-900 hover:bg-stone-100 active:bg-stone-200 transition-colors duration-150 ease-out motion-reduce:transition-none";
 
 export default async function Review({
   params,
@@ -54,7 +56,9 @@ export default async function Review({
   const detail = productDetail(sku);
   if (!detail) notFound();
   const { p, status, prev, next, position, total } = detail;
-  const cands = [...detail.cands].sort(byReadingOrder);
+  // Archived rejections leave the carousel; they still count for status, spend and exports.
+  const archived = detail.cands.filter((c) => c.archived_at).length;
+  const cands = detail.cands.filter((c) => !c.archived_at).sort(byReadingOrder);
   const toDecide = cands.filter((c) => c.state === "completed").length;
   const canGenerate = !!p.shot_idea && status !== "generating";
   const canRetry = !!p.shot_idea && retryAllowed(cands, status);
@@ -75,7 +79,9 @@ export default async function Review({
           <span className="hidden sm:inline">All products</span>
         </Link>
         <p className="flex min-w-0 items-center gap-2 text-xs whitespace-nowrap">
-          <span className="rounded-full bg-stone-200/70 px-2 py-1 text-stone-800">
+          <span
+            className={`rounded-full px-2 py-1 font-medium ${TONE[STATUS_TONE[status]]}`}
+          >
             {STATUS_LABEL[status]}
           </span>
           {toDecide > 0 && (
@@ -84,7 +90,7 @@ export default async function Review({
             </span>
           )}
         </p>
-        {(canGenerate || canRetry) && cands.length > 0 && (
+        {(canGenerate || canRetry) && cands.length > 0 ? (
           <>
             <button
               type="button"
@@ -95,7 +101,7 @@ export default async function Review({
               <MoreHorizontal {...ICON} />
             </button>
             {/* Follow-ups live here, hidden during review: the next set, or a change of
-                direction. The end card surfaces Try again inline when it is the next step. */}
+                direction. The end card surfaces the same actions when they are the next step. */}
             <div id="more" popover="auto" className="sheet space-y-4 text-sm">
               {canRetry && (
                 <GenerateProductForm
@@ -117,6 +123,8 @@ export default async function Review({
               )}
             </div>
           </>
+        ) : (
+          <span className="size-11" aria-hidden="true" />
         )}
       </header>
 
@@ -132,7 +140,7 @@ export default async function Review({
 
       {/* Pinned context: the two things every candidate is judged against, the source
           photo and the idea, stay on screen through the whole carousel. The idea is edited
-          in place (IdeaForm), so it is never shown twice. */}
+          in place (IdeaForm); the pencil is a label for the textarea, so tapping it edits. */}
       <section
         aria-label="Shot idea"
         className="sticky top-0 z-10 -mx-4 mt-3 flex items-start gap-3 border-b border-stone-300 bg-stone-50/95 px-4 py-2 backdrop-blur-sm"
@@ -152,6 +160,14 @@ export default async function Review({
           source={p.shot_idea_source}
           onSave={updateIdea}
         />
+        <label
+          htmlFor="idea"
+          title="Edit the shot idea"
+          className="inline-flex size-11 shrink-0 cursor-text items-center justify-center rounded-lg text-stone-600 hover:bg-stone-100 hover:text-stone-900"
+        >
+          <Pencil {...ICON} />
+          <span className="sr-only">Edit the shot idea</span>
+        </label>
       </section>
       {p.notes && (
         <p className="mt-2 text-sm text-stone-700">
@@ -175,6 +191,9 @@ export default async function Review({
             label={`Generate ${env.candidatesPerProduct} candidates`}
             variant="primary"
           />
+          {archived > 0 && (
+            <p className="mt-3 text-xs text-stone-600">{archived} archived</p>
+          )}
         </div>
       )}
 
@@ -190,88 +209,128 @@ export default async function Review({
               className="w-[88%] shrink-0 snap-start sm:w-full"
               aria-label={`Candidate ${i + 1} of ${slides}`}
             >
-              {c.state === "queued" || c.state === "processing" ? (
-                <div
-                  role="status"
-                  className="flex aspect-[4/5] max-h-[60svh] items-center justify-center rounded-lg bg-stone-200/60 px-4 text-center text-sm text-stone-700"
-                >
-                  Generating…
-                </div>
-              ) : c.state === "failed" ? (
-                <div
-                  role="status"
-                  className="flex aspect-[4/5] max-h-[60svh] flex-col justify-center rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900"
-                >
-                  <p className="font-medium">Failed</p>
-                  <p className="mt-1">{c.failure_reason ?? "unknown reason"}</p>
-                  <p className="mt-2 text-red-800">
-                    {isPhotoProblem(c.failure_reason) ? (
-                      <>
-                        Fix the Photo link for this row in the sheet, then{" "}
-                        <Link
-                          href="/"
-                          className="font-medium underline-offset-2 hover:underline"
-                        >
-                          re-import
-                        </Link>
-                        .
-                      </>
-                    ) : status === "generating" ? (
-                      "Wait for the one in progress, then try again."
-                    ) : (
-                      "Try again for a fresh set."
-                    )}
-                  </p>
-                </div>
-              ) : (
-                // eslint-disable-next-line @next/next/no-img-element -- served by our own /img route from local disk; next/image would re-encode a file we already sized.
-                <img
-                  src={`/img/${c.id}`}
-                  alt={`${p.name}: ${p.shot_idea ?? "candidate shot"}`}
-                  className="block max-h-[60svh] w-full rounded-lg bg-stone-200/60 object-contain"
-                />
-              )}
-              <div className="mt-2 flex items-center gap-2">
-                <span className="w-10 shrink-0 text-xs text-stone-600 tabular-nums">
+              <div className="relative">
+                {c.state === "queued" || c.state === "processing" ? (
+                  <div
+                    role="status"
+                    className="flex aspect-[4/5] max-h-[60svh] items-center justify-center rounded-lg bg-stone-200/60 px-4 text-center text-sm text-stone-700"
+                  >
+                    Generating…
+                  </div>
+                ) : c.state === "failed" ? (
+                  <div
+                    role="status"
+                    className="flex aspect-[4/5] max-h-[60svh] flex-col justify-center rounded-lg border border-red-200 bg-red-50 p-5 text-sm text-red-900"
+                  >
+                    <p className="font-medium">This one didn&apos;t come out</p>
+                    <p className="mt-1">{friendlyFailure(c.failure_reason)}</p>
+                    <p className="mt-2 text-red-800">
+                      {isPhotoProblem(c.failure_reason) ? (
+                        <>
+                          Fix the Photo link for this row in the sheet, then{" "}
+                          <Link
+                            href="/"
+                            className="font-medium underline-offset-2 hover:underline"
+                          >
+                            re-import
+                          </Link>
+                          .
+                        </>
+                      ) : status === "generating" ? (
+                        "Wait for the one in progress, then try again."
+                      ) : (
+                        "Try again for a fresh set."
+                      )}
+                    </p>
+                  </div>
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element -- served by our own /img route from local disk; next/image would re-encode a file we already sized.
+                  <img
+                    src={`/img/${c.id}`}
+                    alt={`${p.name}: ${p.shot_idea ?? "candidate shot"}`}
+                    className="block max-h-[60svh] w-full rounded-lg bg-stone-200/60 object-contain"
+                  />
+                )}
+                <span className="absolute top-2 left-2 rounded-full bg-stone-900/70 px-2 py-0.5 text-xs font-medium text-white tabular-nums">
                   {i + 1}/{slides}
                 </span>
-                {DECIDED.includes(c.state) &&
-                  DECISIONS.map((s) => (
+              </div>
+
+              {c.state === "completed" && (
+                <div className="mx-auto mt-3 flex max-w-xs gap-2">
+                  {(["approved", "rejected"] as const).map((s) => (
                     <form key={s} action={decide} className="flex-1">
                       <input type="hidden" name="id" value={c.id} />
                       <input type="hidden" name="sku" value={sku} />
                       <input type="hidden" name="state" value={s} />
                       <button
-                        aria-pressed={c.state === s}
-                        aria-label={`${c.state === s ? DECIDED_DONE[s] : DECIDED_LABEL[s]}, candidate ${i + 1}`}
-                        className={`inline-flex min-h-12 w-full items-center justify-center gap-1.5 rounded-lg border px-3 text-base font-medium transition-colors duration-150 ease-out active:bg-stone-200 motion-reduce:transition-none ${
-                          c.state === s
-                            ? DECIDED_FILL[s]
-                            : "border-stone-300 bg-white text-stone-900 hover:bg-stone-100"
-                        }`}
+                        aria-label={`${s === "approved" ? "Approve" : "Reject"}, candidate ${i + 1}`}
+                        className="inline-flex min-h-12 w-full items-center justify-center gap-1.5 rounded-lg border border-stone-300 bg-white px-3 text-base font-medium text-stone-900 transition-colors duration-150 ease-out hover:bg-stone-100 active:bg-stone-200 motion-reduce:transition-none"
                       >
-                        {c.state === s &&
-                          (s === "approved" ? (
-                            <Check {...ICON} />
-                          ) : (
-                            <X {...ICON} />
-                          ))}
-                        {c.state === s ? DECIDED_DONE[s] : DECIDED_LABEL[s]}
+                        {s === "approved" ? "Approve" : "Reject"}
                       </button>
                     </form>
                   ))}
-              </div>
-              {c.decided_at && (
-                <p className="mt-1 pl-10 text-xs text-stone-600">
-                  {c.state === "approved" ? "Approved" : "Rejected"}
-                  {" · "}
-                  <time
-                    dateTime={`${c.decided_at.replace(" ", "T")}Z`}
-                    title={`${c.decided_at} UTC`}
+                </div>
+              )}
+
+              {/* Decided: the state is the loud thing, the ways to change it are quiet. */}
+              {(c.state === "approved" || c.state === "rejected") && (
+                <div className="mt-3 flex flex-col items-center gap-2 text-center">
+                  <p
+                    className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium ${
+                      c.state === "approved"
+                        ? "bg-green-100 text-green-900"
+                        : "bg-red-100 text-red-900"
+                    }`}
+                    aria-label={`${c.state === "approved" ? "Approved" : "Rejected"}, candidate ${i + 1}`}
                   >
-                    {shortDate(c.decided_at)}
-                  </time>
-                </p>
+                    {c.state === "approved" ? (
+                      <Check {...SMALL} />
+                    ) : (
+                      <X {...SMALL} />
+                    )}
+                    {c.state === "approved" ? "Approved" : "Rejected"}
+                    {c.decided_at && (
+                      <>
+                        <span aria-hidden="true">·</span>
+                        <time
+                          dateTime={`${c.decided_at.replace(" ", "T")}Z`}
+                          title={`${c.decided_at} UTC`}
+                          className="font-normal"
+                        >
+                          {shortDate(c.decided_at)}
+                        </time>
+                      </>
+                    )}
+                  </p>
+                  <div className="flex gap-2">
+                    <form action={decide}>
+                      <input type="hidden" name="id" value={c.id} />
+                      <input type="hidden" name="sku" value={sku} />
+                      <input
+                        type="hidden"
+                        name="state"
+                        value={c.state === "approved" ? "rejected" : "approved"}
+                      />
+                      <button className={QUIET}>
+                        {c.state === "approved"
+                          ? "Reject instead"
+                          : "Approve instead"}
+                      </button>
+                    </form>
+                    {c.state === "rejected" && (
+                      <form action={archive}>
+                        <input type="hidden" name="id" value={c.id} />
+                        <input type="hidden" name="sku" value={sku} />
+                        <button className={QUIET}>
+                          <Archive {...SMALL} />
+                          Archive
+                        </button>
+                      </form>
+                    )}
+                  </div>
+                </div>
               )}
             </li>
           ))}
@@ -290,46 +349,58 @@ export default async function Review({
                     <p className="mt-1 text-sm text-stone-700">
                       These go into the next export.
                     </p>
-                    {next && (
-                      <Link
-                        href={`/review/${next}`}
-                        className="mt-4 inline-flex min-h-12 items-center justify-center gap-1 rounded-lg bg-stone-900 px-4 font-medium text-white hover:bg-stone-800"
-                      >
-                        Next product
-                        <ChevronRight {...ICON} />
-                      </Link>
-                    )}
+                    <div className="mt-4 space-y-2">
+                      {next && (
+                        <Link href={`/review/${next}`} className={PRIMARY}>
+                          Next product
+                          <ChevronRight {...ICON} />
+                        </Link>
+                      )}
+                      <GenerateProductForm
+                        key={`${p.sku}:end-more`}
+                        sku={p.sku}
+                        kind="product"
+                        label={`Generate ${env.candidatesPerProduct} more`}
+                        variant="quiet"
+                      />
+                    </div>
                   </>
                 ) : end.kind === "photo" ? (
                   <>
                     <p className="font-semibold">Nothing to review yet</p>
                     <p className="mt-1 text-sm text-stone-700">
-                      The product photo could not be fetched. Fix the Photo link
-                      for this row in the sheet, then re-import; the next batch
-                      picks it up.
+                      We couldn&apos;t fetch the product photo. Fix the Photo
+                      link for this row in the sheet, then re-import; the next
+                      batch picks it up.
                     </p>
-                    <Link
-                      href="/"
-                      className="mt-4 inline-flex min-h-12 items-center justify-center gap-1 rounded-lg bg-stone-900 px-4 font-medium text-white hover:bg-stone-800"
-                    >
-                      Go to import
-                      <ChevronRight {...ICON} />
-                    </Link>
+                    <div className="mt-4 space-y-2">
+                      <Link href="/" className={PRIMARY}>
+                        Go to import
+                        <ChevronRight {...ICON} />
+                      </Link>
+                      <GenerateProductForm
+                        key={`${p.sku}:end-more`}
+                        sku={p.sku}
+                        kind="product"
+                        label={`Generate ${env.candidatesPerProduct} more`}
+                        variant="quiet"
+                      />
+                    </div>
                   </>
                 ) : (
                   <>
                     <p className="font-semibold">
                       {end.approved === 0
                         ? "Nothing approved yet"
-                        : `${end.approved} approved, ${DONE_AT} needed`}
+                        : `${end.approved} approved so far`}
                     </p>
                     <p className="mt-1 text-sm text-stone-700">
                       {end.kind === "retry"
-                        ? "Say what should change and ask for another set."
+                        ? "Say what should change, or ask for another set."
                         : "Ask for another set."}
                     </p>
-                    <div className="mt-4">
-                      {end.kind === "retry" ? (
+                    <div className="mt-4 space-y-2">
+                      {end.kind === "retry" && (
                         <GenerateProductForm
                           key={`${p.sku}:end-retry`}
                           sku={p.sku}
@@ -337,22 +408,23 @@ export default async function Review({
                           label="Try again"
                           variant="primary"
                         />
-                      ) : (
-                        <GenerateProductForm
-                          key={`${p.sku}:end-more`}
-                          sku={p.sku}
-                          kind="product"
-                          label={`Generate ${env.candidatesPerProduct} more`}
-                          variant="primary"
-                        />
                       )}
+                      <GenerateProductForm
+                        key={`${p.sku}:end-more`}
+                        sku={p.sku}
+                        kind="product"
+                        label={`Generate ${env.candidatesPerProduct} more`}
+                        variant={end.kind === "retry" ? "quiet" : "primary"}
+                      />
                     </div>
                   </>
                 )}
+                {archived > 0 && (
+                  <p className="mt-3 text-xs text-stone-600">
+                    {archived} archived
+                  </p>
+                )}
               </div>
-              <p className="mt-2 w-10 text-xs text-stone-600 tabular-nums">
-                {slides}/{slides}
-              </p>
             </li>
           )}
         </ul>
