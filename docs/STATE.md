@@ -5,6 +5,17 @@
 
 ## Phase
 
+**Update 2026-09-05 (latest): PR #11 merged fast-forward (main at 1051ff4): the review page
+rebuilt under Impeccable (Tasks 10 and 12), D18–D21. `task/11-status-page` is rebased onto
+main and force-pushed; PR #12 stays open. Next action: Task 13 on that branch per
+`docs/superpowers/plans/2026-09-05-status-hierarchy.md`, following the contract in
+`docs/superpowers/plans/2026-09-05-shared-visual-system.md`; then evaluator (two rounds max),
+Codex, update PR #12, stop for review. After #12 merges: `/impeccable document` writes
+DESIGN.md from both shipped pages, then Task 9 (docs, video, submit). Rules that changed this
+week: no estimate on trigger buttons (D20, CLAUDE.md reworded), no person's name in the UI,
+state labels are a dot beside neutral text using the moss/clay/ochre tokens.**
+
+
 **Building, paused between tasks.** Tasks 1 to 3 merged to `main` (PR #2 for Task 3,
 approved by the user 2026-09-04 after the Codex pass and the Haiku re-test). Next action:
 on the user's go, `git checkout -b task/4-luma` and run Task 4 (Luma client, photo fetch)
@@ -62,9 +73,9 @@ candidate with no retry and shows `failure.userMessage` on the card.
 | 8c Codex whole-codebase fixes | PR open | task/8c-codex-fixes | user's call: findings 1, 2, 5, 6 (estimate tracks N; budget_exhausted pauses; SSRF guard on photo URLs incl. redirect hops; ASSUMPTIONS row 14); 3 and 4 accepted as documented costs. Evaluator PASS x2 (6/8 then 7/7 mutants); Codex 4 findings all fixed; D16 |
 | 8d Idea snapshot on candidates | PR open | task/8d-idea-snapshot | user's call on finding 3: `candidates.shot_idea` written at enqueue, additive migration + one-time backfill in one transaction, filenames from `c.shot_idea ?? p.shot_idea`; evaluator FAIL→PASS (untested write side, fixed), 6 + 3 mutants; Codex 1 finding fixed (transactional migration); D17 |
 | 9 Final docs, video, submit | not started | | |
-| 10 Review page layout (Impeccable) | PR #11 | task/10-review-page | init + critique (26/40) + layout, quieter, harden; Codex 4 findings fixed; D18. PRODUCT.md and .impeccable/ added |
+| 10 Review page layout (Impeccable) | merged in #11 | | init + critique (26/40) + layout, quieter, harden; Codex 4 findings fixed; D18. PRODUCT.md and .impeccable/ added |
 | 13 Status page hierarchy, action row, spend disclosure | planned | | plan `docs/superpowers/plans/2026-09-05-status-hierarchy.md`; critique 25/40; built on task/11 after the cross-page consistency review |
-| 11 Status page layout (Impeccable) | PR open | task/11-status-page | grouped by next action, counts in headings, generate inside Ready, spend behind a disclosure; D19 |
+| 11 Status page layout (Impeccable) | PR #12 open, rebased on main | task/11-status-page | grouped by next action, counts in headings, generate inside Ready, spend behind a disclosure; D19 |
 
 ## How a task runs (D8)
 
@@ -88,6 +99,18 @@ candidate with no retry and shows `failure.userMessage` on the card.
 6. After Task 8: Codex review over the full diff, findings to the user, then deploy.
 
 ## Environment facts
+
+- Local dev server: `.claude/launch.json` (gitignored) runs `npm run dev` with
+  `ACCESS_TOKEN=critique-local`; open `http://localhost:3000/?k=critique-local` once.
+  `data-local/` holds 40 imported products plus fake seed candidates (ids 9001–9016, batch
+  9000, gradient JPEGs in `data-local/images/`) covering every review state: HG-002 mixed,
+  HG-003 one approved + four rejected (nudge), HG-004 photo failure, HG-005 in flight,
+  HG-006 done, HG-008 all rejected, HG-009 Luma failure. Delete rows `id >= 9000` and the
+  `900*.jpg` files to clear them. The `.env` file's ACCESS_TOKEN makes the plain `npm run dev`
+  gated.
+- Impeccable v4.1.3 installed (user-level). PRODUCT.md at the root; `.impeccable/critique/`
+  holds three snapshots (review page 26 → 28, status page 25).
+- lucide-react 1.41.0 is a dependency (pinned exact).
 
 - Luma Agents API key is in `.env.local` (never read it). It authenticates (a GET on a bogus
   id returns 404, not 401) had zero credits until 2026-09-04 (topped up that evening; two live batches since) (402

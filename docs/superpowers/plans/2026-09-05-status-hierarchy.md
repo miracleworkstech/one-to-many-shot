@@ -2,8 +2,11 @@
 
 Agreed 2026-09-05 from the Impeccable critique of `app/page.tsx` (25/40, snapshot
 `.impeccable/critique/2026-09-05T14-45-25Z__app-page-tsx.md`) and the user's review of PR #12.
-Not started. Built on `task/11-status-page` before it merges, one commit per step, after the
-cross-page consistency review settles the shared visual system with Task 12.
+Ready to start (2026-09-05): #11 merged, `task/11-status-page` rebased onto it, the shared
+contract is `docs/superpowers/plans/2026-09-05-shared-visual-system.md`. One commit per step.
+Reuse from the review page: `STATUS_TONE` + a `Dot` beside neutral text (`app/review/[sku]/page.tsx`),
+lucide at 20 px with `strokeWidth` 1.75, native `<details>` with a rotating chevron
+(`.chevron` in globals.css), `PRIMARY` / `QUIET` button classes, no `$` on triggers, no names.
 
 ## Jobs on this page
 
@@ -37,8 +40,9 @@ cross-page consistency review settles the shared visual system with Task 12.
 - **Implementation details go.** The caps sentence is deleted. "Same columns as the export"
   goes; "Existing approvals are kept" stays as the file field's one helper line, because it
   answers the fear that stops a re-import. No tooltips: hover-only help is useless on a phone.
-- **Colour on counts and marks only.** Amber = needs a person, red = broken, green = approved.
-  Headings and rows stay neutral. One hue per meaning, shared with the review page.
+- **Colour as a dot beside the count, never a badge.** Ochre = needs a person, clay = broken,
+  moss = approved, from the `@theme` tokens in `app/globals.css` (D20 amended). Headings and
+  rows stay neutral. The paused banner uses `ochre-tint`, not amber-50.
 - **Icons: lucide-react**, shared with Task 12. Chevrons on every disclosure (fixes the P0:
   flex on `<summary>` hides the native marker), an alert mark on Failed, download and upload
   marks on the two action buttons.
