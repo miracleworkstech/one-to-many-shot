@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - Never read, print, or commit `.env.local`. Secrets come from `process.env` only.
-- Every path that calls Luma shows estimated spend before the trigger and is bounded by `MAX_IMAGES_IN_FLIGHT` and `MAX_TOTAL_SPEND_USD`.
+- Every path that calls Luma shows no estimate on the trigger (D20) and is bounded by `MAX_IMAGES_IN_FLIGHT` and `MAX_TOTAL_SPEND_USD`.
 - Cost is recorded on a candidate the moment Luma accepts the job (state becomes `processing`), because that is when money is committed. A generation that later fails keeps its cost (conservative; Luma's refund behaviour on failures is undocumented). A candidate that never reached Luma (photo fetch failed) costs zero.
 - Every candidate belongs to a batch. A batch is one trigger: "generate next N", "generate this product", or "try again".
 - Luma: `POST https://agents.lumalabs.ai/v1/generations` with `{type:"image_edit", model:"uni-1", prompt, source:{data, media_type:"image/jpeg"}, output_format:"jpeg"}`; poll `GET /v1/generations/{id}`; states `queued|processing|completed|failed`; output at `output[0].url`, expires in 1 hour. Cost `LUMA_COST_PER_IMAGE_USD` default `0.0434`.
@@ -47,7 +47,7 @@
 | 8 | Total spend creeps past what Maya expected | Budget surprise | `MAX_TOTAL_SPEND_USD` (default 25): enqueue refuses if spent + in-flight + planned would exceed it. Spent total, per-batch and per-outcome spend are on the status page. |
 | 9 | Re-import of a CSV while a batch is running | Approvals or candidates lost | Import upserts products only and never touches candidates or batches. A changed shot idea applies to the *next* generation; existing candidates keep the prompt they were made with. |
 | 10 | Two people decide the same candidate at once | Conflict | Last write wins, both are humans, the card shows the current state and `decided_by`. No lock. |
-| 11 | "Try again" tapped repeatedly | Each tap costs 2 × $0.0434 | Allowed; cost is shown on the button; bounded by the in-flight cap and spend cap; each tap is its own batch so the spend is visible. Per-product cap is a named non-feature. |
+| 11 | "Try again" tapped repeatedly | Each tap costs 2 × $0.0434 | Allowed; the caps' answer is shown after the tap (no estimate before it, D20); bounded by the in-flight cap and spend cap; each tap is its own batch so the spend is visible. Per-product cap is a named non-feature. |
 | 12 | Photo host 403/404 for a SKU | Nothing generates, nobody knows why | Fetch failure marks the candidate `failed` with "photo not reachable" and zero cost; shown on the card. Import does not block on photo reachability. |
 
 ---

@@ -31,14 +31,23 @@ export const isPhotoProblem = (reason: string | null) =>
  *  again, `more` when only another set makes sense). `null` while there is still something
  *  to decide or wait for, or when there are no candidates at all. */
 export function carouselEnd(
-  cands: { state: CandidateState }[],
+  cands: { state: CandidateState; failure_reason?: string | null }[],
   status: ProductStatus,
-): { kind: "done" | "retry" | "more"; approved: number } | null {
+): { kind: "done" | "retry" | "more" | "photo"; approved: number } | null {
   if (cands.length === 0) return null;
   const n = (s: CandidateState) => cands.filter((c) => c.state === s).length;
   if (n("completed") > 0 || n("queued") + n("processing") > 0) return null;
   const approved = n("approved");
   if (approved >= DONE_AT) return { kind: "done", approved };
+  // Nothing was judged and every failure is the photo link: another attempt re-fails at
+  // the fetch (cost 0) and adds a card, so the next step is the sheet, not Try again.
+  const failed = cands.filter((c) => c.state === "failed");
+  if (
+    n("rejected") === 0 &&
+    failed.length > 0 &&
+    failed.every((c) => isPhotoProblem(c.failure_reason ?? null))
+  )
+    return { kind: "photo", approved };
   return { kind: canRetry(cands, status) ? "retry" : "more", approved };
 }
 

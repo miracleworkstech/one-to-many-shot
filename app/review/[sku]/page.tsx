@@ -300,6 +300,22 @@ export default async function Review({
                       </Link>
                     )}
                   </>
+                ) : end.kind === "photo" ? (
+                  <>
+                    <p className="font-semibold">Nothing to review yet</p>
+                    <p className="mt-1 text-sm text-stone-700">
+                      The product photo could not be fetched. Fix the Photo link
+                      for this row in the sheet, then re-import; the next batch
+                      picks it up.
+                    </p>
+                    <Link
+                      href="/"
+                      className="mt-4 inline-flex min-h-12 items-center justify-center gap-1 rounded-lg bg-stone-900 px-4 font-medium text-white hover:bg-stone-800"
+                    >
+                      Go to import
+                      <ChevronRight {...ICON} />
+                    </Link>
+                  </>
                 ) : (
                   <>
                     <p className="font-semibold">

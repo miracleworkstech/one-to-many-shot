@@ -1,4 +1,4 @@
-// The Drive hand-off (D3): a CSV Maya can open in Sheets, and a zip Ellie's approvals become
+// The Drive hand-off (D3): a CSV the founder can open in Sheets, and a zip the reviewer's approvals become
 // deterministic files in. Both are derived from the same approvedByProduct() query.
 import { stringify } from "csv-stringify/sync";
 import { Zip, ZipPassThrough } from "fflate";

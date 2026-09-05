@@ -76,3 +76,26 @@ test("carouselEnd: null while deciding or in flight, done at two approvals, else
     approved: 1,
   });
 });
+test("carouselEnd: every failure a photo problem points at the sheet, not Try again", () => {
+  const photo = {
+    state: "failed" as const,
+    failure_reason: "photo not reachable (HTTP 403)",
+  };
+  assert.deepEqual(carouselEnd([photo, photo], "failed"), {
+    kind: "photo",
+    approved: 0,
+  });
+  // A rejection alongside means a human judged something; Try again stands.
+  assert.deepEqual(carouselEnd([photo, { state: "rejected" }], "needs_more"), {
+    kind: "retry",
+    approved: 0,
+  });
+  // A Luma-side failure is not a photo problem.
+  assert.deepEqual(
+    carouselEnd(
+      [{ state: "failed", failure_reason: "Luma moderated it" }],
+      "failed",
+    ),
+    { kind: "retry", approved: 0 },
+  );
+});
