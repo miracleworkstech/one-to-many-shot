@@ -7,7 +7,7 @@
 
 **Update 2026-09-05 (latest): PR #11 merged fast-forward (main at 1051ff4): the review page
 rebuilt under Impeccable (Tasks 10 and 12), D18–D21. `task/11-status-page` is rebased onto
-main and force-pushed; PR #12 stays open. Next action: Task 13 on that branch per
+main and force-pushed; PR #12 stays open. Task 13 is built and in PR #12 (waiting for the user's review). Next action after #12 merges: `/impeccable document` for DESIGN.md, then Task 9. Task 13 was built per
 `docs/superpowers/plans/2026-09-05-status-hierarchy.md`, following the contract in
 `docs/superpowers/plans/2026-09-05-shared-visual-system.md`; then evaluator (two rounds max),
 Codex, update PR #12, stop for review. After #12 merges: `/impeccable document` writes
