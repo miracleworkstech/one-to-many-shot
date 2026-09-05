@@ -19,7 +19,7 @@ const isDecision = (v: string): v is Decision => DECISIONS.some((d) => d === v);
 export function decideCandidate(
   id: number,
   state: Decision,
-  who: string,
+  who: string | null,
   sku: string,
 ): number {
   return db()
@@ -33,17 +33,18 @@ export function decideCandidate(
 /** The whole of the `decide` action's input handling, pure so it can be tested. Everything
  *  here arrives from a form a browser can forge: an id that is not a positive integer, a
  *  state that is not a decision and a missing or oversized SKU are all `null`, never a write.
- *  `who` is a display string, so it is truncated rather than refused. */
+ *  `who` is a display string, truncated rather than refused, and `null` when the form did
+ *  not carry one: the UI names nobody (D20), so an absent name stays absent. */
 export function parseDecision(
   formData: FormData,
-): { id: number; state: Decision; who: string; sku: string } | null {
+): { id: number; state: Decision; who: string | null; sku: string } | null {
   const id = Number(formData.get("id"));
   const state = String(formData.get("state") ?? "");
   const sku = String(formData.get("sku") ?? "").trim();
-  const who = (String(formData.get("who") ?? "").trim() || "Ellie").slice(
-    0,
-    MAX_WHO_CHARS,
-  );
+  const who =
+    String(formData.get("who") ?? "")
+      .trim()
+      .slice(0, MAX_WHO_CHARS) || null;
   if (!Number.isInteger(id) || id <= 0 || !isDecision(state)) return null;
   if (!sku || sku.length > MAX_SKU_CHARS) return null;
   return { id, state, who, sku };

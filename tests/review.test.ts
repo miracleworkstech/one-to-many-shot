@@ -92,7 +92,7 @@ test("parseDecision rejects a bad id or a state that is not a decision", async (
   assert.deepEqual(parseDecision(form("7", "approved")), {
     id: 7,
     state: "approved",
-    who: "Ellie",
+    who: null, // the form names nobody (D20): an absent name stays absent
     sku: "HG-002",
   });
   assert.deepEqual(parseDecision(form("7", "rejected", "  Maya  ")), {
@@ -102,7 +102,7 @@ test("parseDecision rejects a bad id or a state that is not a decision", async (
     sku: "HG-002",
   });
   assert.equal(
-    parseDecision(form("7", "approved", "M".repeat(200)))?.who.length,
+    parseDecision(form("7", "approved", "M".repeat(200)))?.who?.length,
     80,
     "who is truncated, not refused: it is a display string",
   );

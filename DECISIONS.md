@@ -400,3 +400,26 @@ live in `ASSUMPTIONS.md`, not here.
   bar until the page is nudged.
 - **Revisit trigger:** Ellie asks for swipe or auto-advance, or candidates come back in a
   taller aspect ratio than 4:5.
+
+## D20 — One visual system for both pages; no price on trigger buttons; no names in the UI (2026-09-05)
+
+- **Decision:** The cross-page consistency review after the two critiques (review page 28/40,
+  status page 25/40) produced one direction contract for Tasks 12 and 13,
+  `docs/superpowers/plans/2026-09-05-shared-visual-system.md`: one hue per meaning on marks
+  only (green approved, red rejected or failed, amber waiting on a person), lucide-react at
+  20 px for eleven named icons, no underlined links, native disclosures with chevrons, one
+  radius, a four-step type scale, dates as "4 Sep" in `<time>`. Two changes of direction
+  from the user: trigger buttons no longer show the estimate (reverses the "cost on the
+  button" part of D18 and the CLAUDE.md invariant, now reworded), and no person's name
+  appears in UI copy or code defaults. Spend moves fully behind a Spend disclosure on the
+  status page. Task 12 ships first on `task/10-review-page`; Task 13 rebases after #11 merges.
+- **Alternatives:** Keep the estimate only on the batch trigger (recommended by Claude, not
+  taken). Keep the total visible as one line (not taken). Tinted group headings (not taken).
+- **Why:** The brief's ask is a bound on spend, not a receipt per tap; the caps are the
+  bound. Two pages built on separate branches were drifting on colour, links and dates; one
+  contract now, DESIGN.md generated from what ships afterwards.
+- **Cost accepted:** Nobody sees a dollar figure before a tap; the cap is not on the page
+  surface. If Maya asks where the budget stands more than once, the one-line total returns.
+  `decided_by` is null unless a name is supplied, so the audit trail loses "who" for now.
+- **Revisit trigger:** A budget surprise, or a request for per-person accountability on
+  approvals.

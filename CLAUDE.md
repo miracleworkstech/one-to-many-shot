@@ -28,8 +28,10 @@ for *what*; this file is authoritative for *how*.
 - **Keep `ASSUMPTIONS.md` current.** Every assumption made because the brief was silent, and
   what it changed about the build.
 - **`APPROACH.md` is the final record**, written from what shipped, not from what was planned.
-- **No generation without a visible cost and a cap.** Every path that calls Luma shows the
-  estimated spend before the trigger and is bounded per run.
+- **No generation without a cap.** Every path that calls Luma is bounded per run by the
+  in-flight and total-spend caps in `enqueue`, and a refusal says why in plain words. The
+  estimate is not shown on trigger buttons (D20, 2026-09-05); spend is read on the status
+  page's Spend disclosure, total first.
 
 ## Resuming in a fresh session
 

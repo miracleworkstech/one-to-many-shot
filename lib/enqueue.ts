@@ -111,7 +111,7 @@ export function nextSkus(n: number): string[] {
  * "Try again" with a note. The note has to join the shot idea *before* `enqueue` runs,
  * because `enqueue` builds each candidate's prompt from the idea as it stands — so the
  * write happens first and is rolled back inside the same transaction when nothing was
- * queued. A refusal (a cap) or a skip (already generating) must not leave Ellie's idea
+ * queued. A refusal (a cap) or a skip (already generating) must not leave the product's idea
  * permanently rewritten for a batch that never existed.
  */
 export function enqueueRetry(sku: string, note: string): EnqueueResult {
