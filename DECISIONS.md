@@ -665,3 +665,6 @@ now. The lint exception for plain anchors is removed.
   in the 4:5 box.
 - **Revisit trigger:** A CDN or object store (D6) makes the resize a transform there. A
   second aspect ratio in the brief would want per-candidate dimensions after all.
+- **Addendum (same day, user review):** Save idea in the sticky bar was a filled black
+  button and outranked Approve; it is now a quiet text button (same hover as the pencil
+  beside it, still 44 px tall). The CSV sheet is named "Catalog CSV" for screen readers.

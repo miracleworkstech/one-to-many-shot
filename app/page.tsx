@@ -291,7 +291,7 @@ export default async function Home({
             {/* The sheet's two directions: the updated export out, a new export in. */}
             <Sheet
               id="csv"
-              aria-label="CSV"
+              aria-label="Catalog CSV"
               className="sheet space-y-2 text-sm"
             >
               <a href="/export/csv" className={`${QUIET} w-full`}>
