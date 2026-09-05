@@ -7,6 +7,8 @@ import {
   isPhotoProblem,
   carouselEnd,
   friendlyFailure,
+  STATUS_TONE,
+  PRODUCT_STATUSES,
 } from "../lib/status.ts";
 import type { CandidateState } from "../lib/types.ts";
 const c = (...states: CandidateState[]) => states.map((state) => ({ state }));
@@ -114,4 +116,19 @@ test("friendlyFailure never shows an HTTP status and names the sheet for photo p
     "Something went wrong while generating this one.",
   );
   assert.doesNotMatch(friendlyFailure("upstream error (HTTP 502)"), /HTTP/);
+});
+test("STATUS_TONE: one hue per meaning, every status covered", () => {
+  for (const s of PRODUCT_STATUSES) assert.ok(STATUS_TONE[s], s);
+  assert.deepEqual(
+    Object.fromEntries(PRODUCT_STATUSES.map((s) => [s, STATUS_TONE[s]])),
+    {
+      no_idea: "neutral",
+      idea_ready: "neutral",
+      generating: "neutral",
+      in_review: "amber",
+      needs_more: "amber",
+      done: "green",
+      failed: "red",
+    },
+  );
 });

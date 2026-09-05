@@ -7,7 +7,6 @@ import {
   ChevronRight,
   MoreHorizontal,
   Pencil,
-  X,
 } from "lucide-react";
 import { productDetail } from "@/lib/queries";
 import {
@@ -197,7 +196,7 @@ export default async function Review({
         </div>
       )}
 
-      {cands.length > 0 && (
+      {(cands.length > 0 || end) && (
         <ul
           aria-label="Candidate shots, scroll sideways for more"
           tabIndex={0}
@@ -207,7 +206,7 @@ export default async function Review({
             <li
               key={c.id}
               className="w-[88%] shrink-0 snap-start sm:w-full"
-              aria-label={`Candidate ${i + 1} of ${slides}`}
+              aria-label={`Slide ${i + 1} of ${slides}`}
             >
               <div className="relative">
                 {c.state === "queued" || c.state === "processing" ? (
@@ -264,7 +263,7 @@ export default async function Review({
                       <input type="hidden" name="sku" value={sku} />
                       <input type="hidden" name="state" value={s} />
                       <button
-                        aria-label={`${s === "approved" ? "Approve" : "Reject"}, candidate ${i + 1}`}
+                        aria-label={`${s === "approved" ? "Approve" : "Reject"}, slide ${i + 1}`}
                         className="inline-flex min-h-12 w-full items-center justify-center gap-1.5 rounded-lg border border-stone-300 bg-white px-3 text-base font-medium text-stone-900 transition-colors duration-150 ease-out hover:bg-stone-100 active:bg-stone-200 motion-reduce:transition-none"
                       >
                         {s === "approved" ? "Approve" : "Reject"}
@@ -278,19 +277,11 @@ export default async function Review({
               {c.state === "approved" && (
                 <div className="mt-3 flex flex-col items-center gap-2 text-center">
                   <p
-                    className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium ${
-                      c.state === "approved"
-                        ? "bg-green-100 text-green-900"
-                        : "bg-red-100 text-red-900"
-                    }`}
-                    aria-label={`${c.state === "approved" ? "Approved" : "Rejected"}, candidate ${i + 1}`}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-900"
+                    aria-label={`Approved, slide ${i + 1}`}
                   >
-                    {c.state === "approved" ? (
-                      <Check {...SMALL} />
-                    ) : (
-                      <X {...SMALL} />
-                    )}
-                    {c.state === "approved" ? "Approved" : "Rejected"}
+                    <Check {...SMALL} />
+                    Approved
                     {c.decided_at && (
                       <>
                         <span aria-hidden="true">·</span>
@@ -308,15 +299,12 @@ export default async function Review({
                     <form action={decide}>
                       <input type="hidden" name="id" value={c.id} />
                       <input type="hidden" name="sku" value={sku} />
-                      <input
-                        type="hidden"
-                        name="state"
-                        value={c.state === "approved" ? "rejected" : "approved"}
-                      />
-                      <button className={QUIET}>
-                        {c.state === "approved"
-                          ? "Reject instead"
-                          : "Approve instead"}
+                      <input type="hidden" name="state" value="rejected" />
+                      <button
+                        className={QUIET}
+                        aria-label={`Reject slide ${i + 1} instead`}
+                      >
+                        Reject instead
                       </button>
                     </form>
                   </div>
@@ -432,13 +420,13 @@ export default async function Review({
             {rejected.length} rejected
           </summary>
           <ul className="mt-2 grid grid-cols-4 gap-2 sm:grid-cols-5">
-            {rejected.map((c) => (
+            {rejected.map((c, i) => (
               <li key={c.id} className="text-center">
                 <a href={`/img/${c.id}`} target="_blank" rel="noopener">
                   {/* eslint-disable-next-line @next/next/no-img-element -- served by our own /img route from local disk. */}
                   <img
                     src={`/img/${c.id}`}
-                    alt={`Rejected: ${p.name}, ${p.shot_idea ?? "candidate shot"}`}
+                    alt={`Rejected ${i + 1} of ${rejected.length}: ${p.name}, ${p.shot_idea ?? "candidate shot"}`}
                     className="aspect-[4/5] w-full rounded-lg bg-stone-200/60 object-cover"
                   />
                 </a>
@@ -446,7 +434,10 @@ export default async function Review({
                   <input type="hidden" name="id" value={c.id} />
                   <input type="hidden" name="sku" value={sku} />
                   <input type="hidden" name="state" value="approved" />
-                  <button className="mt-1 min-h-11 w-full rounded-lg text-xs font-medium text-stone-700 hover:bg-stone-100">
+                  <button
+                    aria-label={`Approve rejected ${i + 1} instead`}
+                    className="mt-1 min-h-11 w-full rounded-lg text-xs font-medium text-stone-700 hover:bg-stone-100"
+                  >
                     Approve instead
                   </button>
                 </form>
