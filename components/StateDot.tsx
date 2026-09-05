@@ -12,11 +12,17 @@ const DOT: Record<Tone, string> = {
   neutral: "bg-stone-400",
 };
 
-export function StateDot({ tone }: { tone: Tone }) {
+export function StateDot({
+  tone,
+  className = "",
+}: {
+  tone: Tone;
+  className?: string;
+}) {
   return (
     <span
       aria-hidden="true"
-      className={`inline-block size-2 shrink-0 rounded-full ${DOT[tone]}`}
+      className={`inline-block size-2 shrink-0 rounded-full ${DOT[tone]} ${className}`}
     />
   );
 }

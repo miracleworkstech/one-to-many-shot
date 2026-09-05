@@ -49,7 +49,7 @@ export function ImportForm({
         </p>
       </form>
       {state && (
-        <div role="status" className="mt-2 text-sm">
+        <div role="status" className="arrive mt-2 text-sm">
           <p>
             {state.imported} imported
             {state.suggested > 0 && `, ${state.suggested} ideas suggested`}

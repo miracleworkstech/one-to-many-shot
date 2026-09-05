@@ -551,3 +551,33 @@ reported an empty `style` attribute on `<html>` that the server never rendered; 
 the app sets it, so it comes from a browser extension or the in-app browser's device
 emulation touching the root before React hydrates. The flag silences attribute diffs on that
 one element only.
+
+## D24 — Motion: four jobs and one authored moment, all CSS (2026-09-05)
+
+- **Decision:** `/impeccable animate` across both pages. Sheets rise 8 px and fade in
+  (250 ms in, 150 ms out) with their backdrop, via `@starting-style` on the native popover;
+  disclosure contents unfold over 200 ms where `interpolate-size` exists, instant elsewhere;
+  an answer landing under a form (queued, imported, refused, saved) fades in over 150 ms;
+  every full navigation cross-fades over 200 ms with a cross-document `@view-transition`,
+  which is why `next/link` leaves both pages (plain anchors, full loads, no prefetch); and
+  the approval, the one moment the product exists for, gets the only authored motion: the
+  moss dot lands and the end card's check draws itself. Reduced motion keeps each opacity
+  change and drops each movement. Transform and opacity only, no JavaScript, no dependency.
+- **Alternatives:** Next's experimental view transitions for in-app navigation (a flag and
+  React's `<ViewTransition>`; not worth the risk for two pages that load in one round
+  trip). The drop bar growing on load (page-load choreography on a glance page, and the
+  nearest thing to the abandoned dashboard). Hover lifts, staggered rows, a spinner on
+  Generate (latency dressed up).
+- **Why:** PRODUCT.md: calm and trustworthy, motion never dramatised. The animate rule:
+  motion that explains feedback, state or relationship, or one moment the surface earned.
+- **Cost accepted:** Full page loads on Prev / Next and on row taps instead of soft
+  navigation; at this scale a load is one small server render. Browsers without
+  `@starting-style`, `::details-content` or `@view-transition` get the old instant
+  behaviour, which is the fallback by construction. The approval's dot and check animate on
+  every full load of an approved product, not only on the decision itself: the server has
+  no "just decided" signal, and a client flag in the decide form is more machinery than an
+  8 px dot and a 16 px check over 300–400 ms deserve. An answer that re-renders with new
+  text in the same mounted status element does not fade again.
+- **Revisit trigger:** A product with dozens of candidates makes the review page heavy
+  enough that a full load is felt; then the Prev / Next links go back to `next/link` and
+  the cross-fade goes with them.

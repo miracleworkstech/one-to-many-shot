@@ -66,7 +66,7 @@ export function GenerateForm({
             : "Generate"}
       </button>
       {state && (
-        <p role="status">
+        <p role="status" className="arrive">
           {state.refused ? (
             <span className="font-medium text-stone-900">{state.refused}</span>
           ) : state.queued === 0 ? (
