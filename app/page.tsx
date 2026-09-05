@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { ChevronDown, Download } from "lucide-react";
+import { ChevronDown, ChevronRight, Download } from "lucide-react";
 import { overview } from "@/lib/queries";
 import { recentBatches, spendSummary } from "@/lib/analytics";
 import {
+  DONE_AT,
   STATUS_LABEL,
   STATUS_TONE,
   shortDate,
@@ -14,58 +15,75 @@ import { GenerateForm } from "@/components/GenerateForm";
 import { StateDot } from "@/components/StateDot";
 import { resumeWorker } from "@/lib/actions/generate";
 import { env } from "@/lib/env";
+import { PRIMARY, QUIET } from "@/components/buttons";
 
 export const dynamic = "force-dynamic";
 
 const ICON = { size: 20, strokeWidth: 1.75, "aria-hidden": true } as const;
 
-/** Reading order is who has to act: the reviewer's queue, then the batch trigger, then
- *  what needs nobody. Not the enum's order, which is the lifecycle. */
-const TIER_ONE: readonly ProductStatus[] = ["in_review", "needs_more"];
-const TIER_THREE: readonly ProductStatus[] = [
+/** The page has three zones in reading order: what needs a person, what the machine is
+ *  doing (Generate, then the passive states folded), and what comes out (approved images,
+ *  Done). Not the enum's order, which is the lifecycle. */
+const PASSIVE: readonly ProductStatus[] = [
+  "idea_ready",
+  "generating",
   "failed",
   "no_idea",
-  "generating",
-  "done",
 ];
-/** Groups that open by default. Done is the long one and needs nothing from anyone. */
-const CLOSED: ReadonlySet<ProductStatus> = new Set(["done"]);
-/** Rows shown before a group folds the rest. A 40-product drop fits; 300 done do not. */
+/** Rows shown before a list folds the rest. A 40-product drop fits; 300 done do not. */
 const PAGE = 12;
 
 const usd = (n: number) => `$${n.toFixed(2)}`;
 
-type Row = { p: Product; status: ProductStatus; toDecide: number };
+type Row = {
+  p: Product;
+  status: ProductStatus;
+  toDecide: number;
+  approved: number;
+};
 
-function Item({ p, toDecide }: Row) {
+/** Anything a reviewer can act on, whatever the lifecycle status says: a product with a
+ *  second batch in flight still has its first candidates to decide, and a done product
+ *  with a spare finished candidate still owes a decision on money already spent. */
+const needsDecision = (r: Row) => r.toDecide > 0 || r.status === "needs_more";
+
+/** The one fact a row carries beside the name: what is waiting on the reviewer, or how
+ *  far the product is from done. Nothing for the passive states; the name is enough. */
+function fact(r: Row): string | null {
+  if (r.toDecide > 0) return `${r.toDecide} to decide`;
+  if (r.status === "needs_more")
+    return `${r.approved} of ${DONE_AT} approved · try again`;
+  return null;
+}
+
+function Item(r: Row) {
+  const f = fact(r);
   return (
     <li>
       <Link
-        href={`/review/${p.sku}`}
-        className="flex min-h-12 items-center gap-3 rounded-lg px-1 py-2 hover:bg-stone-100"
+        href={`/review/${r.p.sku}`}
+        className="flex min-h-14 items-center gap-3 rounded-lg px-2 py-2 hover:bg-stone-100 active:bg-stone-200 transition-colors duration-150 ease-out motion-reduce:transition-none"
       >
-        <span className="w-16 shrink-0 truncate text-xs text-stone-600 tabular-nums">
-          {p.sku}
-        </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate font-medium">{p.name}</span>
-          <span className="block truncate text-xs text-stone-600">
-            {p.shot_idea ?? "No idea yet"}
+          <span className="block truncate font-medium">{r.p.name}</span>
+          <span className="block text-xs text-stone-600 tabular-nums">
+            {r.p.sku}
           </span>
         </span>
-        {toDecide > 0 && (
-          <span className="shrink-0 text-xs text-stone-600 tabular-nums">
-            {toDecide} to decide
+        {f && (
+          <span className="shrink-0 text-sm text-stone-700 tabular-nums">
+            {f}
           </span>
         )}
+        <ChevronRight {...ICON} className="shrink-0 text-stone-400" />
       </Link>
     </li>
   );
 }
 
-function Rows({ rows, page = PAGE }: { rows: Row[]; page?: number }) {
-  const head = rows.slice(0, page);
-  const rest = rows.slice(page);
+function Rows({ rows }: { rows: Row[] }) {
+  const head = rows.slice(0, PAGE);
+  const rest = rows.slice(PAGE);
   return (
     <>
       <ul className="divide-y divide-stone-200">
@@ -75,11 +93,9 @@ function Rows({ rows, page = PAGE }: { rows: Row[]; page?: number }) {
       </ul>
       {rest.length > 0 && (
         <details className="mt-1">
-          <summary className="inline-flex min-h-11 cursor-pointer select-none items-center gap-1 rounded-lg px-1 text-sm font-medium text-stone-700 hover:bg-stone-100">
+          <summary className="inline-flex min-h-11 cursor-pointer select-none items-center gap-1 rounded-lg px-2 text-sm font-medium text-stone-700 hover:bg-stone-100">
             <ChevronDown {...ICON} className="chevron" />
-            {head.length === 0
-              ? `Show the ${rest.length} products`
-              : `Show ${rest.length} more`}
+            Show {rest.length} more
           </summary>
           <ul className="divide-y divide-stone-200">
             {rest.map((r) => (
@@ -92,80 +108,123 @@ function Rows({ rows, page = PAGE }: { rows: Row[]; page?: number }) {
   );
 }
 
-function Group({
-  status,
-  rows,
-  tier,
-  children,
-}: {
-  status: ProductStatus;
-  rows: Row[];
-  tier: 1 | 2 | 3;
-  children?: React.ReactNode;
-}) {
+/** A folded list for a state nobody has to act on: one line with a dot and a count,
+ *  the rows behind a chevron. Closed by default; the count is the information. */
+function Folded({ status, rows }: { status: ProductStatus; rows: Row[] }) {
   return (
-    <details
-      open={!CLOSED.has(status)}
-      className="border-t border-stone-300 py-1"
-    >
-      {/* A summary holds one heading and nothing else, so the disclosure and the heading
-          announce cleanly; the chevron, the dot and the count all live inside it. */}
-      <summary className="flex min-h-12 cursor-pointer select-none items-center px-1">
-        <h2
-          className={`flex flex-1 items-center gap-2 text-base ${
-            tier === 1
-              ? "font-semibold text-stone-900"
-              : "font-medium text-stone-800"
-          }`}
-        >
+    <details className="border-t border-stone-200">
+      <summary className="flex min-h-11 cursor-pointer select-none items-center rounded-lg px-2 hover:bg-stone-100">
+        <h2 className="flex flex-1 items-center gap-2 text-sm font-medium text-stone-800">
           <ChevronDown {...ICON} className="chevron text-stone-500" />
           <StateDot tone={STATUS_TONE[status]} />
           <span className="flex-1">{STATUS_LABEL[status]}</span>
-          <span className="text-sm font-normal text-stone-600 tabular-nums">
+          <span className="text-stone-600 tabular-nums">
+            <span className="sr-only">, </span>
             {rows.length}
           </span>
         </h2>
       </summary>
-      <div className="pb-3 pl-1">
-        {children}
-        {rows.length > 0 ? (
-          // The batch trigger is the point of tier 2; its rows fold, nobody reads 35 to tap one button.
-          <Rows rows={rows} page={tier === 2 ? 0 : PAGE} />
-        ) : (
-          <p className="px-1 py-2 text-sm text-stone-600">
-            {status === "in_review"
-              ? "Nothing waiting for review."
-              : "Nothing here."}
-          </p>
-        )}
+      <div className="pb-2">
+        <Rows rows={rows} />
       </div>
     </details>
   );
 }
 
 export default function Home() {
-  const { rows, counts, pausedReason } = overview();
+  const { rows, pausedReason } = overview();
   const spend = spendSummary();
   const batches = recentBatches(5);
   const total = rows.length;
-  const done = counts.done ?? 0;
-  const waiting = counts.in_review ?? 0;
+  const queue = rows.filter(needsDecision);
+  // Every row lands in exactly one list: the queue wins over Done and the passive states.
+  const done = rows.filter((r) => r.status === "done" && !needsDecision(r));
   const byStatus = new Map<ProductStatus, Row[]>();
   for (const r of rows)
-    byStatus.set(r.status, [...(byStatus.get(r.status) ?? []), r]);
+    if (!needsDecision(r) && r.status !== "done")
+      byStatus.set(r.status, [...(byStatus.get(r.status) ?? []), r]);
   const ready = byStatus.get("idea_ready") ?? [];
 
   return (
     <main className="mx-auto max-w-2xl px-4 pt-3 pb-10">
-      <header>
+      <header className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <h1 className="text-xl font-semibold">Styled shots</h1>
         {total > 0 && (
-          <p className="mt-1 text-base text-stone-800 tabular-nums">
-            {done} of {total} done
-            {waiting > 0 && ` · ${waiting} waiting for review`}
-          </p>
+          <div className="ml-auto flex items-center gap-2 [anchor-name:--sheet]">
+            <ImportForm />
+            <button
+              type="button"
+              popoverTarget="spend"
+              className={`${QUIET} tabular-nums`}
+            >
+              {usd(spend.spent)} spent
+              <ChevronDown {...ICON} className="text-stone-500" />
+            </button>
+            {/* Spend is a bound, not a receipt: total first, the rest as prose, one tap
+                away from the running total in the header (D20, amended). */}
+            <div
+              id="spend"
+              popover="auto"
+              className="sheet space-y-2 text-sm text-stone-800"
+            >
+              <p className="text-base font-semibold text-stone-900 tabular-nums">
+                {usd(spend.spent)} spent of {usd(env.maxTotalSpend)}
+              </p>
+              <p className="tabular-nums">
+                {usd(spend.spentApproved)} on approved images,{" "}
+                {usd(spend.spentWasted)} on rejected or failed
+                {spend.spentPending > 0 &&
+                  `, ${usd(spend.spentPending)} still being decided`}
+                .
+              </p>
+              {spend.costPerApproved != null && (
+                <p className="tabular-nums">
+                  About {usd(spend.costPerApproved)} per approved image
+                  {spend.approvalRate != null &&
+                    `, ${Math.round(spend.approvalRate * 100)}% of decisions approve`}
+                  .
+                </p>
+              )}
+              {batches.length > 0 && (
+                <ul className="divide-y divide-stone-200 border-t border-stone-200 pt-1 text-stone-700">
+                  {batches.map((b) => (
+                    <li key={b.id} className="flex gap-3 py-1.5 tabular-nums">
+                      <time
+                        dateTime={`${b.created_at.replace(" ", "T")}Z`}
+                        title={`${b.created_at} UTC`}
+                        className="w-14 shrink-0"
+                      >
+                        {shortDate(b.created_at)}
+                      </time>
+                      <span>
+                        {b.images} {b.images === 1 ? "image" : "images"} ·{" "}
+                        {usd(b.actual_usd)} · {b.approved} approved
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
         )}
       </header>
+      {total > 0 && (
+        <p className="mt-3 font-medium text-stone-900 tabular-nums">
+          {done.length} of {total} done
+          {queue.length > 0 && (
+            <>
+              {" · "}
+              <a
+                href="#decide"
+                className="-my-3 py-3 underline-offset-4 hover:underline"
+              >
+                {queue.length} {queue.length === 1 ? "needs" : "need"} a
+                decision
+              </a>
+            </>
+          )}
+        </p>
+      )}
 
       {pausedReason && (
         <div className="mt-4 rounded-lg border border-ochre/40 bg-ochre-tint p-3 text-sm text-stone-900">
@@ -193,105 +252,90 @@ export default function Home() {
         </section>
       ) : (
         <>
-          {/* One row, so the reviewer's queue stays on the first screen: the approved images
-              are the main way out, a new export is the way in. */}
-          <div className="mt-4 flex flex-wrap items-start gap-x-3 gap-y-2">
-            {spend.approved > 0 ? (
-              <a
-                href="/export/zip"
-                className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-stone-900 px-4 font-medium text-white hover:bg-stone-800"
-              >
-                <Download {...ICON} />
-                Download {spend.approved} approved{" "}
-                {spend.approved === 1 ? "image" : "images"}
-              </a>
-            ) : (
-              <button
-                type="button"
-                disabled
-                className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-stone-300 px-4 text-stone-600 disabled:cursor-not-allowed"
-              >
-                <Download {...ICON} />
-                No approved images yet
-              </button>
-            )}
-            <ImportForm />
-            <a
-              href="/export/csv"
-              className="inline-flex min-h-11 items-center gap-1 rounded-lg px-2 text-sm font-medium text-stone-700 hover:bg-stone-100"
-            >
-              Updated CSV
-            </a>
-          </div>
+          {/* Zone 1: the reviewer's queue is the page, never a disclosure. */}
+          <section id="decide" className="mt-8">
+            <h2 className="flex items-center gap-2 px-2 text-base font-semibold text-stone-900">
+              <StateDot tone="wait" />
+              Needs a decision
+              <span className="text-sm font-normal text-stone-600 tabular-nums">
+                <span className="sr-only">, </span>
+                {queue.length}
+              </span>
+            </h2>
+            <div className="mt-2 border-t border-stone-300">
+              {queue.length > 0 ? (
+                <Rows rows={queue} />
+              ) : (
+                <p className="px-2 py-3 text-sm text-stone-600">
+                  Nothing needs a decision right now.
+                </p>
+              )}
+            </div>
+          </section>
 
-          <div className="mt-6">
-            {TIER_ONE.map((s) => (
-              <Group key={s} status={s} rows={byStatus.get(s) ?? []} tier={1} />
-            ))}
-            <Group status="idea_ready" rows={ready} tier={2}>
-              <div className="px-1 pt-1 pb-3">
+          {/* Zone 2: the machine. The batch trigger, then the states nobody acts on, folded. */}
+          {ready.length > 0 && (
+            <section className="mt-8">
+              <h2 className="px-2 text-base font-medium text-stone-900">
+                Next batch
+              </h2>
+              <div className="mt-2 px-2">
                 <GenerateForm
                   perProduct={env.candidatesPerProduct}
                   ready={ready.length}
                 />
               </div>
-            </Group>
-            {TIER_THREE.map((s) =>
+            </section>
+          )}
+          <div className="mt-6 border-b border-stone-200">
+            {PASSIVE.map((s) =>
               (byStatus.get(s) ?? []).length > 0 ? (
-                <Group
-                  key={s}
-                  status={s}
-                  rows={byStatus.get(s) ?? []}
-                  tier={3}
-                />
+                <Folded key={s} status={s} rows={byStatus.get(s) ?? []} />
               ) : null,
             )}
           </div>
 
-          {/* Spend is a bound, not a receipt: total first, the rest as prose, all behind
-              one disclosure (D20). */}
-          <details className="mt-6 border-t border-stone-300 py-1">
-            <summary className="flex min-h-12 cursor-pointer select-none items-center gap-2 px-1 text-base font-medium text-stone-800">
-              <ChevronDown {...ICON} className="chevron text-stone-500" />
-              Spend
-            </summary>
-            <div className="space-y-2 px-1 pb-3 text-sm text-stone-800">
-              <p className="text-base font-semibold text-stone-900 tabular-nums">
-                {usd(spend.spent)} spent of {usd(env.maxTotalSpend)}
-              </p>
-              <p className="tabular-nums">
-                {usd(spend.spentApproved)} on approved images,{" "}
-                {usd(spend.spentWasted)} on rejected or failed
-                {spend.spentPending > 0 &&
-                  `, ${usd(spend.spentPending)} still being decided`}
+          {/* Zone 3: what comes out. The zip holds every approved image, including ones on
+              products still short of done, so the count is approved images, not products. */}
+          <section className="mt-8">
+            <h2 className="flex items-center gap-2 px-2 text-base font-semibold text-stone-900">
+              <StateDot tone="ok" />
+              Approved images
+              <span className="text-sm font-normal text-stone-600 tabular-nums">
+                <span className="sr-only">, </span>
+                {spend.approved}
+              </span>
+            </h2>
+            {spend.approved > 0 ? (
+              <div className="mt-3 grid grid-cols-1 gap-2 px-2 sm:grid-cols-2">
+                <a href="/export/zip" className={PRIMARY}>
+                  <Download {...ICON} />
+                  Download {spend.approved}{" "}
+                  {spend.approved === 1 ? "image" : "images"}
+                </a>
+                <a href="/export/csv" className={`${QUIET} min-h-12`}>
+                  <Download {...ICON} />
+                  Updated CSV
+                </a>
+              </div>
+            ) : (
+              <p className="mt-2 px-2 text-sm text-stone-600">
+                No approved images yet. The updated CSV is still available:{" "}
+                <a
+                  href="/export/csv"
+                  className="font-medium text-stone-900 underline-offset-4 hover:underline"
+                >
+                  Updated CSV
+                </a>
                 .
-                {spend.costPerApproved != null &&
-                  ` About ${usd(spend.costPerApproved)} per approved image`}
-                {spend.approvalRate != null &&
-                  `, ${Math.round(spend.approvalRate * 100)}% of decisions approve`}
-                {spend.costPerApproved != null && "."}
               </p>
-              {batches.length > 0 && (
-                <ul className="divide-y divide-stone-200 text-stone-700">
-                  {batches.map((b) => (
-                    <li key={b.id} className="flex gap-3 py-1.5 tabular-nums">
-                      <time
-                        dateTime={`${b.created_at.replace(" ", "T")}Z`}
-                        title={`${b.created_at} UTC`}
-                        className="w-14 shrink-0"
-                      >
-                        {shortDate(b.created_at)}
-                      </time>
-                      <span>
-                        {b.images} {b.images === 1 ? "image" : "images"} ·{" "}
-                        {usd(b.actual_usd)} · {b.approved} approved
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </details>
+            )}
+            {done.length > 0 && (
+              <div className="mt-4 border-b border-stone-200">
+                <Folded status="done" rows={done} />
+              </div>
+            )}
+          </section>
         </>
       )}
     </main>

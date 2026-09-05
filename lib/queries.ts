@@ -21,6 +21,8 @@ export function overview() {
       status: productStatus(!!p.shot_idea, mine),
       // What a reviewer still has to look at on this product; the status page shows it.
       toDecide: mine.filter((c) => c.state === "completed").length,
+      // How far a "needs more" product is from done; the row says "1 of 2 approved".
+      approved: mine.filter((c) => c.state === "approved").length,
     };
   });
   const counts: Partial<Record<ProductStatus, number>> = {};

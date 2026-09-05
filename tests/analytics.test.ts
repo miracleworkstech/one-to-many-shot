@@ -51,6 +51,18 @@ test("recent batches show estimate vs actual", () => {
   assert.equal(row.images, 4);
 });
 
+test("a batch that queued nothing is not a recent batch", () => {
+  const before = recentBatches(5).length;
+  d.prepare("insert into batches (kind) values ('next')").run();
+  const rows = recentBatches(5);
+  assert.equal(
+    rows.length,
+    before,
+    "empty batches are left out before the limit",
+  );
+  assert.ok(rows.every((r) => r.images > 0));
+});
+
 test("spend by sku is what the CSV export reports", () => {
   assert.equal(spendBySku().get("HG-002")?.toFixed(2), "0.12");
 });

@@ -31,12 +31,15 @@ export function spendSummary() {
   };
 }
 
+/** Batches that queued at least one image, newest first. A batch the caps refused or
+ *  that found nothing to queue is a ledger row, not a spend, so the inner join drops it
+ *  before the limit. */
 export function recentBatches(limit = 10) {
   return db()
     .prepare(
       `select b.*, count(c.id) as images, coalesce(sum(c.cost_usd), 0) as actual_usd,
       coalesce(sum(c.state = ${st("approved")}), 0) as approved
-    from batches b left join candidates c on c.batch_id = b.id
+    from batches b join candidates c on c.batch_id = b.id
     group by b.id order by b.id desc limit ?`,
     )
     .all(limit) as (Batch & {

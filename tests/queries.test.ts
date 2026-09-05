@@ -61,6 +61,11 @@ test("overview: rows sorted priority desc then sku, correct status, counts, paus
   assert.equal(mug.toDecide, 0, "queued is not yet something to decide");
   d.prepare("update candidates set state='completed' where sku='HG-002'").run();
   assert.equal(overview().rows.find((r) => r.p.sku === "HG-002")!.toDecide, 1);
+  d.prepare("update candidates set state='approved' where sku='HG-002'").run();
+  const one = overview().rows.find((r) => r.p.sku === "HG-002")!;
+  assert.equal(one.status, "needs_more");
+  assert.equal(one.approved, 1, "the row says how far from done");
+  assert.equal(one.toDecide, 0);
   d.prepare("update candidates set state='queued' where sku='HG-002'").run();
   assert.equal(after_.counts.generating, 1);
   assert.equal(after_.counts.idea_ready, 2);

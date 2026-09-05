@@ -25,15 +25,11 @@ import { decide, updateIdea } from "@/lib/actions/review";
 import { IdeaForm } from "@/components/IdeaForm";
 import { StateDot as Dot } from "@/components/StateDot";
 import { GenerateProductForm } from "@/components/GenerateProductForm";
+import { PRIMARY, QUIET } from "@/components/buttons";
 
 export const dynamic = "force-dynamic";
 
 const ICON = { size: 20, strokeWidth: 1.75, "aria-hidden": true } as const;
-
-const PRIMARY =
-  "inline-flex min-h-12 w-full items-center justify-center gap-1 rounded-lg bg-stone-900 px-4 font-medium text-white hover:bg-stone-800";
-const QUIET =
-  "inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-stone-300 bg-white px-3 text-sm font-medium text-stone-900 hover:bg-stone-100 active:bg-stone-200 transition-colors duration-150 ease-out motion-reduce:transition-none";
 
 export default async function Review({
   params,
@@ -86,7 +82,7 @@ export default async function Review({
               type="button"
               popoverTarget="more"
               aria-label="More options"
-              className="inline-flex size-11 items-center justify-center rounded-lg text-stone-900 hover:bg-stone-100 [anchor-name:--more]"
+              className="inline-flex size-11 items-center justify-center rounded-lg text-stone-900 hover:bg-stone-100 [anchor-name:--sheet]"
             >
               <MoreHorizontal {...ICON} />
             </button>
