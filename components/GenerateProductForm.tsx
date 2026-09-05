@@ -3,6 +3,7 @@ import { useActionState, useId } from "react";
 import { generateForProduct } from "@/lib/actions/generate";
 import { MAX_IDEA_CHARS } from "@/lib/types";
 import type { EnqueueResult } from "@/lib/enqueue";
+import { Spinner } from "./Pending";
 
 /** One generate trigger for one product. The caps' answer (queued, skipped or refused) is
  *  shown after the tap; the estimate is not shown before it (D20). */
@@ -49,9 +50,17 @@ export function GenerateProductForm({
       )}
       <button
         disabled={isPending}
-        className={`min-h-11 w-full rounded-lg px-4 py-2 font-medium disabled:opacity-50 ${button}`}
+        aria-busy={isPending}
+        className={`inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg px-4 py-2 font-medium disabled:opacity-60 ${button}`}
       >
-        {isPending ? "Starting…" : label}
+        {isPending ? (
+          <>
+            <Spinner />
+            Starting…
+          </>
+        ) : (
+          label
+        )}
       </button>
       {state && (
         <p role="status" className="arrive w-full">
