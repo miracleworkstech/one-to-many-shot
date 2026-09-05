@@ -41,15 +41,19 @@ details[open] > summary .chevron {
 [popover].sheet::backdrop {
   background: rgb(28 25 23 / 0.35);
 }
-@media (min-width: 640px) {
-  [popover].sheet {
-    inset: auto;
-    margin: 0;
-    border-bottom: 1px solid var(--color-stone-300);
-    border-radius: 0.5rem;
-    position-anchor: --more;
-    top: anchor(bottom);
-    right: anchor(right);
+/* Wider screens: a small panel under its button where anchor positioning exists;
+   browsers without it keep the bottom sheet, which still works. */
+@supports (position-anchor: --more) {
+  @media (min-width: 640px) {
+    [popover].sheet {
+      inset: auto;
+      margin: 0;
+      border-bottom: 1px solid var(--color-stone-300);
+      border-radius: 0.5rem;
+      position-anchor: --more;
+      top: anchor(bottom);
+      right: anchor(right);
+    }
   }
 }
 @media (prefers-reduced-motion: reduce) {

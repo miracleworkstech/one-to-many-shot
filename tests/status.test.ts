@@ -5,6 +5,7 @@ import {
   byReadingOrder,
   canRetry,
   isPhotoProblem,
+  carouselEnd,
 } from "../lib/status.ts";
 import type { CandidateState } from "../lib/types.ts";
 const c = (...states: CandidateState[]) => states.map((state) => ({ state }));
@@ -52,4 +53,26 @@ test("isPhotoProblem keys on the PhotoError prefix, not the word anywhere", () =
   assert.equal(isPhotoProblem("photo URL points at localhost"), true);
   assert.equal(isPhotoProblem("Luma could not use the photo"), false);
   assert.equal(isPhotoProblem(null), false);
+});
+test("carouselEnd: null while deciding or in flight, done at two approvals, else retry or more", () => {
+  assert.equal(carouselEnd([], "idea_ready"), null);
+  assert.equal(carouselEnd(c("completed", "approved"), "in_review"), null);
+  assert.equal(carouselEnd(c("approved", "processing"), "generating"), null);
+  assert.deepEqual(carouselEnd(c("approved", "approved", "rejected"), "done"), {
+    kind: "done",
+    approved: 2,
+  });
+  assert.deepEqual(carouselEnd(c("approved", "rejected"), "needs_more"), {
+    kind: "retry",
+    approved: 1,
+  });
+  assert.deepEqual(carouselEnd(c("failed"), "failed"), {
+    kind: "retry",
+    approved: 0,
+  });
+  // Only approvals, but not enough of them: nothing earned Try again, so another set.
+  assert.deepEqual(carouselEnd(c("approved"), "needs_more"), {
+    kind: "more",
+    approved: 1,
+  });
 });

@@ -1,5 +1,5 @@
 "use client";
-import { useActionState } from "react";
+import { useActionState, useId } from "react";
 import { generateForProduct } from "@/lib/actions/generate";
 import { MAX_IDEA_CHARS } from "@/lib/types";
 import type { EnqueueResult } from "@/lib/enqueue";
@@ -23,6 +23,8 @@ export function GenerateProductForm({
     variant === "quiet"
       ? "border border-stone-300 bg-white text-stone-900 hover:bg-stone-100"
       : "bg-stone-900 text-white hover:bg-stone-800";
+  // The retry form can be mounted twice on one page (the More sheet and the end card).
+  const noteId = useId();
   const [state, formAction, isPending] = useActionState<
     EnqueueResult | null,
     FormData
@@ -33,11 +35,11 @@ export function GenerateProductForm({
       <input type="hidden" name="kind" value={kind} />
       {kind === "retry" && (
         <>
-          <label htmlFor={`note-${sku}`} className="block text-stone-700">
+          <label htmlFor={noteId} className="block text-stone-700">
             What should change?
           </label>
           <input
-            id={`note-${sku}`}
+            id={noteId}
             name="note"
             maxLength={MAX_IDEA_CHARS}
             placeholder="Warmer light, less clutter…"

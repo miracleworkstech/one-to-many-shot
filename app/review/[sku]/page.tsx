@@ -15,6 +15,7 @@ import {
   byReadingOrder,
   canRetry as retryAllowed,
   isPhotoProblem,
+  carouselEnd,
 } from "@/lib/status";
 import type { CandidateState } from "@/lib/types";
 import { env } from "@/lib/env";
@@ -55,17 +56,12 @@ export default async function Review({
   const { p, status, prev, next, position, total } = detail;
   const cands = [...detail.cands].sort(byReadingOrder);
   const toDecide = cands.filter((c) => c.state === "completed").length;
-  const approved = cands.filter((c) => c.state === "approved").length;
-  const inFlight = cands.some(
-    (c) => c.state === "queued" || c.state === "processing",
-  );
   const canGenerate = !!p.shot_idea && status !== "generating";
   const canRetry = !!p.shot_idea && retryAllowed(cands, status);
-  // The end card closes the carousel once nothing is undecided or in flight: either the
-  // product is done, or nothing was approved and the next step is to try again.
-  const showEnd = cands.length > 0 && toDecide === 0 && !inFlight;
+  // The end card closes the carousel once nothing is undecided or in flight (lib/status.ts).
+  const end = p.shot_idea ? carouselEnd(cands, status) : null;
   const meta = [p.color, p.material, p.price].filter(Boolean).join(" · ");
-  const slides = cands.length + (showEnd ? 1 : 0);
+  const slides = cands.length + (end ? 1 : 0);
 
   return (
     <main className="mx-auto max-w-lg px-4 pt-2 pb-20 sm:pb-6">
@@ -184,7 +180,8 @@ export default async function Review({
 
       {cands.length > 0 && (
         <ul
-          aria-label="Candidate shots"
+          aria-label="Candidate shots, scroll sideways for more"
+          tabIndex={0}
           className="-mx-4 mt-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 scroll-px-4 [scrollbar-width:none]"
         >
           {cands.map((c, i) => (
@@ -267,7 +264,6 @@ export default async function Review({
               {c.decided_at && (
                 <p className="mt-1 pl-10 text-xs text-stone-600">
                   {c.state === "approved" ? "Approved" : "Rejected"}
-                  {c.decided_by && ` by ${c.decided_by}`}
                   {" · "}
                   <time
                     dateTime={`${c.decided_at.replace(" ", "T")}Z`}
@@ -279,17 +275,17 @@ export default async function Review({
               )}
             </li>
           ))}
-          {showEnd && (
+          {end && (
             <li
               className="w-[88%] shrink-0 snap-start sm:w-full"
               aria-label={`End, ${slides} of ${slides}`}
             >
               <div className="flex aspect-[4/5] max-h-[60svh] flex-col justify-center rounded-lg border border-stone-300 bg-white p-5 text-base">
-                {approved >= DONE_AT ? (
+                {end.kind === "done" ? (
                   <>
                     <p className="inline-flex items-center gap-2 font-semibold text-green-800">
                       <Check {...ICON} />
-                      Done · {approved} approved
+                      Done · {end.approved} approved
                     </p>
                     <p className="mt-1 text-sm text-stone-700">
                       These go into the next export.
@@ -307,15 +303,17 @@ export default async function Review({
                 ) : (
                   <>
                     <p className="font-semibold">
-                      {approved === 0
+                      {end.approved === 0
                         ? "Nothing approved yet"
-                        : `${approved} approved, ${DONE_AT} needed`}
+                        : `${end.approved} approved, ${DONE_AT} needed`}
                     </p>
                     <p className="mt-1 text-sm text-stone-700">
-                      Say what should change and ask for another set.
+                      {end.kind === "retry"
+                        ? "Say what should change and ask for another set."
+                        : "Ask for another set."}
                     </p>
                     <div className="mt-4">
-                      {canRetry ? (
+                      {end.kind === "retry" ? (
                         <GenerateProductForm
                           key={`${p.sku}:end-retry`}
                           sku={p.sku}

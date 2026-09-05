@@ -26,6 +26,22 @@ export const canRetry = (
 export const isPhotoProblem = (reason: string | null) =>
   /^photo/i.test(reason ?? "");
 
+/** What closes the carousel once nothing is undecided or in flight: `done` when enough
+ *  are approved, otherwise the next step (`retry` when a rejection or failure earned Try
+ *  again, `more` when only another set makes sense). `null` while there is still something
+ *  to decide or wait for, or when there are no candidates at all. */
+export function carouselEnd(
+  cands: { state: CandidateState }[],
+  status: ProductStatus,
+): { kind: "done" | "retry" | "more"; approved: number } | null {
+  if (cands.length === 0) return null;
+  const n = (s: CandidateState) => cands.filter((c) => c.state === s).length;
+  if (n("completed") > 0 || n("queued") + n("processing") > 0) return null;
+  const approved = n("approved");
+  if (approved >= DONE_AT) return { kind: "done", approved };
+  return { kind: canRetry(cands, status) ? "retry" : "more", approved };
+}
+
 export const byReadingOrder = (
   a: { state: CandidateState; id: number },
   b: { state: CandidateState; id: number },
