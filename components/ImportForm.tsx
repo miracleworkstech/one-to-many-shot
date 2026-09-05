@@ -35,7 +35,13 @@ export function ImportForm({
           accept=".csv,text/csv"
           required
           disabled={isPending}
-          onChange={() => form.current?.requestSubmit()}
+          onChange={(e) => {
+            const input = e.currentTarget;
+            form.current?.requestSubmit();
+            // The submit has read the file; clear the input so picking the same CSV
+            // again (a fixed export) fires change again.
+            setTimeout(() => (input.value = ""), 0);
+          }}
           className="sr-only"
         />
       </label>

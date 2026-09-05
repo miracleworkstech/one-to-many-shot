@@ -18,6 +18,7 @@ import {
   friendlyFailure,
   isPhotoProblem,
   needsNewIdea,
+  shortDate,
 } from "@/lib/status";
 import { env } from "@/lib/env";
 import { decide, updateIdea } from "@/lib/actions/review";
@@ -28,11 +29,6 @@ import { GenerateProductForm } from "@/components/GenerateProductForm";
 export const dynamic = "force-dynamic";
 
 const ICON = { size: 20, strokeWidth: 1.75, "aria-hidden": true } as const;
-
-/** "4 Sep" from SQLite's `datetime('now')` (UTC); the full stamp goes in the title. */
-const MONTHS = "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split(" ");
-const shortDate = (sqlite: string) =>
-  `${Number(sqlite.slice(8, 10))} ${MONTHS[Number(sqlite.slice(5, 7)) - 1]}`;
 
 const PRIMARY =
   "inline-flex min-h-12 w-full items-center justify-center gap-1 rounded-lg bg-stone-900 px-4 font-medium text-white hover:bg-stone-800";

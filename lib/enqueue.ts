@@ -77,7 +77,7 @@ export function enqueue(
         queued: 0,
         skipped,
         estimatedUsd,
-        refused: `This would take total spend past the $${env.maxTotalSpend} budget cap (spent $${spent.toFixed(2)}). Raise MAX_TOTAL_SPEND_USD to continue.`,
+        refused: `This would take spending past the budget cap. See Spend on the status page, or raise MAX_TOTAL_SPEND_USD to continue.`,
       };
     const batchId = Number(
       d

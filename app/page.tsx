@@ -2,7 +2,12 @@ import Link from "next/link";
 import { ChevronDown, Download } from "lucide-react";
 import { overview } from "@/lib/queries";
 import { recentBatches, spendSummary } from "@/lib/analytics";
-import { STATUS_LABEL, STATUS_TONE, type ProductStatus } from "@/lib/status";
+import {
+  STATUS_LABEL,
+  STATUS_TONE,
+  shortDate,
+  type ProductStatus,
+} from "@/lib/status";
 import type { Product } from "@/lib/types";
 import { ImportForm } from "@/components/ImportForm";
 import { GenerateForm } from "@/components/GenerateForm";
@@ -29,16 +34,11 @@ const CLOSED: ReadonlySet<ProductStatus> = new Set(["done"]);
 const PAGE = 12;
 
 const usd = (n: number) => `$${n.toFixed(2)}`;
-const MONTHS = "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split(" ");
-const shortDate = (sqlite: string) =>
-  `${Number(sqlite.slice(8, 10))} ${MONTHS[Number(sqlite.slice(5, 7)) - 1]}`;
 
 type Row = { p: Product; status: ProductStatus; toDecide: number };
 
-function Rows({ rows, page = PAGE }: { rows: Row[]; page?: number }) {
-  const head = rows.slice(0, page);
-  const rest = rows.slice(page);
-  const Item = ({ p, toDecide }: Row) => (
+function Item({ p, toDecide }: Row) {
+  return (
     <li>
       <Link
         href={`/review/${p.sku}`}
@@ -61,6 +61,11 @@ function Rows({ rows, page = PAGE }: { rows: Row[]; page?: number }) {
       </Link>
     </li>
   );
+}
+
+function Rows({ rows, page = PAGE }: { rows: Row[]; page?: number }) {
+  const head = rows.slice(0, page);
+  const rest = rows.slice(page);
   return (
     <>
       <ul className="divide-y divide-stone-200">
@@ -103,21 +108,23 @@ function Group({
       open={!CLOSED.has(status)}
       className="border-t border-stone-300 py-1"
     >
-      <summary className="flex min-h-12 cursor-pointer select-none items-center gap-2 px-1">
-        <ChevronDown {...ICON} className="chevron text-stone-500" />
+      {/* A summary holds one heading and nothing else, so the disclosure and the heading
+          announce cleanly; the chevron, the dot and the count all live inside it. */}
+      <summary className="flex min-h-12 cursor-pointer select-none items-center px-1">
         <h2
-          className={`inline-flex flex-1 items-center gap-2 text-base ${
+          className={`flex flex-1 items-center gap-2 text-base ${
             tier === 1
               ? "font-semibold text-stone-900"
               : "font-medium text-stone-800"
           }`}
         >
+          <ChevronDown {...ICON} className="chevron text-stone-500" />
           <StateDot tone={STATUS_TONE[status]} />
-          {STATUS_LABEL[status]}
+          <span className="flex-1">{STATUS_LABEL[status]}</span>
+          <span className="text-sm font-normal text-stone-600 tabular-nums">
+            {rows.length}
+          </span>
         </h2>
-        <span className="text-sm text-stone-600 tabular-nums">
-          {rows.length}
-        </span>
       </summary>
       <div className="pb-3 pl-1">
         {children}
@@ -199,10 +206,14 @@ export default function Home() {
                 {spend.approved === 1 ? "image" : "images"}
               </a>
             ) : (
-              <span className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-stone-300 px-4 text-stone-500">
+              <button
+                type="button"
+                disabled
+                className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-stone-300 px-4 text-stone-600 disabled:cursor-not-allowed"
+              >
                 <Download {...ICON} />
                 No approved images yet
-              </span>
+              </button>
             )}
             <ImportForm />
             <a

@@ -82,6 +82,16 @@ export const STATUS_TONE: Record<
 export const needsNewIdea = (rejected: number, perProduct: number) =>
   rejected >= 2 * perProduct;
 
+/** "4 Sep" from SQLite's `datetime('now')` (UTC, "YYYY-MM-DD HH:MM:SS"); anything else
+ *  renders as nothing rather than "NaN undefined". The full stamp belongs in a title. */
+const MONTHS = "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split(" ");
+export function shortDate(sqlite: string | null): string {
+  const m = /^\d{4}-(\d{2})-(\d{2})/.exec(sqlite ?? "");
+  if (!m) return "";
+  const month = MONTHS[Number(m[1]) - 1];
+  return month ? `${Number(m[2])} ${month}` : "";
+}
+
 export const byReadingOrder = (
   a: { state: CandidateState; id: number },
   b: { state: CandidateState; id: number },

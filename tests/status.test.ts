@@ -10,6 +10,7 @@ import {
   STATUS_TONE,
   PRODUCT_STATUSES,
   needsNewIdea,
+  shortDate,
 } from "../lib/status.ts";
 import type { CandidateState } from "../lib/types.ts";
 const c = (...states: CandidateState[]) => states.map((state) => ({ state }));
@@ -138,4 +139,11 @@ test("needsNewIdea: two full rounds turned down, not one", () => {
   assert.equal(needsNewIdea(4, 2), true);
   assert.equal(needsNewIdea(5, 3), false);
   assert.equal(needsNewIdea(6, 3), true);
+});
+test("shortDate: SQLite datetimes become '4 Sep'; anything else becomes nothing", () => {
+  assert.equal(shortDate("2026-09-04 14:02:11"), "4 Sep");
+  assert.equal(shortDate("2026-12-25"), "25 Dec");
+  assert.equal(shortDate("2026-13-01 00:00:00"), "");
+  assert.equal(shortDate("yesterday"), "");
+  assert.equal(shortDate(null), "");
 });
