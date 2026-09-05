@@ -5,7 +5,16 @@
 
 ## Phase
 
-**Update 2026-09-05 (latest, end of session): the user approved and merged PRs #13 to #17, but
+**Update 2026-09-05 (latest): Task 19 (D27) on `task/19-audit-p2`, rebased onto main
+after #18 merged: the four P2 findings of `/impeccable audit` (15/20). Sheets are dialogs
+that take focus (`components/Sheet.tsx`), review pages are titled by product, the worker
+keeps a 1024 px review copy of every image (`lib/images.ts`, sharp declared) that `/img`
+serves with the original as fallback, slides are lazy in a fixed 4:5 box, and the idea
+textarea is capped at four lines until focused. `npm run check` green (172 tests). Next:
+evaluator, Codex, PR, stop for review. Remaining P3s from the audit: the batch input's
+label-in-name, inline button strings, two literal backdrop colours.**
+
+**Update 2026-09-05 (end of session): the user approved and merged PRs #13 to #17, but
 #15 (copy, D26) and #17 (navigation flicker, D24 amended) were chained on task branches that had
 already been merged, so main (eca9b61) lacks them. `task/18-land-copy-and-nav` merges
 `origin/task/16-copy` (which holds both) onto main; **PR #18 is the next thing to merge**

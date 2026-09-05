@@ -195,7 +195,7 @@ async function pollProcessing() {
       try {
         storage.saveReview(c.id, await reviewVariant(original));
       } catch (e) {
-        console.warn(`review copy for candidate ${c.id} skipped:`, e);
+        console.warn(`review copy for candidate ${c.id} skipped: ${reason(e)}`);
       }
       d.prepare(
         `update candidates set state = ${st("completed")} where id = ?`,
