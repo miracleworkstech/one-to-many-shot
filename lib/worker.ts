@@ -5,6 +5,7 @@ import { db, st } from "./db";
 import type { Candidate } from "./types";
 import { env } from "./env";
 import { storage } from "./storage";
+import { reviewVariant } from "./images";
 import { fetchPhoto, PhotoError } from "./photos";
 import {
   submitEdit,
@@ -187,7 +188,15 @@ async function pollProcessing() {
         bumpAttempt(c, "Luma's image could not be downloaded. Try again.");
         continue;
       }
-      storage.saveImage(c.id, Buffer.from(await res.arrayBuffer()));
+      const original = Buffer.from(await res.arrayBuffer());
+      storage.saveImage(c.id, original);
+      // The review copy is a convenience, not the record: if the resize fails the page
+      // serves the original (storage.readReview falls back) and the candidate still lands.
+      try {
+        storage.saveReview(c.id, await reviewVariant(original));
+      } catch (e) {
+        console.warn(`review copy for candidate ${c.id} skipped:`, e);
+      }
       d.prepare(
         `update candidates set state = ${st("completed")} where id = ?`,
       ).run(c.id);

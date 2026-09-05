@@ -634,3 +634,34 @@ on the render right after the decision (`justDecided`, a 15-second window on `de
 never on a later visit. The generating placeholder's ring turns again: the breathing rule had
 replaced the spin utility's animation, so the ring pulsed instead of turning; both run on it
 now. The lint exception for plain anchors is removed.
+
+## D27 — Audit P2 fixes: dialogs that take focus, a review-size image copy, a capped idea bar (2026-09-05)
+
+- **Decision:** From `/impeccable audit` (15/20; four P2 findings). (1) Every popover sheet
+  and lightbox renders through one client component, `Sheet`: `role="dialog"`, a name
+  (`aria-label` or `aria-labelledby`), and focus moved onto the sheet when it opens, so a
+  screen reader announces it and the next Tab lands inside it rather than seven rows away.
+  (2) The review page's document title is the product name. (3) The worker keeps a second
+  JPEG beside each original, at most 1024 px on the long edge (`lib/images.ts`, sharp);
+  `/img/[id]` serves that copy and falls back to the original for candidates saved before
+  it existed. The export still reads the original. Slides after the first load lazily, and
+  every image sits in the same 4:5 box as the placeholder and end cards, so Approve and
+  Reject never jump when the bytes arrive. (4) The shot idea textarea is capped at four
+  lines while it is being read and uncapped on focus, so a long idea (retry notes append
+  to it) cannot pin over the candidate: a 490-character idea took 60% of a phone screen.
+- **Alternatives:** Autofocus attributes instead of a component (React strips them to a
+  `focus()` call on mount, which is a no-op on a hidden popover). Storing width and height
+  per candidate and letting each image keep its own aspect (a third additive column, a
+  migrations table by the db.ts note, and uneven slide heights). Resizing on request in the
+  route (repeated CPU on every refresh, and the 5-second `Refresher` makes that hot).
+  Declaring nothing and importing sharp transitively from Next (works today, breaks
+  silently on a Next upgrade).
+- **Why:** WCAG 4.1.2 and 2.4.2 (the brief's AA commitment in PRODUCT.md). Ellie reviews
+  on a phone: a 2048 px Luma JPEG per slide is the whole page weight. The image is the
+  interface, so nothing may sit over it or move under a thumb.
+- **Cost accepted:** `sharp` is now a declared dependency (it was already installed as
+  Next's optional dependency, same version). One extra file per candidate on the volume,
+  roughly a quarter of the original. A 1:1 image shows a little stone above and below it
+  in the 4:5 box.
+- **Revisit trigger:** A CDN or object store (D6) makes the resize a transform there. A
+  second aspect ratio in the brief would want per-candidate dimensions after all.

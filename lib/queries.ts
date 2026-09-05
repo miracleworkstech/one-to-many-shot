@@ -100,3 +100,10 @@ export function approvedByProduct() {
     return { p, approved, status: productStatus(!!p.shot_idea, mine) };
   });
 }
+
+/** The name alone, for the review page's document title. `null` when the SKU is unknown. */
+export function productName(sku: string): string | null {
+  const row = db().prepare("select name from products where sku=?").get(sku) as
+    { name: string } | undefined;
+  return row?.name ?? null;
+}

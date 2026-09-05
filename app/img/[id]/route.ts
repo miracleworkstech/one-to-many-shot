@@ -2,7 +2,8 @@
 // numeric id is the whole path, so no traversal.
 import { storage } from "@/lib/storage";
 
-/** Candidate images are private to the customer: no CDN, no shared cache. */
+/** Candidate images are private to the customer: no CDN, no shared cache. The page gets
+ *  the review-size copy; the export (lib/export.ts) reads the original from disk. */
 export async function GET(
   _: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -10,7 +11,7 @@ export async function GET(
   const id = Number((await params).id);
   if (!Number.isInteger(id) || id <= 0)
     return new Response("not found", { status: 404 });
-  const buf = storage.readImage(id);
+  const buf = storage.readReview(id);
   if (!buf) return new Response("not found", { status: 404 });
   return new Response(new Uint8Array(buf), {
     headers: {
