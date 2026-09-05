@@ -29,7 +29,10 @@ export function GenerateForm({
   return (
     <form action={formAction} className="text-sm">
       <div className="flex flex-wrap items-center gap-2">
-        <label htmlFor="n" className="text-stone-700">
+        <label
+          htmlFor="n"
+          className="inline-flex min-h-11 items-center text-stone-700"
+        >
           Generate the next
         </label>
         <input

@@ -25,7 +25,7 @@ export function ImportForm({
   return (
     <form ref={form} action={formAction}>
       <label
-        className={`inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-lg px-4 font-medium ${button} ${isPending ? "opacity-50" : ""}`}
+        className={`inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-lg px-4 font-medium focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-stone-900 ${button} ${isPending ? "opacity-50" : ""}`}
       >
         <Upload size={20} strokeWidth={1.75} aria-hidden="true" />
         {isPending ? "Importing…" : "Import CSV"}
