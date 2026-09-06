@@ -201,7 +201,7 @@ candidate with no retry and shows `failure.userMessage` on the card.
 - `ANTHROPIC_API_KEY` is in `.env.local` as of 2026-09-03 (never read it). The user renamed `.env.example` to `.env` (gitignored, placeholder only); Task 8 recreates `.env.example` with the real variable list. `next dev` and `next start` load it; `node --test` does not, so tests run on the template fallback.
 - The user replaced the Anthropic key with a non-identity-linked one on 2026-09-04; Haiku suggestions verified working through the page (24 model ideas on the first import). `ANTHROPIC_WORKSPACE_ID` stays optional in `lib/env.ts` for identity-linked keys.
 - Running a Codex review while `next dev` is up wipes `.next` (Codex's sandbox rebuilt it) and the dev server 500s until restarted. Run the manual check before or after Codex, not during.
-- Deploy target: Railway, volume at `/data`, daily backups. Live at
+- Deploy target: Railway, volume at `/data`, **no backups** (scheduled volume backups are Pro-only; the service is on Hobby; D6 amended 2026-09-06). Live at
   `https://one-to-many-shot-production.up.railway.app` (domain target port 3000, `PORT=3000`
   set by the user because Railway injects PORT=8080 otherwise). The connector's write actions
   are blocked by the session's permission classifier; reads (status, logs, domains) work. **The user created the Railway
@@ -221,11 +221,21 @@ candidate with no retry and shows `failure.userMessage` on the card.
 - Slack incoming webhook: created and set on the Railway service by the user 2026-09-04;
   one message per settled batch confirmed live.
 
+## Follow-ups agreed 2026-09-06, to do after the docs pass
+
+- Worker throughput: `Promise.all` over the poll loop's download-and-resize (a freed slot
+  currently waits for a download) and over the submissions in a tick (four round trips in
+  series). `LUMA_CONCURRENCY` is being raised by the user first; the 429 back-off covers it.
+- Analytics: `submitted_at` and `completed_at` on `candidates`, then batch wall clock,
+  Luma latency and time-to-first-decision in the Spend sheet (APPROACH.md, unit economics).
+
 ## Open items for the user
 
 - Railway: variables and domain set by the user 2026-09-04 (the connector's write actions are
-  blocked by the session's permission classifier; reads work). Confirm the `/data` volume
-  with daily backups exists in the dashboard.
+  blocked by the session's permission classifier; reads work). Backups: none on Hobby (D6
+  amendment); the exports are the copy until Pro or a nightly copy job.
+- `MAX_TOTAL_SPEND_USD` default raised to 50 in code and `.env.example` (2026-09-06); set
+  it to 50 on the Railway service too, or the deploy keeps the value set there.
 - Railway account confirmed.
 
 ## Resume checklist for a fresh session

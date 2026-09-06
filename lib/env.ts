@@ -21,7 +21,7 @@ export const env = {
   costPerImage: num(process.env.LUMA_COST_PER_IMAGE_USD, 0.0434),
   candidatesPerProduct: count(process.env.CANDIDATES_PER_PRODUCT, 2),
   maxInFlight: count(process.env.MAX_IMAGES_IN_FLIGHT, 40),
-  maxTotalSpend: num(process.env.MAX_TOTAL_SPEND_USD, 25),
+  maxTotalSpend: num(process.env.MAX_TOTAL_SPEND_USD, 50),
   lumaConcurrency: count(process.env.LUMA_CONCURRENCY, 4),
   tickMs: num(process.env.WORKER_TICK_MS, 5000),
 };

@@ -1,747 +1,202 @@
-# DECISIONS.md — running decision log
+# DECISIONS.md — decision log
 
-Append-only. One entry per material choice. Format: Decision / Alternatives / Why (tied to a
-requirement) / Cost accepted / Revisit trigger. Assumptions made because the brief was silent
-live in `ASSUMPTIONS.md`, not here.
+One entry per consequential choice: Decision / Alternatives / Why (tied to a requirement) /
+Cost accepted / Revisit trigger. Assumptions made because the brief was silent live in
+`ASSUMPTIONS.md`. Entries keep their original numbers; the gaps were implementation-process
+and UI-detail decisions, pruned on 2026-09-06 and kept in git history and the session logs.
+Where an entry was amended, only the latest state is shown.
 
 ---
 
-## D1 — Product shape: the sheet is the product, approval is a lightweight web page (2026-09-03)
+## D1 — Product shape: the sheet is the product, approval is a web page (2026-09-03)
 
-- **Decision:** Shape A. CSV in, generation staged with a visible cost, one Slack message per
-  batch via incoming webhook, approval on a phone-first web page reached from that message,
-  status on the same page plus an updated CSV export.
-- **Alternatives:** (B) Slack-native bot with approve/reject buttons and a `/status`
-  command. (C) Email digest with reply-to-approve.
-- **Why:** Ellie's constraints ("from my phone", "don't install anything") and the rejected
-  dashboard. A page that arrives as a link with one job is not a destination to remember.
-  B fails on small previews, unscannable channels at 40 × 2 candidates, notification
-  fatigue, and needing an installed app plus a workspace invite for anyone to try it. C is
-  the easiest to miss and the worst UX.
-- **Cost accepted:** One screen outside Slack. Approvals are not in-thread. The status view
-  is a cousin of the dashboard they abandoned; it is kept to one screen with no login.
-- **Revisit trigger:** Ellie stops opening links within a day of the Slack message, or the
-  team asks for in-Slack buttons. Then B's bot becomes an addition on top of A's page.
+- **Decision:** CSV in, generation in bounded batches, one Slack message per settled batch,
+  approval on a phone-first web page reached from that message, status on the same page,
+  an updated CSV and a zip of approved images out.
+- **Alternatives:** A Slack-native bot with approve and reject buttons. An email digest with
+  reply-to-approve. A Google Sheet with Apps Script.
+- **Why:** Ellie's constraints ("from my phone", "don't install anything") and the dashboard
+  they abandoned. A page that arrives as a link with one job is not a destination to
+  remember. The Slack bot is the strongest alternative and loses on the review moment: a
+  feed of eighty small previews is not a contact sheet, and status at a glance does not
+  exist in a channel. Email is the process they are escaping.
+- **Cost accepted:** One screen outside Slack. Approvals are not in-thread.
+- **Revisit trigger:** Ellie stops opening links within a day of the message, or the team
+  asks for in-Slack buttons. The bot then sits on top of the same server.
 
-## D2 — Suggested shot ideas are in v1 scope (2026-09-03)
+## D2 — Suggested shot ideas are in scope (2026-09-03)
 
 - **Decision:** Rows with no Shot Idea get a suggested one, labelled and editable, at no
-  generation cost until someone taps generate.
-- **Alternatives:** Only generate for rows with a human-written idea. Leave blanks blank.
-- **Why:** 24 of 40 rows are blank today and the 40-product drop will arrive mostly blank.
-  Maya's goal is the whole drop launching with styled shots. Without suggestions the
-  turnaround is "wait for Ellie to think of 40 ideas".
-- **Cost accepted:** A dependency on an LLM call at import time. Suggested ideas will be
-  generic sometimes; that is what "edit" is for.
-- **Revisit trigger:** Suggested ideas get rejected at a much higher rate than sheet ideas.
+  cost until someone generates.
+- **Alternatives:** Generate only for human-written ideas. Leave blanks blank.
+- **Why:** 24 of 40 rows are blank and the drop will arrive mostly blank. Without
+  suggestions the turnaround is "wait for Ellie to think of 40 ideas".
+- **Cost accepted:** An LLM call at import. Generic ideas sometimes; that is what edit is for.
+- **Revisit trigger:** Suggested ideas are rejected at a much higher rate than sheet ideas.
 
-## D3 — Delivery is a zip download plus updated CSV, not a Drive push (2026-09-03)
+## D3 — Delivery is a zip plus an updated CSV, not a Drive push (2026-09-03)
 
-- **Decision:** "Download approved" returns a zip of approved images with deterministic
-  SKU-based filenames. "Download CSV" returns the export with status and image URL columns.
-  No Google Drive API integration in v1.
-- **Alternatives:** Push approved files into the shared Drive folder via a service account.
-- **Why:** The brief's "done" includes the Drive folder, but a Drive push needs a Google
-  service account the team must create and share a folder with. The pain the brief
-  describes (wrong `IMG_43xx.jpg` shipped) is a naming and provenance problem, which the
-  zip solves. The extra step (drop the zip in Drive) is one the team already does today.
-- **Cost accepted:** One manual step remains. Two copies of the truth (our storage, Drive)
-  can drift if someone renames in Drive.
-- **Revisit trigger:** The web person asks "which file is final" again, or the team wants
-  the folder to fill itself. Then add Drive linking.
+- **Decision:** Approved images download as a zip with deterministic SKU-based filenames;
+  the CSV export carries status and image links. No Google Drive integration.
+- **Alternatives:** Push files into the shared Drive folder via a service account.
+- **Why:** The pain in the brief (the wrong `IMG_43xx.jpg` shipped) is a naming and
+  provenance problem, which the filenames solve. A Drive push needs a service account the
+  team must create and share a folder with; dropping a zip in Drive is a step they already do.
+- **Cost accepted:** One manual step. Our storage and Drive can drift if someone renames.
+- **Revisit trigger:** "Which file is final?" is asked again, or the team wants the folder
+  to fill itself.
 
-## D4 — Claude Haiku generates suggested shot ideas (2026-09-03)
+## D4 — Claude Haiku writes the suggested ideas (2026-09-03)
 
-- **Decision:** One batched Claude Haiku call per import proposes shot ideas for blank rows,
-  from product name, category, color, material, and notes. User supplies their own key for
-  testing; a category-template fallback runs when no key is configured.
-- **Alternatives:** Static per-category templates only. A Luma text model, if one existed.
-- **Why:** Templates read as generic across 300 products. Ideas that reference the actual
-  product ("terracotta vase" vs "ceramics") get accepted more and edited less, which is the
-  turnaround Maya cares about. Haiku is cheap enough that the cost is noise next to images.
-- **Cost accepted:** A second external API and key. A fallback path to maintain.
+- **Decision:** One chunked Haiku call per import proposes ideas for blank rows from name,
+  category, color, material and notes. A category-template fallback runs without a key.
+- **Alternatives:** Templates only.
+- **Why:** Templates read as generic across 300 products; ideas that name the actual
+  product get accepted more and edited less. The cost is noise next to images.
+- **Cost accepted:** A second external API and key, and a fallback path.
 - **Revisit trigger:** Suggestions need editing more often than not.
 
-## D5 — One real generation before any UI (2026-09-03)
+## D6 — One always-on Node service on Railway, SQLite and images on one volume (2026-09-03)
 
-- **Decision:** First build step is a smoke script that runs one real `image_edit` on HG-002
-  and downloads the result. About five cents.
-- **Alternatives:** Build the UI first and discover fidelity or fetch problems on day two.
-- **Why:** Two unverified risks sit under the whole design: the photo host's 403 to script
-  clients, and whether `image_edit` keeps a glazed ceramic recognisable. Both are cheaper to
-  learn now.
-- **Cost accepted:** A few cents and twenty minutes.
-- **Revisit trigger:** n/a.
-
-## D6 — One long-running Node service on Railway, SQLite + volume for images (2026-09-03)
-
-- **Decision:** Next.js in a single always-on Node process on Railway. SQLite (better-sqlite3,
-  WAL mode) and images both live on one mounted volume. An in-process loop polls Luma.
-  Scheduled daily Railway volume backups. Luma output requested as JPEG to keep candidates
-  around half a megabyte. All disk access goes through one small storage module.
-- **Alternatives:** (A) Vercel + Supabase: serverless functions, managed Postgres and
-  Storage, pg_cron calling a tick endpoint. (C) Cloudflare Workers + D1 + R2 with cron
-  triggers. (B2) Hybrid: SQLite on the volume, images in R2 from day one.
+- **Decision:** Next.js in a single process on Railway. SQLite (WAL) and JPEG images on one
+  mounted volume, all disk access through one storage module. An in-process loop polls Luma.
+- **Alternatives:** Vercel plus Supabase (serverless, managed Postgres and storage, cron
+  calling a tick). Cloudflare Workers plus D1 and R2. SQLite on the volume with images in R2
+  from day one.
 - **Why:** The Luma Agents API has no callbacks, so something must poll; a long-lived
-  process makes that one `setInterval` instead of three triggers across two vendors. The
-  customer is six people and about 300 products and will never need a second instance. One
-  vendor, one process, one env file is the right operational surface for a team with no
-  engineer on staff. Files on a disk match their mental model of "a folder", and the zip
-  export is a directory walk.
+  process makes that one interval instead of three triggers across two vendors. Six people
+  and 300 products will never need a second instance. One vendor, one process, one env file
+  is the right surface for a team with no engineer. Files on a disk match "a folder".
 - **Cost accepted:** Single instance by construction (Railway volumes cannot attach to
-  replicas). Images served by the app, not a CDN. 5 GB on Hobby (50 GB Pro, live resize).
-  Restore is a few clicks, not automatic failover; worst case with daily backups is one day
-  of approvals, and approved files also exist in Drive after each export. About $5/month.
-- **Scaling plan, in order:** (1) volume past 60 percent: prune rejected candidates older
-  than 30 days, then resize or move to Pro. (2) Site wants to hotlink images, or a second
-  instance is needed: move images to R2 or S3 with a one-off copy job and swap the storage
-  module. (3) Only if concurrent writers ever matter: SQLite to Postgres. Nothing in the
-  schema or routes assumes a single machine except the storage module.
-- **Revisit trigger:** Volume past 60 percent, a request to serve images straight to the
-  storefront, or headcount that makes a second instance plausible.
+  replicas). Images served by the app, not a CDN. 5 GB on Hobby. **No backups** (amended
+  2026-09-06): scheduled volume backups are a Pro feature and the service runs on Hobby, so
+  the volume is the only copy; the exported CSV and zip in Drive are the copy until Pro or a
+  nightly copy job, which is the first operational follow-up. About $5 a month.
+- **Scaling order:** knobs (concurrency, caps), worker parallelism, prune rejections at 60
+  percent of the volume, images to object storage when the storefront wants to hotlink or
+  the volume fills, SQLite to Postgres only for concurrent writers, a second instance last.
+- **Revisit trigger:** Volume past 60 percent, a hotlink request, or headcount that makes a
+  second instance plausible.
 
-## D7 — Cost ledger: every image carries its cost, every trigger is a batch (2026-09-03)
+## D7 — Every image carries its cost, every trigger is a batch, two caps (2026-09-03)
 
-- **Decision:** `candidates.cost_usd` is written the moment Luma accepts a job (state becomes
-  `processing`). A `batches` table records each trigger ("generate next N", "this product",
-  "try again") with its estimate. `lib/analytics.ts` reports spend by outcome (approved,
-  rejected or failed, pending), cost per approved image, approval rate, and estimate versus
-  actual per batch. The CSV export carries spend per product. Two caps: images in flight
-  (`MAX_IMAGES_IN_FLIGHT`, 40) and total spend (`MAX_TOTAL_SPEND_USD`, 25).
-- **Alternatives:** Record cost at completion only. A separate ledger table per API call.
-  No batch concept, just candidates.
-- **Why:** Maya's "every image costs money, so don't burn our budget" is a total, not a
-  per-batch number, and "where things stand" includes what it cost. Recording at
-  acceptance is when money is committed; a failed generation still counts as spent because
-  Luma's refund behaviour on failures is undocumented (conservative). Batches make the
-  question "what did that tap cost" answerable.
-- **Cost accepted:** Spend may be overstated by failed generations that Luma does not bill.
-  One more table.
-- **Revisit trigger:** Luma documents refunds on failures, or the team wants spend by
-  person or by month, which is a query on the same data, not a schema change.
+- **Decision:** `candidates.cost_usd` is written the moment Luma accepts a job. A `batches`
+  table records each trigger with its estimate. Spend is reported by outcome (approved,
+  rejected or failed, pending), with cost per approved image and approval rate. Two caps:
+  images in flight (`MAX_IMAGES_IN_FLIGHT`, 40) and lifetime spend (`MAX_TOTAL_SPEND_USD`,
+  50 since 2026-09-06). Admission runs in one SQLite transaction; a product with work in
+  flight is skipped, a batch over either cap is refused with the reason.
+- **Alternatives:** Record cost at completion. No batch concept.
+- **Why:** "Don't burn our budget" is a total, and "where things stand" includes what it
+  cost. Acceptance is when money is committed; a failed generation keeps its cost because
+  Luma's refund behaviour is undocumented. Batches make "what did that tap cost" answerable.
+- **Cost accepted:** Spend may be overstated by failures Luma does not bill. The cap is
+  lifetime, so it must be raised by hand as the catalog is worked through.
+- **Revisit trigger:** The lifetime cap is raised for the first time; then a per-drop cap,
+  one column on `batches`.
 
-## D8 — Execution: implementer + evaluator subagent per task, Codex as final review (2026-09-03)
+## D11 — Every Luma response maps to a typed code and a plain-English message (2026-09-04)
 
-- **Decision:** Each plan task is built by an implementer subagent, checked by an evaluator
-  subagent that invokes the project skill `evaluating-task`: runs the tests, mutation-tests
-  every branch-bearing function (minimum three mutants per task), checks each Interfaces
-  line, the invariants, the claimed money-path rows, and nine known agent anti-patterns
-  (mock-testing mocks, missing error paths, hardcoded test data, over-mocking, type escape
-  hatches, stale imports, missing cleanup, incomplete UI, accessibility gaps), and reports
-  in a fixed contract. Then reviewed by the user in this session. A Codex review runs over
-  the whole diff as the final pass before deploy.
-  **Amended 2026-09-04 (user's call):** every task runs three checks in order, and each
-  gates the next: (1) the implementer's own `npm run check`, (2) the Claude evaluator's
-  verdict, which must be PASS, (3) a Codex review of the task diff (`codex:codex-rescue`,
-  read-only). Codex runs only after the evaluator passes, never in parallel with it. Cheap
-  Codex findings are fixed on the branch and re-checked; product-decision findings go to
-  the user verbatim in the PR and the recap. Only then is the PR opened. Codex is part of
-  validation, not of review: it finishes before the user sees the PR, and the user's review
-  is the last gate before merge. The whole-diff Codex pass after Task 8 stays. Progress is tracked in `docs/STATE.md` so
-  a fresh session can resume at the next task. Work happens in the main tree, no worktrees
-  (tasks are sequential; a worktree per task adds a merge for no isolation).
-- **Alternatives:** Inline execution in this session. Single subagent per task without an
-  evaluator.
-- **Why:** Fresh context per task keeps each subagent focused on one responsibility, the
-  evaluator catches drift from the plan's interfaces, and a second model as reviewer is a
-  genuinely independent check. Mutation testing is required because a baseline run of an
-  evaluator without the skill (2026-09-03, on a fixture with deliberate gaps) found the
-  static problems but never broke the code to see whether the tests noticed.
-- **Cost accepted:** More tokens and wall-clock than inline. Reasoning is spread across
-  subagent transcripts, so this session's log must summarise what each pair concluded.
-- **Revisit trigger:** A task where the evaluator and implementer loop more than twice; then
-  the task is under-specified and the plan gets fixed first.
+- **Decision:** One `LumaError` with a typed `code`, our `userMessage`, Luma's raw `detail`
+  for logs, `retryable` and `retryAfterMs`. Generation failures map Luma's documented
+  `failure_code` list the same way. The worker pauses with a banner on budget, auth and
+  forbidden; backs off on a rate limit; counts retryable errors as attempts out of five;
+  fails a candidate with its reason on the rest.
+- **Alternatives:** Two typed errors plus a generic one (a revoked key would be retried five
+  times per candidate). Show Luma's raw string on the card.
+- **Why:** The operator is not an engineer; the card and the banner are the only place an
+  error is read. Pausing on a bad key protects the attempt budget and spend, the failure we
+  actually hit.
+- **Cost accepted:** A bigger error module. A new `failure_code` reads as "Luma failed on
+  its side" until the table is extended.
+- **Revisit trigger:** A new `failure_code` in the logs more than once.
 
-## D9 — A PR and a human review gate between every task (2026-09-03)
+## D12 — One Slack message per settlement, watermarked by candidate id (2026-09-04)
 
-- **Decision:** After the evaluator passes, the task branch is pushed and a PR to `main` is
-  opened with both agents' summaries. The next task does not start until the user has
-  reviewed and approved. Merge is fast-forward after approval.
-- **Alternatives:** Auto-merge on evaluator PASS and continue (the D8 loop as first
-  written). Batch several tasks per review.
-- **Why:** The user owns decisions and wants to read the diff, not just the evaluator's
-  verdict, before it lands. A PR gives a stable review surface and a CI result per task.
-- **Cost accepted:** Wall-clock: each task waits on a human. Slightly more ceremony.
-- **Revisit trigger:** Review turnaround becomes the bottleneck on day one; then batch
-  low-risk tasks (2, 4, 7) into one PR.
+- **Decision:** The message sends when nothing is queued or processing and the highest
+  completed candidate id exceeds `settings.last_notified_id`. It is per settlement, not per
+  batch: if batch A completes while B is processing, one message covers both when B settles.
+  The message links to `/next`, the first product needing a decision.
+- **Alternatives:** A timestamp watermark (one-second resolution swallows a batch triggered
+  in the same second). Per-batch messages.
+- **Why:** The message is the only signal Ellie gets; a dropped ping is a batch nobody
+  reviews. Ids are monotonic. One message when the queue empties is the right amount of
+  Slack for six people.
+- **Cost accepted:** A ping lost to a Slack outage is not retried. Per-batch messages become
+  worth it if two people trigger batches independently.
+- **Revisit trigger:** Two people triggering batches at once.
 
-## D10 — Import feedback is a client component; suggestions are chunked and warn, never block (2026-09-03)
+## D14 — One shared token for the team; the CSV's image links carry it (2026-09-04)
 
-- **Decision:** The import form is `components/ImportForm.tsx`, a client component using
-  `useActionState` around a closure that calls `importCatalog(formData)`. It renders the
-  counts and every row-level error from `parseCatalog`. The database work lives in
-  `lib/import.ts` (`importCatalogRows(rows, suggest = suggestIdeas)`) so it is unit-tested
-  against a real SQLite; `lib/actions/import.ts` is request glue only. Haiku suggestions go
-  out in chunks of 50 products; a failed chunk falls back to templates for that chunk and
-  logs a warning. An optional `ANTHROPIC_WORKSPACE_ID` is sent as the
-  `anthropic-workspace-id` header because identity-linked keys are rejected without it.
-- **Alternatives:** Keep the plain `<form action={importCatalog}>` from the plan (silent:
-  a renamed column or a skipped row rendered a byte-identical page). Pass `importCatalog`
-  straight to `useActionState` (needs the `(prevState, formData)` signature, breaking the
-  declared interface). One unchunked Haiku request (truncates mid-JSON near ~150
-  products, templating the whole catalog). Surface "model unreachable" in the UI (widens
-  `suggestIdeas`' return type; deferred).
-- **Why:** Maya must see what an import did (brief: "where do things stand"). Money path
-  #9 needs the upsert testable in isolation. CLAUDE.md says name the ceiling at ~300
-  products.
-- **Cost accepted:** The form has no progressive enhancement: before hydration or with JS
-  off the button is inert (React renders a throwing `javascript:` action for client
-  closures). Every other screen needs JS anyway. When the Anthropic call fails the only
-  signal is a server log line; the page shows template ideas labelled "suggested".
-- **Revisit trigger:** A support question "why are all the ideas the same?" means surface
-  the model-vs-template count in the import result. A slow-phone report of a dead import
-  button means switch `importCatalog` to the `(prevState, formData)` signature.
-- **Addendum 2026-09-04 (user's call on the Codex findings):** the sheet wins on
-  re-import. A re-uploaded CSV overwrites an idea edited in the app and relabels it
-  `sheet`, and any import re-suggests ideas for products whose idea was cleared in the
-  app. Accepted because the material impact is small (a Haiku prompt's worth of cost,
-  no candidate or approval is touched) and the export CSV carries edits, so the normal
-  round trip keeps them. No version check.
+- **Decision:** One unguessable token, set as a one-year httpOnly cookie on the first visit
+  to `APP_URL/?k=<token>`, checked by middleware on every route except the health check.
+  The exported CSV's image links carry the token so a Sheets user can open an image. The
+  gate builds its redirect from the configured `APP_URL`, never from forwarded headers.
+- **Alternatives:** Per-user links or accounts. Signed image URLs in the CSV.
+- **Why:** Zero onboarding for six people who already share a Drive folder. Forwarded
+  headers would make the redirect an open one for anyone holding the token.
+- **Cost accepted:** No per-person audit trail. A forwarded CSV is a forwarded key. Rotating
+  the token breaks the links in old exports (filenames in the zip still work).
+- **Revisit trigger:** A second approver, or the link seen outside the team's Drive.
 
-## D11 — Every Luma response maps to a typed code and a plain-English message; bad credentials pause the worker (2026-09-04)
+## D17 — A candidate remembers the idea it was generated with (2026-09-04)
 
-- **Decision:** `lib/luma.ts` throws one `LumaError` carrying `code` (typed union: auth,
-  budget, forbidden, rate_limited, bad_request, not_found, upstream, timeout, network,
-  invalid_response), `userMessage` (ours), `detail` (Luma's raw string, for logs),
-  `retryable`, and `retryAfterMs` from the `Retry-After` header. `LumaBudgetError` and
-  `LumaRateLimitError` stay as subclasses. Generation failures come back as
-  `failure: { code, userMessage, retryable }` keyed on Luma's documented `failure_code`
-  list. The worker (Task 5) pauses with a banner on 402, 401 and 403, not only 402.
-- **Alternatives:** Keep the plan's two typed errors plus a generic `Error` (the worker
-  would retry a revoked key five times per candidate and fail every batch with a log
-  storm). Show Luma's `detail` string raw on the card (accurate, but "source: image
-  exceeds 50 MB limit" is not what Ellie needs to read).
-- **Why:** The brief's operator is not an engineer; the card and the banner are the only
-  place an error is seen. The mapping is exact because Luma documents every status and
-  `failure_code` (docs.agents.lumalabs.ai/guides/error-handling). Pausing on 401/403
-  protects the attempt budget and spend from a wrong key, the failure we actually hit
-  during Task 4.
-- **Cost accepted:** A bigger error module than the plan had. Luma's wording changes are
-  absorbed by `detail`, so a new `failure_code` shows as "Luma failed on its side" until
-  the table is extended.
-- **Revisit trigger:** A new `failure_code` appears in logs more than once.
-
-## D12 — The Slack "ready to review" watermark is a candidate id, not a timestamp (2026-09-04)
-
-- **Decision:** `settings` gains `last_notified_id`. `notifyIfBatchReady()` sends when nothing
-  is queued or processing and the highest completed candidate id exceeds that watermark, then
-  stores the new high-water mark (`last_notified_at` is left unwritten; nothing reads it). `lib/db.ts` adds the
-  column with an inline `alter table` for databases that already exist.
-- **Alternatives:** The plan's comparison of `last_notified_at` against `max(created_at)` of
-  completed candidates. `datetime('now')` has one-second resolution, so a batch triggered in
-  the same second as a notification would never be announced, and the case is untestable
-  without sleeping. A `completed_at` column (a second schema change, only for this).
-- **Why:** Notification is the only signal Ellie gets that there is work waiting; a silently
-  dropped ping is a batch nobody reviews. Candidate ids are monotonic, and at the moment we
-  notify every candidate is terminal, so the highest completed id is exactly the point the
-  next message must start from.
-- **Cost accepted:** One additive column and the first migration line in `lib/db.ts`.
-  A ping lost to a Slack outage is not retried (the watermark moves anyway).
-- **Revisit trigger:** A second schema change lands, which is when the inline `alter table`
-  becomes a migrations table.
-- **Addendum 2026-09-04 (Codex finding, accepted):** the message is per *settlement*, not
-  per batch. If batch A completes while batch B is still processing, nothing is sent until B
-  settles, and then one message covers both. For a six-person team on 40-product drops one
-  message when the queue empties is the right amount of Slack; per-batch messages become
-  worth it if two people start triggering batches independently.
-
-## D13 — Decisions and per-product generation are split the same way as import (2026-09-04)
-
-- **Decision:** The review page's writes follow the Task 3 shape. `lib/review.ts` holds
-  `decideCandidate(id, state, who)` (the UPDATE, guarded to completed/approved/rejected)
-  and the typed `DECISIONS` union; `lib/actions/review.ts` is request glue that validates
-  the form and revalidates. `components/GenerateProductForm.tsx` is a client component
-  around one server action, `generateForProduct`, so "generate 2 more" and "try again"
-  show their cost on the button before the tap and the queued count or the cap refusal
-  after it. A try-again whose enqueue is refused restores the idea it would have amended.
-  The `IdeaForm` is keyed on the SKU and re-syncs its text when the stored idea changes,
-  so a note appended by try-again, or another reviewer's edit, replaces the textarea
-  instead of showing a stale "Save idea", while a plain save keeps the instance and can
-  show "Saved". (Keying on the idea text itself remounted the form on every save.)
-- **Alternatives:** The plan's inline `"use server"` closures on the page (they discard
-  `EnqueueResult`, so a refused generate looks like nothing happened). SQL inside the
-  action (untestable under node:test because `revalidatePath` needs a request context).
-- **Why:** "No generation without a visible cost and a cap" needs the answer as well as
-  the estimate, and money path #11 makes try-again its own batch. The split is what let
-  the evaluator mutation-test the decision guard against a real database.
-- **Cost accepted:** One more module than the plan's file structure lists; two client
-  components instead of plain forms, so the buttons are inert before hydration.
-- **Revisit trigger:** A third action needs the same shape, at which point a tiny helper
-  for "server action returning a result to a client form" earns its place.
-
-## D14 — The approved-images zip streams; the CSV's image links carry the team token (2026-09-04)
-
-- **Decision:** `exportZip()` returns a `ReadableStream` built with fflate's streaming `Zip`
-  and pass-through entries, reading one image file at a time, so peak memory is one image
-  regardless of catalog size. The CSV's "Approved Images" links keep the shared `?k=`
-  token so a Sheets user opens an image with no extra permissioning (A16).
-- **Alternatives:** Keep the in-memory `zipSync` with a named ceiling (about 900 MB peak
-  for 300 products × 3 approved at 0.5 MB, twice that with the route's copy). A `since`
-  date to scope the zip to the week's approvals. A byte cap that refuses large exports.
-  Per-user links or signed image URLs instead of the team token.
-- **Why:** The user chose streaming: a small change that removes the ceiling rather than
-  documenting it, for catalogs with many large images. Simplicity for the end user
-  outweighs per-user permissioning at a six-person team.
-- **Cost accepted:** The manifest CSV is still built in memory (kilobytes). The
-  capability URL in a shared spreadsheet is only as private as the Drive folder it sits
-  in; rotating `ACCESS_TOKEN` breaks links in old exports.
-- **Amended 2026-09-04 (user's call):** the stream carries an exact `Content-Length` so
-  browsers show a progress bar. With stored entries the zip layout is deterministic, so
-  the size is computed up front from `fs.stat` sizes and name lengths (local header 30 +
-  name, data, 16-byte descriptor; central entry 46 + name; 22-byte trailer) without
-  reading a byte. Alternatives were spooling the zip to a temp file first (exact size,
-  but no bytes until the whole zip is written and double disk I/O) or buffering again.
-  Cost: the arithmetic depends on fflate's stored-entry format, so a test asserts the
-  computed length equals the streamed byte count and pins the fflate version; anything
-  over 4 GB (zip64) is refused with a clear message rather than miscounted. An image that
-  disappears or changes size between planning and streaming errors the download (the
-  browser sees a failed transfer) instead of quietly sending fewer bytes than promised.
-- **Revisit trigger:** A request to hand a link to someone outside the team, which is when
-  per-user or expiring links replace the shared token. A weekly hand-off that wants only
-  new approvals, which is when the `since` filter earns its place.
-
-## D15 — The access gate redirects to `APP_URL`, and the server exits when startup fails (2026-09-04)
-
-- **Decision:** `middleware.ts` gates every route except `_next/`, `favicon.ico` and `healthz`
-  (exact matches, not prefixes), accepts `?k=<token>` on any path because the exported CSV
-  links images that way (D14), sets the token as a one-year httpOnly cookie and redirects to
-  the same path with `k` removed, using the configured `APP_URL` as the origin. `APP_URL` is
-  therefore required in production and must be a bare http(s) origin, checked by
-  `assertProductionEnv()`. `instrumentation.ts` wraps the whole Node startup (env assertion,
-  imports, `startWorker()`) and exits 1 on any throw. The runtime image runs as root.
-- **Alternatives:** Build the redirect from `x-forwarded-proto` and `x-forwarded-host` (the
-  first cut did; the evaluator showed a forged header turns the link into an open redirect
-  for anyone holding the token). Leave Next's behaviour on a thrown `register()`: the
-  standalone server logs "Failed to prepare server" and keeps serving 500s, so a Railway
-  deploy with a missing variable sits unhealthy instead of restarting (verified in Docker).
-  A hashed cookie value instead of the raw token. A non-root user in the image.
-- **Why:** The team link is minted from `APP_URL`, so the redirect host matches by
-  construction and nothing client-controlled reaches the `Location` header. Fail fast in
-  production is a plan constraint and Railway's `ON_FAILURE` restart and healthcheck both key
-  off a process exit. Railway mounts volumes root-owned, and a non-root user would need a
-  chown step for `/data`; at six users on one container the isolation gain is nil.
-- **Cost accepted:** A wrong `APP_URL` sends the team link to the wrong host; the deploy
-  checklist's first step (open `APP_URL/?k=TOKEN`) catches it immediately. The cookie holds
-  the same secret as the link (httpOnly, `secure` on https). The matcher test anchors the
-  brief's regex source rather than driving Next's compiler (Codex finding, accepted: the
-  compiled matcher was exercised live in the Docker check). The `process.exit` wrap is
-  verified only by the Docker check, not a unit test.
-- **Revisit trigger:** The app being reached at two hosts at once (custom domain plus the
-  Railway default), when the canonical-host redirect becomes visible to the team. A request
-  for per-user access, which is D14's trigger too. A Next upgrade that makes `register()`
-  errors fatal, at which point the wrap can go.
-
-## D16 — Photo URLs are checked against private address space, redirects included; the worker polls before it submits (2026-09-04)
-
-- **Decision:** From the whole-codebase Codex pass after Task 8 (D8 step 6), the user chose to
-  fix four of six findings. `photoUrlProblem()` in `lib/photos.ts` rejects a photo URL whose
-  host is a literal loopback, link-local, private, carrier-grade NAT or translated-IPv4
-  address, `localhost`, or carries credentials; it runs at import (the row is skipped with the
-  reason) and again in `fetchPhoto`, on every redirect hop, with at most three hops. The
-  generate form's estimate follows the chosen N. A generation that Luma fails with
-  `budget_exhausted` pauses the worker like a 402 does, and each tick now polls processing
-  generations before submitting queued ones, so that pause lands before new spend.
-- **Alternatives:** Resolve DNS and check the resolved address (closes hostname-to-private
-  and rebinding cases). An allow-list of photo hosts from the catalog. Leaving the estimate
-  fixed at ten products. Keeping submit-before-poll.
-- **Why:** The container fetches whatever URL a CSV names, so a CSV could point it at the
-  container's own network; a literal-address check is a few lines and closes the cheap
-  cases. The Global Constraint says every trigger shows its estimate, and the form let N vary
-  without the estimate following. Money path #4 says exhausted credits pause the worker,
-  whichever way Luma reports them.
-- **Cost accepted:** A hostname that resolves to a private address, or rebinds after the
-  check, still gets through (named in a `ponytail:` comment; DNS resolution is the upgrade).
-  Findings 3 and 4 of that pass (approvals kept across a shot-idea change, and missing image
-  files still counted as approved) stay as documented costs of D14 and money path #9, the
-  user's call.
-- **Revisit trigger:** A catalog whose photos live on a host we do not recognise, or the app
-  ever running with access to anything on a private network worth protecting.
-
-## D17 — A candidate remembers the idea it was generated with; approved filenames come from it (2026-09-04)
-
-- **Decision:** `candidates.shot_idea` snapshots the product's shot idea at enqueue, next to the
-  prompt built from it. `approvedByProduct` names each approved file from that snapshot, so
-  editing the product's idea afterwards (review-page edit, re-import, a "try again" note) no
-  longer renames files the team already downloaded. Rows generated before the column existed
-  are backfilled once from the product's current idea, the best available guess. The user
-  chose this over leaving finding 3 of the whole-codebase Codex pass as an accepted cost;
-  finding 4 (missing image files still counted as approved) stays accepted.
-- **Alternatives:** Store the full filename at approval (also freezes the `-01` number across
-  un-approval). Mark approvals stale when the idea changes (turns a filename problem into a
-  workflow question Ellie has to answer). Parse the idea back out of the stored prompt (fragile).
-- **Why:** The brief's hand-off is a Drive folder of files whose names must stay meaningful
-  and stable; a rename between two exports is the "which file is final?" confusion the build
-  exists to remove. One nullable column and one read-side fallback is the smallest change
-  that makes the name a fact about the candidate rather than about the product today.
-- **Cost accepted:** Un-approving a candidate still renumbers the ones after it. The
-  backfill is a guess for pre-existing rows (none in production yet: the volume is empty).
-  Two additive columns now live inline in `db.ts`; a migrations table at the third.
+- **Decision:** `candidates.shot_idea` snapshots the product's idea at enqueue. Approved
+  filenames come from that snapshot, so editing the idea later never renames files the team
+  already downloaded.
+- **Alternatives:** Store the full filename at approval. Mark approvals stale when the idea
+  changes.
+- **Why:** The hand-off is a folder of files whose names must stay meaningful and stable; a
+  rename between exports is the "which file is final?" confusion the build exists to remove.
+- **Cost accepted:** Un-approving still renumbers the candidates after it. Two additive
+  columns now live inline in `db.ts`; the third gets a migrations table.
 - **Revisit trigger:** A request for stable numbering, or a third schema change.
 
-## D18 — The review page leads with the candidate; Prev/Next live in a bottom bar, no auto-advance (2026-09-04)
+## D19 — The status page groups products by what happens next (2026-09-04, final form 2026-09-05)
 
-- **Decision:** From the Impeccable critique of the review page (26/40, snapshot in
-  `.impeccable/critique/`), the page is reordered to the task: header with status and
-  "n to decide", product name, the shot idea as a read-only caption (editing behind a
-  disclosure, open only when there is no idea yet), then candidates full-width with
-  undecided ones first, then the spend actions as quiet outlined buttons, then the source
-  photo. Prev/Next and "n of N" sit in a bar fixed to the bottom on phones. The user chose
-  the bar over auto-advancing to the next SKU after the last decision. Try again now also
-  appears for a failed candidate, and a photo-host failure says the fix is the link in the
-  sheet. Decision buttons carry `aria-pressed` and a per-candidate label.
-- **Alternatives:** Auto-advance on the last decision (one gesture fewer, but a decision
-  Ellie did not make moves her page). Collapse decided candidates to a thumbnail strip
-  (less scroll, but hides the change-your-mind path). Keep the generate button on top.
-- **Why:** PRODUCT.md's principles: the image is the interface, status before action, money
-  visible but never outranking the candidate. On a 375 px phone the first Approve moved from
-  about 1100 px to the first screen.
-- **Cost accepted:** The idea editor is one tap further away. The bar costs 50 px of the
-  phone viewport. A 4:5 candidate leaves the first decision buttons a few pixels under the
-  bar until the page is nudged.
-- **Revisit trigger:** Ellie asks for swipe or auto-advance, or candidates come back in a
-  taller aspect ratio than 4:5.
+- **Decision:** One status line and one bar for the drop (done, needs a decision, to go);
+  "Needs a decision" first and open, holding any product with a candidate to decide
+  whatever its lifecycle status; then the next batch with the generate control; then the
+  passive states folded; "Download N approved images" as the one call to action at the
+  foot. Lists page at six rows. Import and Spend are header controls opening sheets; the
+  spend sheet shows the total against the cap. No estimate on trigger buttons; no person's
+  name in the UI.
+- **Alternatives:** Seven count tiles and a flat list. A segmented filter. Tabs per status.
+  Prices on every button.
+- **Why:** Maya sees where the drop stands and what it cost without asking; Ellie gets to
+  what needs her decision. The abandoned KPI dashboard is the anti-reference. Maya's ask is
+  a bound on spend, not a receipt per tap; the caps bound and the total reports.
+- **Cost accepted:** Passive states are disclosures. Pagination reloads the page. Nobody
+  sees a dollar figure before a tap; the total is one tap away.
+- **Revisit trigger:** A request to search or filter, or a budget surprise.
 
-## D19 — The status page groups products by what happens next; counts live in the group headings (2026-09-04)
+## D21 — Rejections fold into a grid below the carousel (2026-09-05)
 
-- **Decision:** `/impeccable layout app/page.tsx`. The page opens with one sentence
-  ("1 of 40 done · 1 waiting for review · $0.35 of $25.00 spent"), then the products grouped
-  by status in action order: waiting for review, needs more, generation failed, generating,
-  ready to generate, needs an idea, done. Each group is a native `<details>` with its count in
-  the heading; the actionable groups open by default, Done is closed. A group past 12 rows
-  folds the rest behind "Show N more". The generate-next form lives inside "Ready to
-  generate", capped at that count, with the estimate on the button. The seven count tiles
-  and the standalone list are gone; spend and recent batches sit behind a disclosure; import
-  and the two downloads sit last under "The sheet". An empty database shows only the import.
-- **Alternatives:** Keep the flat list with a status filter (one more control, no grouping).
-  Client-side pagination (JavaScript for what `<details>` does). Tabs per status (hides the
-  whole picture Maya wants at a glance).
-- **Why:** PRODUCT.md: status before action, the abandoned KPI dashboard as anti-reference,
-  nothing to learn. The user named the problem: too much information, no hierarchy, no
-  grouping or pagination. Native disclosures give grouping and paging with no client code.
-- **Cost accepted:** A 300-product Done group still renders its rows into the DOM behind a
-  closed disclosure (fine at this scale). "Show N more" is one fold, not real pagination.
-- **Revisit trigger:** The catalog passes about a thousand products, or the team asks to
-  search or filter.
-
-## D20 — One visual system for both pages; no price on trigger buttons; no names in the UI (2026-09-05)
-
-- **Decision:** The cross-page consistency review after the two critiques (review page 28/40,
-  status page 25/40) produced one direction contract for Tasks 12 and 13,
-  `docs/superpowers/plans/2026-09-05-shared-visual-system.md`: one hue per meaning on marks
-  only (green approved, red rejected or failed, amber waiting on a person), lucide-react at
-  20 px for eleven named icons, no underlined links, native disclosures with chevrons, one
-  radius, a four-step type scale, dates as "4 Sep" in `<time>`. Two changes of direction
-  from the user: trigger buttons no longer show the estimate (reverses the "cost on the
-  button" part of D18 and the CLAUDE.md invariant, now reworded), and no person's name
-  appears in UI copy or code defaults. Spend moves fully behind a Spend disclosure on the
-  status page. Task 12 ships first on `task/10-review-page`; Task 13 rebases after #11 merges.
-- **Alternatives:** Keep the estimate only on the batch trigger (recommended by Claude, not
-  taken). Keep the total visible as one line (not taken). Tinted group headings (not taken).
-- **Why:** The brief's ask is a bound on spend, not a receipt per tap; the caps are the
-  bound. Two pages built on separate branches were drifting on colour, links and dates; one
-  contract now, DESIGN.md generated from what ships afterwards.
-- **Cost accepted:** Nobody sees a dollar figure before a tap; the cap is not on the page
-  surface. If Maya asks where the budget stands more than once, the one-line total returns.
-  `decided_by` is null unless a name is supplied, so the audit trail loses "who" for now.
-- **Revisit trigger:** A budget surprise, or a request for per-person accountability on
-  approvals.
-
-## D21 — A rejected candidate can be archived; it is a column, not a state (2026-09-05)
-
-- **Decision:** `candidates.archived_at`, additive like `shot_idea`, set by an Archive button
-  on a rejected slide. Archived candidates leave the review carousel; the state stays
-  `rejected`, so status, spend and exports are unchanged and an "n archived" note keeps the
-  count honest. Only a rejection can be archived. No un-archive yet.
-- **Alternatives:** A seventh candidate state (a CHECK-constraint change, so a table rebuild,
-  and every state switch gains a branch). Deleting the row (loses the spend record).
-- **Why:** The user asked to clear clutter after rejecting; a nullable column is the smallest
-  change that does that without touching the money ledger or the status ladder.
-- **Cost accepted:** An archived rejection is invisible from the page; the CSV and the spend
-  disclosure still count it. Un-archive is a follow-up if anyone asks.
-- **Revisit trigger:** A request to see or restore archived candidates.
-
-**Amended the same day:** Archive was replaced before it shipped. Rejections now leave the
-carousel for a folded grid below it ("n rejected", closed by default, four thumbnails a row,
-each with a quiet "Approve instead"), and the end card nudges "change the idea" once two
-rounds have been turned down. Archive got worse as numbers grew (one tap per image, no way
-back) and hid spend already paid for; the grid wraps to dozens and hides nothing. The
-`archived_at` column was reverted before any deployment carried it.
-
-**D20 amended (2026-09-05):** state labels are a coloured dot beside neutral text, not a
-tinted pill with same-hue text (Tailwind's default badge, which reads as generated). The
-hues are three theme tokens tuned to the stone neutrals, moss / clay / ochre, instead of
-green / red / amber. `STATUS_TONE` names meanings (`wait`, `ok`, `stop`, `neutral`), not hues.
-**D19 amended (2026-09-05, Task 13):** built as planned in
-`docs/superpowers/plans/2026-09-05-status-hierarchy.md` with the D20 rules: the header
-sentence is status only; one action row (Download N approved images primary, Import CSV
-secondary with a two-tap file pick, the updated CSV as a text control); three tiers with
-the reviewer's queue heaviest, Ready to generate as one line holding the form with its rows
-folded, and passive groups lighter; Spend fully behind a disclosure as prose, total first;
-state colour as the shared `StateDot` beside neutral text; no caps sentence, no estimate,
-no name. `SpendPanel` deleted; `overview()` rows carry `toDecide`.
-
-## D22 — The status page is three zones, not an accordion stack; the spend total sits in the header (2026-09-05)
-
-- **Decision:** From the user's review of PR #12 and a second critique (27/40, snapshot
-  `.impeccable/critique/2026-09-05T17-29-05Z__app-page-tsx.md`). Zone 1, "Needs a decision",
-  merges Waiting for review and Needs more and takes any product with a candidate to decide
-  whatever its lifecycle status says (a second batch in flight no longer hides the first
-  batch's candidates, the critique's P0). It is a plain section of tappable rows (name, SKU,
-  one fact, a right chevron), never a disclosure. Zone 2, "Next batch", holds the generate
-  form, then the passive states (Ready, Generating, Failed, Needs an idea) as folded one-line
-  counts. Zone 3, "Approved images N", holds Download (the filled primary) and Updated CSV,
-  with Done folded under it; the count is approved images, not done products, because the
-  zip includes approvals on products still short of done. The header carries the title and
-  two quiet controls, "Import CSV" and "$x.xx spent", each opening the native popover sheet
-  the review page already uses (anchor renamed `--sheet`, button classes shared in
-  `components/buttons.ts`). Rows drop the idea line. Buttons stack full width on a phone and
-  fill an equal-column grid on a laptop. Batches that queued nothing stay out of the spend list
-  (dropped in the query, before the limit). Every product lands in exactly one list: a done
-  product with a spare finished candidate sits in the queue, not under Done, because the
-  candidate cost money and stays "still being decided" until someone looks (Codex finding).
-- **Alternatives:** A segmented filter (one list, query-parameter tabs: compact, scales to
-  300, but hides the shape of the drop and puts Ellie's queue one tap away). A flat page
-  with no folding (a wall of Ready rows at 300). Download inside Done (the counts do not
-  match). Three stacked full-width buttons on desktop (a stretched phone app). A JavaScript
-  modal for spend (the native popover is zero JavaScript and already on the review page).
-- **Why:** The brief: Maya sees where the drop stands and what has been spent without
-  asking; Ellie gets to what needs her decision. PRODUCT.md: status before action, money
-  always visible. The running total on the header control amends D20: the estimate stays
-  off trigger buttons, and the total is not a trigger.
-- **Cost accepted:** Two filled buttons on one page (Generate for Maya, Download for the web
-  person); they serve two people and never share a phone screen. The passive states are
-  still disclosures, four at most. The import sheet relies on a native popover staying open
-  across the server action's re-render (DOM state, not React state).
-- **Revisit trigger:** Anyone asks to filter or search the list (the segmented filter is the
-  next step). A browser closes the import sheet before the result lands.
-
-## D23 — Bolder status page: one bar for the drop, six accordions with pages, three sheets (2026-09-05)
-
-- **Decision:** `/impeccable bolder app/page.tsx` after the user's second review. The system's
-  own devices turned up, nothing new added: the dot motif becomes one thin bar under the
-  status line (moss done, ochre needs a decision, stone to go) with the three counts beside
-  it; group headings step to 20/600 with the count at 20/400 stone-500, the largest step the
-  type scale allows, so they read as a different level from product names; every group,
-  the queue included, is a `<details>` whose summary is the heading, with "Needs a decision"
-  and "Ready to generate" open on every load and never remembered closed; lists page at 12
-  with Previous / Next links (a query parameter per group and the group's anchor, so the
-  reload lands back on the list); the batch trigger is a filled "Generate a batch" button
-  inside Ready that opens a centred sheet holding the count and the answer; CSV (Updated
-  CSV out, Import CSV in with its helper) and Spend are two header controls opening sheets;
-  "Download N approved images" is the one filled call to action at the foot of the page,
-  after the groups (the user's call: the way out stands alone). The spend sheet is the total
-  against the cap as a figure and a bar, then one line on where it went; the batch list and
-  the per-image prose go, and `recentBatches` with them (no caller left).
-- **Alternatives:** The queue as a plain section (the user chose consistency; the cost is a
-  mis-tap folding it, mitigated by opening on every load). "Show 12 more" instead of pages
-  (one link, longer page at 300). The files row at the top or the bottom (the user chose a
-  dropdown). Generate in the header beside Spend (the user chose the Ready group). A
-  `<meter>` for spend (the same bar primitive as the drop, one fewer thing to style).
-- **Why:** Scanability for Maya and Ellie: a squint now shows the bar, two open groups and
-  one black button. The bolder rule: amplify what the system owns, add no primitive.
-- **Cost accepted:** Pagination reloads the page (no client state) and jumps to the anchor.
-  Six headings at 20 px make the folded strip taller than the 14 px lines it replaces. The
-  generate sheet and the files sheet stay open across their server actions by DOM
-  stability, not React state.
-- **Revisit trigger:** Anyone asks for the batch history back (a "Batches" line in the spend
-  sheet). Someone closes the queue and cannot find it.
-
-Also in this change: `<html suppressHydrationWarning>` in `app/layout.tsx`. The dev overlay
-reported an empty `style` attribute on `<html>` that the server never rendered; nothing in
-the app sets it, so it comes from a browser extension or the in-app browser's device
-emulation touching the root before React hydrates. The flag silences attribute diffs on that
-one element only.
-
-## D24 — Motion: four jobs and one authored moment, all CSS (2026-09-05)
-
-- **Decision:** `/impeccable animate` across both pages. Sheets rise 8 px and fade in
-  (250 ms in, 150 ms out) with their backdrop, via `@starting-style` on the native popover;
-  disclosure contents unfold over 200 ms where `interpolate-size` exists, instant elsewhere;
-  an answer landing under a form (queued, imported, refused, saved) fades in over 150 ms;
-  every full navigation cross-fades over 200 ms with a cross-document `@view-transition`,
-  which is why `next/link` leaves both pages (plain anchors, full loads, no prefetch); and
-  the approval, the one moment the product exists for, gets the only authored motion: the
-  moss dot lands and the end card's check draws itself. Reduced motion keeps each opacity
-  change and drops each movement. Transform and opacity only, no JavaScript, no dependency.
-- **Alternatives:** Next's experimental view transitions for in-app navigation (a flag and
-  React's `<ViewTransition>`; not worth the risk for two pages that load in one round
-  trip). The drop bar growing on load (page-load choreography on a glance page, and the
-  nearest thing to the abandoned dashboard). Hover lifts, staggered rows, a spinner on
-  Generate (latency dressed up).
-- **Why:** PRODUCT.md: calm and trustworthy, motion never dramatised. The animate rule:
-  motion that explains feedback, state or relationship, or one moment the surface earned.
-- **Cost accepted:** Full page loads on Prev / Next and on row taps instead of soft
-  navigation; at this scale a load is one small server render. Browsers without
-  `@starting-style`, `::details-content` or `@view-transition` get the old instant
-  behaviour, which is the fallback by construction. The approval's dot and check animate on
-  every full load of an approved product, not only on the decision itself: the server has
-  no "just decided" signal, and a client flag in the decide form is more machinery than an
-  8 px dot and a 16 px check over 300–400 ms deserve. An answer that re-renders with new
-  text in the same mounted status element does not fade again.
-- **Revisit trigger:** A product with dozens of candidates makes the review page heavy
-  enough that a full load is felt; then the Prev / Next links go back to `next/link` and
-  the cross-fade goes with them.
-
-## D25 — The carousel never reorders; the end card is always there; pending has a ring (2026-09-05)
-
-- **Decision:** From the user's test of PR #13. (1) Candidates sort oldest first
-  (`byCreation`) and are never re-sorted after a decision, so the card under the thumb
-  stays put and the approval lands where it was tapped; a new set appends at the end.
-  This replaces D13's reading order (undecided first), which moved the just-decided card out
-  of view on every re-render and hid the motion. (2) The end card is always the last slide
-  once the product has an idea and a candidate, in one of five states (done, photo,
-  generating, open, needs more) with every follow-up on it: Try again, Generate N more,
-  Next product, Change the idea. The More menu in the header is gone. (3) Every submit shows
-  a turning ring beside its pending verb and goes inert (`SubmitButton` on the plain
-  server-action forms, the same ring in the `useActionState` forms); the "Generating…"
-  placeholder breathes and says the page updates itself; a `Refresher` re-fetches the page
-  every 5 s while the product is generating and stops when nothing is in flight.
-- **Alternatives:** Keep undecided-first and scroll the carousel back to the decided card
-  with a script (still moves cards; a script for a problem the sort caused). Polling
-  always (wasted requests on a static page). A skeleton shimmer (decoration).
-- **Why:** The user saw the page jump and no animation; the follow-ups in a three-dot
-  menu were not found; static "Starting…" text read as stuck.
-- **Cost accepted:** The first slide may be an already-approved card; the marker says so
-  and the swipe is one gesture. `router.refresh()` every 5 s while generating is a small
-  server render per tick; it pauses when the tab is hidden.
-- **Revisit trigger:** A product with dozens of candidates where "undecided first" would
-  save swipes; then a "next to decide" jump, not a re-sort.
-
-## D26 — Copy: refusals say what to do, "on the way" not "queued", links say where they go (2026-09-05)
-
-- **Decision:** `/impeccable clarify` over both pages and the server messages they show.
-  The two cap refusals now name what stopped, why, and the next step in the team's words
-  ("38 images are still in flight and 40 at once is the limit, so this batch of 20 has to
-  wait. Try again once some have finished."; the budget one points at Spend and names the
-  setting as a setting, not a tap). "N images queued" becomes "N images on the way" with
-  where they land. "These go into the next export" becomes "Both are in the download on the
-  status page". The photo-failure card and the failed card no longer say "re-import" or "Go
-  to import": import lives inside the status page's CSV sheet now, so they say "import the
-  new export from the status page" and the button reads "Status page". Import's result
-  counts products, not bare numbers. Everything else read cleanly and stays.
-- **Alternatives:** Dropping the environment variable name from the budget refusal
-  entirely (the person who can change it needs the name; it is framed as a setting).
-- **Why:** Errors name the problem and the next step; the team's words, not ours.
-- **Cost accepted:** None material. Tests pin the phrase "in flight", which is kept.
-- **Revisit trigger:** A team member asks what "in flight" means.
-
-**D24 amended (2026-09-05, after the user's test):** the cross-document cross-fade is gone
-and both pages navigate with `next/link` again. In practice the cross-fade flickered: the old
-page was held, the new one faded in, and the approval marks then animated on top of it on
-every visit. In-app navigation swaps the content without a blank paint, which is the
-continuity the cross-fade was reaching for. The approval's dot and check now animate only
-on the render right after the decision (`justDecided`, a 15-second window on `decided_at`),
-never on a later visit. The generating placeholder's ring turns again: the breathing rule had
-replaced the spin utility's animation, so the ring pulsed instead of turning; both run on it
-now. The lint exception for plain anchors is removed.
-
-## D27 — Audit P2 fixes: dialogs that take focus, a review-size image copy, a capped idea bar (2026-09-05)
-
-- **Decision:** From `/impeccable audit` (15/20; four P2 findings). (1) Every popover sheet
-  and lightbox renders through one client component, `Sheet`: `role="dialog"`, a name
-  (`aria-label` or `aria-labelledby`), and focus moved onto the sheet when it opens, so a
-  screen reader announces it and the next Tab lands inside it rather than seven rows away.
-  (2) The review page's document title is the product name. (3) The worker keeps a second
-  JPEG beside each original, at most 1024 px on the long edge (`lib/images.ts`, sharp);
-  `/img/[id]` serves that copy and falls back to the original for candidates saved before
-  it existed. The export still reads the original. Slides after the first load lazily, and
-  every image sits in the same 4:5 box as the placeholder and end cards, so Approve and
-  Reject never jump when the bytes arrive. (4) The shot idea textarea is capped at four
-  lines while it is being read and uncapped on focus, so a long idea (retry notes append
-  to it) cannot pin over the candidate: a 490-character idea took 60% of a phone screen.
-- **Alternatives:** Autofocus attributes instead of a component (React strips them to a
-  `focus()` call on mount, which is a no-op on a hidden popover). Storing width and height
-  per candidate and letting each image keep its own aspect (a third additive column, a
-  migrations table by the db.ts note, and uneven slide heights). Resizing on request in the
-  route (repeated CPU on every refresh, and the 5-second `Refresher` makes that hot).
-  Declaring nothing and importing sharp transitively from Next (works today, breaks
-  silently on a Next upgrade).
-- **Why:** WCAG 4.1.2 and 2.4.2 (the brief's AA commitment in PRODUCT.md). Ellie reviews
-  on a phone: a 2048 px Luma JPEG per slide is the whole page weight. The image is the
-  interface, so nothing may sit over it or move under a thumb.
-- **Cost accepted:** `sharp` is now a declared dependency (it was already installed as
-  Next's optional dependency, same version). One extra file per candidate on the volume,
-  roughly a quarter of the original. A 1:1 image shows a little stone above and below it
-  in the 4:5 box.
-- **Revisit trigger:** A CDN or object store (D6) makes the resize a transform there. A
-  second aspect ratio in the brief would want per-candidate dimensions after all.
-- **Addendum (same day, user review):** Save idea in the sticky bar was a filled black
-  button and outranked Approve; it is now a quiet text button (same hover as the pencil
-  beside it, still 44 px tall). The CSV sheet is named "Catalog CSV" for screen readers.
-- **Addendum (Codex, same day):** two should-fix findings, both taken. The sheet no longer
-  suppresses its outline, so a sheet opened from the keyboard shows the page's focus ring.
-  `/img/[id]` makes a missing review copy on the first request (candidates from before
-  D27, or a resize the worker could not do) instead of serving the 2048 px original for
-  good; an original that will not decode is served as-is with a warning.
-
-## D28 — First arrival: a purpose line, a `/next` deep link, "Next to decide" (2026-09-06)
-
-- **Decision:** From an `/impeccable onboard` and `clarify` review of the Slack-to-review
-  journey. The status page carries one permanent line under its heading saying what the
-  app is ("Shot ideas from the catalog sheet, made into images by Luma. Approve the ones
-  that match."). A new `/next` route redirects to the first product needing a decision, in
-  the status page's list order, or to the queue heading when nothing does. The Slack batch
-  message links to `/next?k=…` and names the action ("12 products have new shots to approve
-  or reject"). On the review end card, a settled product offers "Next to decide" (via
-  `/next`, excluding itself) or "Back to the drop" when the queue is empty. The 401 body
-  points at the link pinned in Slack instead of naming people. The header's "CSV" button
-  reads "Catalog".
-- **Alternatives:** Linking Slack to the first SKU (stale by the time it is tapped, and
-  then Next walks the catalog). Linking to `/#decide` (the queue is already first and open;
-  near-zero gain). A first-visit-only purpose line with a cookie (state for one sentence).
-  An onboarding tour or welcome screen (PRODUCT.md: nothing to learn).
-- **Why:** "Obvious on first use" (PRODUCT.md) for someone arriving from a Slack invite
-  with no meeting behind them, evaluators included. The batch message promises products to
-  review, so the tap should land on one. The review loop should be one gesture, and the
-  catalog order is not the reviewer's order.
-- **Cost accepted:** Two redirects on the Slack tap (the gate, then the route). `/next`
-  and the done end card read the whole overview (about 300 rows) to find one SKU. One more
-  line above the drop bar on every load.
-- **Revisit trigger:** Per-user links or accounts (ASSUMPTIONS 1) would make `/next` a
-  per-reviewer queue. A second approver makes "first in the queue" a race worth a lock.
+- **Decision:** Rejected candidates leave the carousel for a folded grid below it, each
+  still approvable. An Archive button was built and replaced before it shipped.
+- **Alternatives:** Archive (one tap per image, no way back, hides spend already paid for).
+  A seventh candidate state. Deleting the row.
+- **Why:** Clear the clutter after rejecting without touching the money ledger or the
+  status ladder, and keep the change-your-mind path.
+- **Cost accepted:** A long grid on a product with many rounds.
+- **Revisit trigger:** A request to hide rejections for good.
 
 ## D29 — Not built: a Slack post on pause, worker liveness in `/healthz` (2026-09-06)
 
-- **Decision:** Neither is built. The paused banner on the status page stays the only
-  surface for a pause, and `/healthz` stays a constant `ok`.
-- **Alternatives:** A Slack message from `pause()` in the worker, guarded to one post per
-  pause episode. A tick-age check in `/healthz` with the process exiting after a stall so
-  Railway's `ON_FAILURE` policy restarts it, or a report-only 503.
-- **Why:** Railway calls the healthcheck path once at deploy time to gate traffic and does
-  not poll it afterwards (docs.railway.com/deployments/healthchecks, "Continuous
-  healthchecks"), so a liveness endpoint restarts nothing on its own. The two real failure
-  modes are not stalls: missing credits is a pause, and the worker keeps ticking past it;
-  a dead Luma API produces timed-out calls (20 to 30 s caps on every fetch), failed
-  attempts and a late but complete tick. Every await in a tick is synchronous SQLite or a
-  fetch with a timeout, so the hang a liveness check would catch cannot occur in this
-  code, and exit-on-stall would add a way to serve 500s for tens of seconds if the
-  threshold were ever wrong. The pause post would duplicate what the status page says
-  first: Maya opens that page to see where things stand, and the banner sits under the
-  counts with the Resume button in it.
-- **Cost accepted:** A pause mid-batch means the "new shots to approve" message never
-  arrives and nobody is told why until someone opens the page. A blocked event loop or a
-  container that stops receiving traffic is caught by nothing; that needs an external
-  monitor (Railway points at its Uptime Kuma template), which is out of scope.
-- **Revisit trigger:** Railway adding continuous healthchecks. A second worker process
-  or a queue, where "is it alive" stops being answerable from the page. A pause the team
-  did not notice for a day.
+- **Decision:** Neither is built. The paused banner on the status page is the surface.
+- **Why:** Railway calls the health check once at deploy and does not poll it, so a
+  liveness endpoint restarts nothing. Every await in a tick is synchronous SQLite or a fetch
+  with a timeout, so the hang it would catch cannot occur. The two real failures, a pause
+  and a slow Luma, both land on the status page.
+- **Cost accepted:** A pause mid-batch is silent until someone opens the page.
+- **Revisit trigger:** A pause the team did not notice for a day; then the post to the
+  existing webhook, ten lines.
 
 ## D30 — The product is called Dropshot (2026-09-06)
 
-- **Decision:** The app is named Dropshot: the tab title, the review page title suffix,
-  the status page heading (a mark and the wordmark) and the favicon. The name lives in one
-  constant in `components/Logo.tsx`. The mark is a photo frame with one shot landed in it,
-  filled moss because moss already means approved on every page; the favicon is the same
-  drawing as `app/icon.svg` with fixed colours, and the middleware exempts that path the
-  way it exempted `favicon.ico`.
-- **Alternatives:** Contact Sheet (the North Star name for DESIGN.md; two words, an older
-  term), Proofs (reads as proof of concept to software people), Picks (says the decision,
-  not the images), keeping "Styled Shots" (a description, not a name). The user chose
-  Dropshot: the team's "drop" and the brief's "shots" in one word.
-- **Why:** A finished product has a name people can say in Slack. The vocabulary is the
-  team's own (PRODUCT.md), and the mark reuses the page's one meaning for moss rather than
-  adding a colour.
-- **Cost accepted:** `package.json` still says `shots`; the Slack messages and the 401
-  text do not carry the name, since they talk about products. No generated imagery.
-- **Revisit trigger:** A real brand pass, or a second product that needs the name to
-  distinguish it.
+- **Decision:** The team's "drop" and the brief's "shots" in one word. The name lives in one
+  constant; the mark is a photo frame with one shot landed in it, in the moss that already
+  means approved.
+- **Alternatives:** Contact Sheet, Proofs, Picks, "Styled Shots".
+- **Why:** A finished product has a name people can say in Slack.
+- **Cost accepted:** `package.json` still says `shots`.

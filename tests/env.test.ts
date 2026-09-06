@@ -14,7 +14,7 @@ const setNodeEnv = (v: string) => Reflect.set(process.env, "NODE_ENV", v);
 
 test("numeric env vars: parsed, defaulted, never NaN, zero or negative", () => {
   assert.equal(env.maxInFlight, 7);
-  assert.equal(env.maxTotalSpend, 25); // "abc"
+  assert.equal(env.maxTotalSpend, 50); // "abc"
   assert.equal(env.candidatesPerProduct, 2); // "-1"
   assert.equal(env.lumaConcurrency, 4); // "1.5"
   assert.equal(env.tickMs, 5000); // "0"
