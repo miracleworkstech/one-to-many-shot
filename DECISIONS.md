@@ -699,3 +699,29 @@ now. The lint exception for plain anchors is removed.
   line above the drop bar on every load.
 - **Revisit trigger:** Per-user links or accounts (ASSUMPTIONS 1) would make `/next` a
   per-reviewer queue. A second approver makes "first in the queue" a race worth a lock.
+
+## D29 — Not built: a Slack post on pause, worker liveness in `/healthz` (2026-09-06)
+
+- **Decision:** Neither is built. The paused banner on the status page stays the only
+  surface for a pause, and `/healthz` stays a constant `ok`.
+- **Alternatives:** A Slack message from `pause()` in the worker, guarded to one post per
+  pause episode. A tick-age check in `/healthz` with the process exiting after a stall so
+  Railway's `ON_FAILURE` policy restarts it, or a report-only 503.
+- **Why:** Railway calls the healthcheck path once at deploy time to gate traffic and does
+  not poll it afterwards (docs.railway.com/deployments/healthchecks, "Continuous
+  healthchecks"), so a liveness endpoint restarts nothing on its own. The two real failure
+  modes are not stalls: missing credits is a pause, and the worker keeps ticking past it;
+  a dead Luma API produces timed-out calls (20 to 30 s caps on every fetch), failed
+  attempts and a late but complete tick. Every await in a tick is synchronous SQLite or a
+  fetch with a timeout, so the hang a liveness check would catch cannot occur in this
+  code, and exit-on-stall would add a way to serve 500s for tens of seconds if the
+  threshold were ever wrong. The pause post would duplicate what the status page says
+  first: Maya opens that page to see where things stand, and the banner sits under the
+  counts with the Resume button in it.
+- **Cost accepted:** A pause mid-batch means the "new shots to approve" message never
+  arrives and nobody is told why until someone opens the page. A blocked event loop or a
+  container that stops receiving traffic is caught by nothing; that needs an external
+  monitor (Railway points at its Uptime Kuma template), which is out of scope.
+- **Revisit trigger:** Railway adding continuous healthchecks. A second worker process
+  or a queue, where "is it alive" stops being answerable from the page. A pause the team
+  did not notice for a day.

@@ -5,7 +5,13 @@
 
 ## Phase
 
-**Update 2026-09-06 (latest): Task 20 (D28) on `task/20-first-arrival`, a worktree at
+**Update 2026-09-06 (latest): PR #20 (D28) approved and merged fast-forward (main at
+481d1b3, branch and worktree removed). D29 records two tweaks considered and not built: a
+Slack post on pause and worker liveness in `/healthz` (Railway does not poll the
+healthcheck after deploy; neither missing credits nor a dead Luma API is a stall). Next:
+Task 9 (docs, video, submit) on the user's go.**
+
+**Update 2026-09-06: Task 20 (D28) on `task/20-first-arrival`, a worktree at
 `../lumalabs-task20` off main (08f4785, #19 merged): the `/impeccable onboard` + `clarify`
 journey review. A permanent purpose line under the status heading, `app/next/route.ts`
 (redirect to the first product needing a decision, else `/#decide`), the Slack message
