@@ -223,10 +223,15 @@ candidate with no retry and shows `failure.userMessage` on the card.
 
 ## Follow-ups agreed 2026-09-06, to do after the docs pass
 
-- Worker throughput: `Promise.all` over the poll loop's download-and-resize (a freed slot
-  currently waits for a download) and over the submissions in a tick (four round trips in
-  series). `LUMA_CONCURRENCY` is being raised by the user first; the 429 back-off covers it.
-- Analytics: `submitted_at` and `completed_at` on `candidates`, then batch wall clock,
+- Worker throughput: **done as Task 21, PR #23** (`task/21-worker-parallel`), waiting for the
+  user's review. Evaluator PASS → Codex 4 findings (1 blocking: a late photo fetch could
+  submit after a sibling's pause; guarded) → evaluator FAIL on one untested branch → P7b
+  added → Codex re-check clean. 188 tests. `.prettierignore` excludes `docs/architecture/`.
+- Analytics: **Task 22, brief at `.superpowers/sdd/task-22-brief.md`**, starts from `main`
+  only after #23 merges (both touch `lib/worker.ts`). User's calls: no UI; a gated
+  `/metrics` JSON endpoint plus one JSON log line per completed candidate; the two columns
+  go inline (third additive change, migrations table deferred to the fourth; note in D17).
+  Original note: `submitted_at` and `completed_at` on `candidates`, then batch wall clock,
   Luma latency and time-to-first-decision in the Spend sheet (APPROACH.md, unit economics).
 
 ## Open items for the user

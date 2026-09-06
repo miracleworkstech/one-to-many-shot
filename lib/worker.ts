@@ -74,7 +74,9 @@ export async function tick() {
   state.running = true;
   try {
     // Codex finding (poll-before-submit): poll first so a budget_exhausted result pauses the
-    // worker before submitQueued spends on anything new this tick.
+    // worker before submitQueued spends on anything new this tick. The poll wave is parallel
+    // (Task 21) but settles as a whole before submitQueued reads paused_reason, so the pause
+    // from any one poll has landed before any new spend (race B).
     await pollProcessing();
     await submitQueued();
     await notifyIfBatchReady();
@@ -107,120 +109,167 @@ async function submitQueued() {
        where c.state = ${st("queued")} order by c.id limit ?`,
     )
     .all(slots) as (Candidate & { photo_url: string })[];
-  const photos = new Map<string, string>(); // one fetch per SKU per tick
-  for (const c of rows) {
-    let jpegBase64 = photos.get(c.sku);
-    if (jpegBase64 === undefined) {
-      try {
-        jpegBase64 = (await fetchPhoto(c.photo_url)).toString("base64");
-        photos.set(c.sku, jpegBase64);
-      } catch (e) {
-        // Money path #12: nothing reached Luma, so cost stays 0. A host 5xx or timeout is
-        // worth another tick; a 403 or a non-JPEG will read the same way forever.
-        const retryable = e instanceof PhotoError ? e.retryable : true;
-        if (retryable) bumpAttempt(c, reason(e));
-        else fail(c.id, reason(e));
-        continue;
-      }
+  // Race D: one fetch per SKU per tick. Two candidates of one SKU await the same promise,
+  // so the host is hit once even though both submit concurrently.
+  const photos = new Map<string, Promise<string>>();
+  const photoFor = (c: Candidate & { photo_url: string }) => {
+    let p = photos.get(c.sku);
+    if (!p) {
+      p = fetchPhoto(c.photo_url).then((b) => b.toString("base64"));
+      photos.set(c.sku, p);
     }
-    try {
-      const gid = await submitEdit({ prompt: c.prompt, jpegBase64 });
-      // Money is committed here, so cost is recorded here (Global Constraints, D7).
-      d.prepare(
+    return p;
+  };
+  // At most `slots` submissions in flight at once, and slots <= LUMA_CONCURRENCY.
+  settle(await Promise.allSettled(rows.map((c) => submitOne(c, photoFor(c)))));
+}
+
+/** One queued candidate, start to finish. Never throws: a sibling's failure is its own. */
+async function submitOne(
+  c: Candidate,
+  jpegBase64Promise: Promise<string>,
+): Promise<void> {
+  let jpegBase64: string;
+  try {
+    jpegBase64 = await jpegBase64Promise;
+  } catch (e) {
+    // Money path #12: nothing reached Luma, so cost stays 0. A host 5xx or timeout is
+    // worth another tick; a 403 or a non-JPEG will read the same way forever.
+    const retryable = e instanceof PhotoError ? e.retryable : true;
+    if (retryable) bumpAttempt(c, reason(e));
+    else fail(c.id, reason(e));
+    return;
+  }
+  // Guard for races A and C: while this candidate waited on its photo, a sibling may have
+  // paused the worker (402/401/403) or hit a 429. Those races let Luma calls already in
+  // flight finish; they do not allow a new one to start. Re-read both and stop here, leaving
+  // the candidate queued with attempts and cost untouched.
+  const { paused_reason } = db()
+    .prepare("select paused_reason from settings")
+    .get() as { paused_reason: string | null };
+  if (paused_reason || Date.now() < state.nextSubmitAt) return;
+  try {
+    const gid = await submitEdit({ prompt: c.prompt, jpegBase64 });
+    // Money is committed here, so cost is recorded here (Global Constraints, D7).
+    db()
+      .prepare(
         `update candidates set state = ${st("processing")}, luma_generation_id = ?, attempts = attempts + 1, cost_usd = ? where id = ?`,
-      ).run(gid, env.costPerImage, c.id);
-    } catch (e) {
-      if (e instanceof LumaRateLimitError) {
-        state.nextSubmitAt = Date.now() + (e.retryAfterMs ?? 60_000);
-        console.warn("worker:", e.userMessage);
-        return; // candidate stays queued, attempts untouched
-      }
-      if (e instanceof LumaError && !e.retryable) {
-        if (PAUSING_CODES.includes(e.code)) {
-          pause(e.userMessage); // candidate stays queued at cost 0
-          return;
-        }
-        // bad_request / not_found: the same request will fail the same way forever.
-        fail(c.id, e.userMessage);
-        continue;
-      }
-      bumpAttempt(c, reason(e));
+      )
+      .run(gid, env.costPerImage, c.id);
+  } catch (e) {
+    if (e instanceof LumaRateLimitError) {
+      // Race C: the deadline covers the next tick; siblings already in flight finish on
+      // their own, and a sibling that also 429s spends no attempt either. Max, not assign:
+      // a sibling's shorter Retry-After landing later must not cut an earlier, longer one.
+      state.nextSubmitAt = Math.max(
+        state.nextSubmitAt,
+        Date.now() + (e.retryAfterMs ?? 60_000),
+      );
+      console.warn("worker:", e.userMessage);
+      return; // candidate stays queued, attempts untouched
     }
+    if (e instanceof LumaError && !e.retryable) {
+      if (PAUSING_CODES.includes(e.code)) {
+        // Race A: this candidate stays queued at cost 0. Siblings in the same wave either
+        // got a real accepted job (charged, with its id), their own 402 (queued, cost 0),
+        // or were still fetching a photo and never submitted (the guard above; queued, cost 0).
+        // Several 402s in one wave each call pause(): the update is idempotent, so the
+        // worker is simply left paused; the log line repeats once per call.
+        pause(e.userMessage);
+        return;
+      }
+      // bad_request / not_found: the same request will fail the same way forever.
+      fail(c.id, e.userMessage);
+      return;
+    }
+    bumpAttempt(c, reason(e));
   }
 }
 
 async function pollProcessing() {
-  const d = db();
   if (Date.now() < state.nextSubmitAt) return; // money path #5: a 429 window covers polls too
-  const rows = d
+  const rows = db()
     .prepare(
       `select * from candidates where state = ${st("processing")} and luma_generation_id is not null`,
     )
     .all() as Candidate[];
-  for (const c of rows) {
-    const gid = c.luma_generation_id;
-    if (gid === null) continue; // unreachable: the query filters nulls
+  // ponytail: the whole wave at once. Processing rows number at most LUMA_CONCURRENCY (slots
+  // come from it), so this is at most that many downloads in memory; a semaphore if the
+  // cap ever grows past a handful.
+  settle(await Promise.allSettled(rows.map(pollOne)));
+}
+
+/** One processing candidate, start to finish. Never throws: a sibling's failure is its own. */
+async function pollOne(c: Candidate): Promise<void> {
+  const gid = c.luma_generation_id;
+  if (gid === null) return; // unreachable: the query filters nulls
+  try {
+    const g = await getGeneration(gid);
+    if (g.state === "failed") {
+      // Cost stays: Luma's refund behaviour on failures is undocumented (D7).
+      fail(
+        c.id,
+        g.failure?.userMessage ?? "Luma failed on its side. Try again.",
+      );
+      // Money path #4: credits ran out mid-generation. Siblings in this wave are already
+      // paid for and finish on their own; the pause lands before submitQueued reads it
+      // (race B), so nothing new is bought this tick.
+      if (g.failure?.code === "budget_exhausted") pause(g.failure.userMessage);
+      return;
+    }
+    if (g.state !== "completed" || !g.url) return;
+    const res = await fetch(g.url, { signal: AbortSignal.timeout(30_000) });
+    if (!res.ok) {
+      // Money path #7: the hour-long output URL expired. The candidate stays processing
+      // so the next poll asks Luma for a fresh URL, but the attempts cap still applies:
+      // a download that never succeeds must not be re-polled forever.
+      console.warn(`download ${res.status} for candidate ${c.id}, re-polling`);
+      bumpAttempt(c, "Luma's image could not be downloaded. Try again.");
+      return;
+    }
+    const original = Buffer.from(await res.arrayBuffer());
+    storage.saveImage(c.id, original);
+    // The review copy is a convenience, not the record: if the resize fails the page
+    // serves the original (storage.readReview falls back) and the candidate still lands.
     try {
-      const g = await getGeneration(gid);
-      if (g.state === "failed") {
-        // Cost stays: Luma's refund behaviour on failures is undocumented (D7).
-        fail(
-          c.id,
-          g.failure?.userMessage ?? "Luma failed on its side. Try again.",
-        );
-        // Money path #4: credits ran out mid-generation. Every other queued candidate would
-        // hit the same 402 one at a time this tick, so stop here instead of burning through them.
-        if (g.failure?.code === "budget_exhausted") {
-          pause(g.failure.userMessage);
-          return;
-        }
-        continue;
-      }
-      if (g.state !== "completed" || !g.url) continue;
-      const res = await fetch(g.url, { signal: AbortSignal.timeout(30_000) });
-      if (!res.ok) {
-        // Money path #7: the hour-long output URL expired. The candidate stays processing
-        // so the next poll asks Luma for a fresh URL, but the attempts cap still applies:
-        // a download that never succeeds must not be re-polled forever.
-        console.warn(
-          `download ${res.status} for candidate ${c.id}, re-polling`,
-        );
-        bumpAttempt(c, "Luma's image could not be downloaded. Try again.");
-        continue;
-      }
-      const original = Buffer.from(await res.arrayBuffer());
-      storage.saveImage(c.id, original);
-      // The review copy is a convenience, not the record: if the resize fails the page
-      // serves the original (storage.readReview falls back) and the candidate still lands.
-      try {
-        storage.saveReview(c.id, await reviewVariant(original));
-      } catch (e) {
-        console.warn(`review copy for candidate ${c.id} skipped: ${reason(e)}`);
-      }
-      d.prepare(
-        `update candidates set state = ${st("completed")} where id = ?`,
-      ).run(c.id);
+      storage.saveReview(c.id, await reviewVariant(original));
     } catch (e) {
-      if (e instanceof LumaRateLimitError) {
-        // The generation is already paid for; a 429 must not spend an attempt on it.
-        state.nextSubmitAt = Date.now() + (e.retryAfterMs ?? 60_000);
-        console.warn("worker:", e.userMessage);
+      console.warn(`review copy for candidate ${c.id} skipped: ${reason(e)}`);
+    }
+    db()
+      .prepare(`update candidates set state = ${st("completed")} where id = ?`)
+      .run(c.id);
+  } catch (e) {
+    if (e instanceof LumaRateLimitError) {
+      // The generation is already paid for; a 429 must not spend an attempt on it. The
+      // deadline covers the next tick's polls and submits (race C); max, not assign, so a
+      // sibling's shorter Retry-After landing later keeps the longer window.
+      state.nextSubmitAt = Math.max(
+        state.nextSubmitAt,
+        Date.now() + (e.retryAfterMs ?? 60_000),
+      );
+      console.warn("worker:", e.userMessage);
+      return;
+    }
+    if (e instanceof LumaError && !e.retryable) {
+      if (PAUSING_CODES.includes(e.code)) {
+        pause(e.userMessage);
         return;
       }
-      if (e instanceof LumaError && !e.retryable) {
-        if (PAUSING_CODES.includes(e.code)) {
-          pause(e.userMessage);
-          return;
-        }
-        if (e.code === "not_found") {
-          fail(c.id, e.userMessage); // Luma forgot the generation; polling it again is free but pointless
-          continue;
-        }
+      if (e.code === "not_found") {
+        fail(c.id, e.userMessage); // Luma forgot the generation; polling it again is free but pointless
+        return;
       }
-      // A paid generation must not be polled forever either: attempts end it too.
-      bumpAttempt(c, reason(e));
     }
+    // A paid generation must not be polled forever either: attempts end it too.
+    bumpAttempt(c, reason(e));
   }
+}
+
+/** pollOne and submitOne never throw, so a rejection here is a bug; log it like tick() does. */
+function settle(results: PromiseSettledResult<void>[]) {
+  for (const r of results)
+    if (r.status === "rejected") console.error("tick:", reason(r.reason));
 }
 
 /** Idempotent: Next can call instrumentation's register more than once in a process. */

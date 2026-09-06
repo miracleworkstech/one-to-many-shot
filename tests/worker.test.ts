@@ -39,7 +39,10 @@ type Reply = {
   body?: string | Uint8Array<ArrayBuffer>;
   headers?: Record<string, string>;
 };
-type Handler = (url: string, init: RequestInit | undefined) => Reply;
+type Handler = (
+  url: string,
+  init: RequestInit | undefined,
+) => Reply | Promise<Reply>;
 
 let calls: { url: string; init?: RequestInit }[] = [];
 let unexpected: string[] = [];
@@ -53,7 +56,7 @@ function stubFetch(handler: Handler) {
   ): Promise<Response> => {
     const url = String(input);
     calls.push({ url, init });
-    const r = handler(url, init);
+    const r = await handler(url, init); // async handlers stand in for a slow host
     return new Response(r.body ?? "{}", {
       status: r.status ?? 200,
       headers: r.headers,
@@ -416,7 +419,7 @@ test("(7b) a budget_exhausted failure while polling pauses the worker and stops 
   }
 });
 
-test("(7c) budget_exhausted stops the poll loop and pauses before a same-tick queued candidate is submitted", async () => {
+test("(7c) budget_exhausted while polling pauses before a same-tick queued candidate is submitted", async () => {
   reset();
   seedProduct("HG-002", 0);
   const failing = seedCandidate({
@@ -426,12 +429,10 @@ test("(7c) budget_exhausted stops the poll loop and pauses before a same-tick qu
     cost: env.costPerImage,
     attempts: 1,
   });
-  // A second processing candidate, ordered after the first: this row's poll endpoint is
-  // deliberately left unhandled by the stub (falls through to `miss`), so if the loop keeps
-  // polling after the pause instead of stopping, this test catches it via `unexpected`.
-  // This is what kills the "drop the return after pause()" mutant in pollProcessing — a
-  // single processing candidate can't distinguish `return` from the `continue` that already
-  // follows it, since there is no next row to wrongly poll.
+  // A second processing candidate polled in the same wave (Task 21: the poll wave is
+  // parallel, so the pause no longer stops siblings already in flight; race B). Its reply is
+  // "still processing", so it must come out untouched: same state, same attempts, no cost
+  // change. The row that matters for money is the queued one below.
   seedProduct("HG-003", 0);
   const untouched = seedCandidate({
     sku: "HG-003",
@@ -452,6 +453,8 @@ test("(7c) budget_exhausted stops the poll loop and pauses before a same-tick qu
           failure_reason: "out of credits",
         }),
       };
+    if (url === "https://agents.lumalabs.ai/v1/generations/gen-7c-b")
+      return { body: JSON.stringify({ id: "gen-7c-b", state: "processing" }) };
     return miss(url);
   });
   try {
@@ -461,19 +464,24 @@ test("(7c) budget_exhausted stops the poll loop and pauses before a same-tick qu
       pausedReason(),
       "Luma ran out of credits during this generation. Add funds, then press Resume.",
     );
-    // The pause must stop the poll loop immediately: the second processing candidate is
-    // never reached, so its state and attempts are untouched.
     const b = row(untouched);
     assert.equal(b.state, "processing");
     assert.equal(b.attempts, 1);
-    // Poll-before-submit (Codex finding) means the pause lands before submitQueued ever
-    // looks at this row: it stays queued at cost 0, and the Luma submit endpoint is never
-    // called.
+    assert.equal(b.cost_usd, env.costPerImage);
+    // Poll-before-submit (Codex finding): the whole poll wave settles, so the pause has
+    // landed before submitQueued reads paused_reason. The queued row stays queued at cost 0
+    // and the Luma submit endpoint is never called. This is what kills the "drop the
+    // pause() in pollOne" mutant: without it the queued row would be submitted this tick.
     const c = row(queued);
     assert.equal(c.state, "queued");
     assert.equal(c.cost_usd, 0);
     assert.equal(lumaCalls().filter((x) => isSubmit(x.url, x.init)).length, 0);
-    assert.deepEqual(unexpected, [], "gen-7c-b must never be polled this tick");
+    assert.equal(
+      calls.filter((x) => x.url === PHOTO).length,
+      0,
+      "no photo is fetched for a row that will not be submitted",
+    );
+    assert.deepEqual(unexpected, []);
   } finally {
     restore();
   }
@@ -731,6 +739,415 @@ test("(5b) a 429 while polling backs off instead of spending an attempt on a pai
       "inside the Retry-After window the worker does not poll either",
     );
   } finally {
+    restore();
+  }
+});
+
+// Task 21: both loops run bounded-parallel inside one tick.
+
+const poll = (gid: string) =>
+  `https://agents.lumalabs.ai/v1/generations/${gid}`;
+const delay = <T>(ms: number, v: T) =>
+  new Promise<T>((resolve) => setTimeout(() => resolve(v), ms));
+
+/** A reply the test releases by hand, so parallelism is asserted, not timed. */
+function deferred() {
+  let resolve!: (r: Reply) => void;
+  const promise = new Promise<Reply>((r) => (resolve = r));
+  return { promise, resolve };
+}
+
+test("(P1) all four polls are issued before any reply arrives, and all complete in one tick", async () => {
+  reset();
+  const ids = [1, 2, 3, 4].map((n) => {
+    seedProduct(`HG-00${n}`, 0);
+    return seedCandidate({
+      sku: `HG-00${n}`,
+      state: "processing",
+      gid: `gen-p1-${n}`,
+      cost: env.costPerImage,
+      attempts: 1,
+    });
+  });
+  const pending: { gid: string; resolve: (r: Reply) => void }[] = [];
+  let released = 0;
+  const restore = stubFetch((url) => {
+    if (url.startsWith(poll("gen-p1-"))) {
+      const d = deferred();
+      pending.push({ gid: url.slice(poll("").length), resolve: d.resolve });
+      return d.promise;
+    }
+    if (url === OUTPUT) return { body: JPEG };
+    if (url === SLACK) return { body: "ok" };
+    return miss(url);
+  });
+  const release = () => {
+    for (const p of pending.splice(0)) {
+      released++;
+      p.resolve({
+        body: JSON.stringify({
+          id: p.gid,
+          state: "completed",
+          output: [{ url: OUTPUT }],
+        }),
+      });
+    }
+  };
+  let done = false;
+  const running = tick().finally(() => (done = true));
+  try {
+    // Parallel: all four polls are in flight while none has answered. Serial: the loop
+    // is stuck on the first unanswered poll, so pending never grows past one. The deadline
+    // only bounds the failure path; the pass path leaves the loop as soon as four are seen.
+    const deadline = Date.now() + 2_000;
+    while (pending.length < 4 && Date.now() < deadline)
+      await new Promise((r) => setTimeout(r, 1));
+    assert.equal(released, 0, "no poll was answered yet");
+    assert.equal(pending.length, 4, "four polls issued before any is released");
+    release();
+    await running;
+    for (const id of ids) assert.equal(row(id).state, "completed");
+    assert.deepEqual(unexpected, []);
+  } finally {
+    // Never leave the tick hanging on an unanswered poll: a serial loop issues the next
+    // one only after the previous is released, so keep releasing until the tick settles.
+    while (!done) {
+      release();
+      await new Promise((r) => setTimeout(r, 1));
+    }
+    restore();
+  }
+});
+
+test("(P2) two queued candidates of one SKU share one photo fetch and both submit", async () => {
+  reset();
+  seedProduct();
+  const a = seedCandidate();
+  const b = seedCandidate();
+  let n = 0;
+  const restore = stubFetch((url, init) => {
+    if (url === PHOTO) return delay(10, { body: JPEG });
+    if (isSubmit(url, init))
+      return { body: JSON.stringify({ id: `gen-p2-${++n}`, state: "queued" }) };
+    return miss(url);
+  });
+  try {
+    await tick();
+    assert.equal(
+      calls.filter((x) => x.url === PHOTO).length,
+      1,
+      "the photo host is hit once per SKU per tick",
+    );
+    for (const id of [a, b]) {
+      const c = row(id);
+      assert.equal(c.state, "processing");
+      assert.equal(c.cost_usd, env.costPerImage);
+      assert.ok(c.luma_generation_id);
+    }
+    assert.notEqual(row(a).luma_generation_id, row(b).luma_generation_id);
+    assert.deepEqual(unexpected, []);
+  } finally {
+    restore();
+  }
+});
+
+test("(P3) a 402 on one of three parallel submits pauses once; siblings are charged only for accepted jobs", async () => {
+  reset();
+  const ids = [1, 2, 3].map((n) => {
+    seedProduct(`HG-00${n}`, 0);
+    return seedCandidate({ sku: `HG-00${n}` });
+  });
+  let n = 0;
+  const restore = stubFetch((url, init) => {
+    if (url === PHOTO) return { body: JPEG };
+    if (isSubmit(url, init)) {
+      const k = ++n;
+      if (k === 2)
+        return {
+          status: 402,
+          body: JSON.stringify({ detail: "insufficient balance" }),
+        };
+      return { body: JSON.stringify({ id: `gen-p3-${k}`, state: "queued" }) };
+    }
+    if (url.startsWith(poll("gen-p3-")))
+      return {
+        body: JSON.stringify({
+          id: url.slice(poll("").length),
+          state: "processing",
+        }),
+      };
+    return miss(url);
+  });
+  try {
+    await tick();
+    assert.equal(
+      pausedReason(),
+      "Luma has no credits left. Add funds, then press Resume.",
+    );
+    const states = ids.map((id) => row(id).state).sort();
+    assert.ok(!states.includes("failed"), "a 402 never fails a candidate");
+    assert.equal(
+      states.filter((s) => s === "queued").length >= 1,
+      true,
+      "the 402'd candidate stays queued",
+    );
+    for (const id of ids) {
+      const c = row(id);
+      if (c.state === "processing") {
+        // Race A: an accepted job is real money, so it is charged, with its id.
+        assert.ok(c.luma_generation_id);
+        assert.equal(c.cost_usd, env.costPerImage);
+        assert.equal(c.attempts, 1);
+      } else {
+        assert.equal(c.state, "queued");
+        assert.equal(c.cost_usd, 0);
+        assert.equal(c.attempts, 0);
+        assert.equal(c.luma_generation_id, null);
+      }
+    }
+    const submits = () => calls.filter((x) => isSubmit(x.url, x.init)).length;
+    const before = submits();
+    await tick(); // paused: paid images are still polled, nothing new is submitted
+    assert.equal(submits(), before, "a paused worker submits nothing");
+    assert.deepEqual(unexpected, []);
+  } finally {
+    restore();
+  }
+});
+
+test("(P4) one expired download in a poll wave does not stop a sibling from completing", async () => {
+  reset();
+  seedProduct("HG-002", 0);
+  const expired = seedCandidate({
+    sku: "HG-002",
+    state: "processing",
+    gid: "gen-p4-a",
+    cost: env.costPerImage,
+    attempts: 1,
+  });
+  seedProduct("HG-003", 0);
+  const fine = seedCandidate({
+    sku: "HG-003",
+    state: "processing",
+    gid: "gen-p4-b",
+    cost: env.costPerImage,
+    attempts: 1,
+  });
+  const GONE = "https://storage.lumalabs.test/out/gone.jpg";
+  const restore = stubFetch((url) => {
+    if (url === poll("gen-p4-a"))
+      return {
+        body: JSON.stringify({
+          id: "gen-p4-a",
+          state: "completed",
+          output: [{ url: GONE }],
+        }),
+      };
+    if (url === poll("gen-p4-b"))
+      return {
+        body: JSON.stringify({
+          id: "gen-p4-b",
+          state: "completed",
+          output: [{ url: OUTPUT }],
+        }),
+      };
+    if (url === GONE) return { status: 403, body: "expired" };
+    if (url === OUTPUT) return { body: JPEG };
+    if (url === SLACK) return { body: "ok" };
+    return miss(url);
+  });
+  try {
+    await tick();
+    const a = row(expired);
+    assert.equal(a.state, "processing", "re-polled for a fresh URL next tick");
+    assert.equal(a.attempts, 2);
+    assert.equal(a.cost_usd, env.costPerImage);
+    const b = row(fine);
+    assert.equal(b.state, "completed");
+    assert.equal(b.attempts, 1);
+    assert.ok(storage.readImage(fine));
+    assert.deepEqual(unexpected, []);
+  } finally {
+    restore();
+  }
+});
+
+const PHOTO2 =
+  "https://take-home-service.lumalabs-ext.workers.dev/assets/fde/hg-003.jpg";
+
+/** Two queued candidates of different SKUs with distinct photo URLs, so a test can answer one late. */
+function seedSlowPair() {
+  seedProduct("HG-002", 0);
+  seedProduct("HG-003", 0);
+  d.prepare("update products set photo_url = ? where sku = ?").run(
+    PHOTO2,
+    "HG-003",
+  );
+  return [seedCandidate({ sku: "HG-002" }), seedCandidate({ sku: "HG-003" })];
+}
+
+test("(P5) a candidate still fetching its photo when a sibling's 402 pauses the worker is not submitted", async () => {
+  reset();
+  const [first, second] = seedSlowPair();
+  const restore = stubFetch((url, init) => {
+    if (url === PHOTO) return { body: JPEG };
+    if (url === PHOTO2) return delay(30, { body: JPEG });
+    if (isSubmit(url, init))
+      return {
+        status: 402,
+        body: JSON.stringify({ detail: "insufficient balance" }),
+      };
+    return miss(url);
+  });
+  try {
+    await tick();
+    assert.equal(
+      pausedReason(),
+      "Luma has no credits left. Add funds, then press Resume.",
+    );
+    assert.equal(
+      calls.filter((x) => isSubmit(x.url, x.init)).length,
+      1,
+      "the guard after the photo await stops the second submit (race A)",
+    );
+    for (const id of [first, second]) {
+      const c = row(id);
+      assert.equal(c.state, "queued");
+      assert.equal(c.cost_usd, 0);
+      assert.equal(c.attempts, 0);
+      assert.equal(c.luma_generation_id, null);
+    }
+    assert.deepEqual(unexpected, []);
+  } finally {
+    restore();
+  }
+});
+
+test("(P6) a candidate still fetching its photo when a sibling's 429 sets the back-off is not submitted this tick", async () => {
+  reset();
+  const [first, second] = seedSlowPair();
+  const restore = stubFetch((url, init) => {
+    if (url === PHOTO) return { body: JPEG };
+    if (url === PHOTO2) return delay(30, { body: JPEG });
+    if (isSubmit(url, init))
+      return {
+        status: 429,
+        headers: { "Retry-After": "7" },
+        body: JSON.stringify({ detail: "Too many requests" }),
+      };
+    return miss(url);
+  });
+  try {
+    await tick();
+    assert.equal(pausedReason(), null);
+    assert.equal(
+      calls.filter((x) => isSubmit(x.url, x.init)).length,
+      1,
+      "the guard after the photo await honours the back-off (race C)",
+    );
+    for (const id of [first, second]) {
+      const c = row(id);
+      assert.equal(c.state, "queued");
+      assert.equal(c.cost_usd, 0);
+      assert.equal(c.attempts, 0);
+    }
+    assert.deepEqual(unexpected, []);
+  } finally {
+    restore();
+  }
+});
+
+test("(P7) two 429s in one poll wave keep the longer Retry-After, not the last one to land", async () => {
+  reset();
+  seedProduct("HG-002", 0);
+  seedCandidate({
+    sku: "HG-002",
+    state: "processing",
+    gid: "gen-p7-long",
+    cost: env.costPerImage,
+    attempts: 1,
+  });
+  seedProduct("HG-003", 0);
+  seedCandidate({
+    sku: "HG-003",
+    state: "processing",
+    gid: "gen-p7-short",
+    cost: env.costPerImage,
+    attempts: 1,
+  });
+  const tooMany = (retryAfter: string): Reply => ({
+    status: 429,
+    headers: { "Retry-After": retryAfter },
+    body: JSON.stringify({ detail: "Too many requests" }),
+  });
+  const restore = stubFetch((url) => {
+    if (url === poll("gen-p7-long")) return tooMany("60");
+    if (url === poll("gen-p7-short")) return delay(20, tooMany("7")); // lands second
+    return miss(url);
+  });
+  try {
+    await tick();
+    const worker = globalThis.__shotsWorkerState;
+    assert.ok(worker);
+    assert.ok(
+      worker.nextSubmitAt - Date.now() >= 55_000,
+      "the 7 s Retry-After that landed later must not shorten the 60 s window",
+    );
+    seedProduct("HG-004", 0);
+    const queued = seedCandidate({ sku: "HG-004" });
+    const before = calls.length;
+    await tick();
+    assert.equal(calls.length, before, "inside the window nothing is called");
+    assert.equal(row(queued).state, "queued");
+    assert.equal(row(queued).cost_usd, 0);
+    assert.deepEqual(unexpected, []);
+  } finally {
+    // The deadline is process-global; a 60 s window left behind would stall every later test.
+    if (globalThis.__shotsWorkerState)
+      globalThis.__shotsWorkerState.nextSubmitAt = 0;
+    restore();
+  }
+});
+
+test("(P7b) two 429s in one submit wave keep the longer Retry-After, not the last one to land", async () => {
+  reset();
+  const [first, second] = seedSlowPair();
+  const tooMany = (retryAfter: string): Reply => ({
+    status: 429,
+    headers: { "Retry-After": retryAfter },
+    body: JSON.stringify({ detail: "Too many requests" }),
+  });
+  // Both photos answer at once so both submits are in flight before either reply lands;
+  // the first reply says 60 s, the second (delayed) says 7 s.
+  let submits = 0;
+  const restore = stubFetch((url, init) => {
+    if (url === PHOTO || url === PHOTO2) return { body: JPEG };
+    if (isSubmit(url, init))
+      return submits++ === 0 ? tooMany("60") : delay(20, tooMany("7"));
+    return miss(url);
+  });
+  try {
+    await tick();
+    assert.equal(
+      submits,
+      2,
+      "both submits were in flight before the first 429",
+    );
+    const worker = globalThis.__shotsWorkerState;
+    assert.ok(worker);
+    assert.ok(
+      worker.nextSubmitAt - Date.now() >= 55_000,
+      "the 7 s Retry-After that landed later must not shorten the 60 s window",
+    );
+    for (const id of [first, second]) {
+      assert.equal(row(id).state, "queued");
+      assert.equal(row(id).cost_usd, 0);
+      assert.equal(row(id).attempts, 0);
+    }
+    assert.deepEqual(unexpected, []);
+  } finally {
+    if (globalThis.__shotsWorkerState)
+      globalThis.__shotsWorkerState.nextSubmitAt = 0;
     restore();
   }
 });
