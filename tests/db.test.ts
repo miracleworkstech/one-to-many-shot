@@ -14,20 +14,25 @@ after(() => {
 
 // Runs first, before any other test in this file calls db() and creates the fresh (already
 // migrated) schema on this same DATA_DIR: hand-builds the old candidates table (no
-// shot_idea column) directly, then calls the real open function and checks it adds the
-// column and backfills it from the product.
-test("opening a database created with the old schema adds candidates.shot_idea and backfills it from the product", () => {
+// shot_idea, submitted_at or completed_at column) directly, then calls the real open
+// function and checks it adds the columns, backfills shot_idea from the product and leaves
+// the two stamps null (Task 22: no backfill, null means "before this column existed").
+test("opening a database created with the old schema adds shot_idea (backfilled), submitted_at and completed_at (null)", () => {
   const raw = new Database(path.join(dir, "app.db"));
   // The pre-migration schema is the real SCHEMA minus the candidates.shot_idea column:
   // this file's later tests share this same database (one DATA_DIR per file), so an
   // under-built fixture (e.g. missing a CHECK) would silently weaken them. Building it
   // from SCHEMA itself (rather than hand-copied literals) keeps it correct as SCHEMA
   // changes; the assert below fails loudly if the line this depends on is reformatted.
-  const oldSchema = SCHEMA.replace("  shot_idea text,\n", "");
-  assert.notEqual(
-    oldSchema,
-    SCHEMA,
-    "SCHEMA no longer has that shot_idea line verbatim",
+  const oldSchema = SCHEMA.replace("  shot_idea text,\n", "").replace(
+    "decided_at text,\n  submitted_at text, completed_at text\n",
+    "decided_at text\n",
+  );
+  assert.equal(
+    (oldSchema.match(/^  shot_idea text,$|submitted_at|completed_at/gm) ?? [])
+      .length,
+    0,
+    "SCHEMA no longer has those column lines verbatim",
   );
   raw.exec(oldSchema);
   raw
@@ -47,11 +52,20 @@ test("opening a database created with the old schema adds candidates.shot_idea a
   const cols = (
     d.prepare("pragma table_info(candidates)").all() as { name: string }[]
   ).map((c) => c.name);
-  assert.ok(cols.includes("shot_idea"));
+  for (const col of ["shot_idea", "submitted_at", "completed_at"])
+    assert.ok(cols.includes(col), col);
   const row = d
-    .prepare("select shot_idea from candidates where sku = 'OLD-1'")
-    .get() as { shot_idea: string | null };
+    .prepare(
+      "select shot_idea, submitted_at, completed_at from candidates where sku = 'OLD-1'",
+    )
+    .get() as {
+    shot_idea: string | null;
+    submitted_at: string | null;
+    completed_at: string | null;
+  };
   assert.equal(row.shot_idea, "legacy idea");
+  assert.equal(row.submitted_at, null);
+  assert.equal(row.completed_at, null);
 });
 
 test("schema applies and settings row exists", () => {

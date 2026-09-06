@@ -21,15 +21,22 @@ export function GenerateForm({
     EnqueueResult | null,
     FormData
   >((_prev, formData) => generateNext(formData), null);
-  const [n, setN] = useState(Math.min(10, max));
+  // The field holds the raw string so it can be cleared while typing; reading it as a
+  // number on every keystroke turned an empty field straight back into the default.
+  const [n, setN] = useState(String(Math.min(10, max)));
+  const count = Number(n);
+  const valid =
+    n.trim() !== "" && Number.isInteger(count) && count >= 1 && count <= max;
   // `ready` shrinks after every batch (revalidation re-renders with a smaller max) while
   // `n` is preserved state; re-clamp during render so the input and the submitted count agree.
   const [prevMax, setPrevMax] = useState(max);
   if (max !== prevMax) {
     setPrevMax(max);
-    if (n > max) setN(max);
+    if (Number.isInteger(count) && count > max) setN(String(max));
   }
-  const images = Math.min(Math.max(n, 1), max) * perProduct;
+  // The server defaults a blank or bad count to ten products, so the button stays off
+  // until the field says a number: a batch size must never be a surprise.
+  const images = (valid ? Math.min(count, max) : 0) * perProduct;
   return (
     <form action={formAction} className="space-y-3 text-sm">
       <h2 id="batch-title" className="text-base font-semibold text-stone-900">
@@ -47,10 +54,7 @@ export function GenerateForm({
           value={n}
           min={1}
           max={max}
-          onChange={(e) => {
-            const v = e.target.valueAsNumber;
-            setN(Number.isFinite(v) ? v : Math.min(10, max));
-          }}
+          onChange={(e) => setN(e.target.value)}
           className="w-16 min-h-11 rounded-lg border border-stone-300 bg-white px-2 py-1 text-base tabular-nums"
         />
         <span className="whitespace-nowrap">of {ready} ready</span>
@@ -60,7 +64,7 @@ export function GenerateForm({
         {images === 1 ? "image" : "images"}.
       </p>
       <button
-        disabled={isPending || ready === 0}
+        disabled={isPending || ready === 0 || !valid}
         aria-busy={isPending}
         className={`${PRIMARY} disabled:opacity-60`}
       >

@@ -223,6 +223,14 @@ test("matcher excludes _next, icon.svg and healthz; includes gated app paths", (
   }
 });
 
+test("matcher gates /metrics (Task 22): the performance JSON needs the team link", () => {
+  const pattern = new RegExp(`^${config.matcher[0]}`);
+  assert.equal(pattern.test("/metrics"), true);
+  withToken(() => {
+    assert.equal(middleware(req("http://localhost:3000/metrics")).status, 401);
+  });
+});
+
 test("app/healthz/route.ts: 200 ok", async () => {
   const res = healthzGet();
   assert.equal(res.status, 200);
