@@ -23,6 +23,7 @@ import { Sheet } from "@/components/Sheet";
 import { resumeWorker } from "@/lib/actions/generate";
 import { env } from "@/lib/env";
 import { PRIMARY, QUIET } from "@/components/buttons";
+import { Logo } from "@/components/Logo";
 
 export const dynamic = "force-dynamic";
 
@@ -280,7 +281,9 @@ export default async function Home({
           side from sm up. Nothing wraps into the gap between title and explainer. */}
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-xl font-semibold">Styled shots</h1>
+          <h1>
+            <Logo />
+          </h1>
           <p className="mt-1 max-w-prose text-sm text-stone-600">
             Shot ideas from the catalog sheet, made into images by Luma. Approve
             the ones that match.

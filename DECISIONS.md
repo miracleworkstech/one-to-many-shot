@@ -725,3 +725,23 @@ now. The lint exception for plain anchors is removed.
 - **Revisit trigger:** Railway adding continuous healthchecks. A second worker process
   or a queue, where "is it alive" stops being answerable from the page. A pause the team
   did not notice for a day.
+
+## D30 — The product is called Dropshot (2026-09-06)
+
+- **Decision:** The app is named Dropshot: the tab title, the review page title suffix,
+  the status page heading (a mark and the wordmark) and the favicon. The name lives in one
+  constant in `components/Logo.tsx`. The mark is a photo frame with one shot landed in it,
+  filled moss because moss already means approved on every page; the favicon is the same
+  drawing as `app/icon.svg` with fixed colours, and the middleware exempts that path the
+  way it exempted `favicon.ico`.
+- **Alternatives:** Contact Sheet (the North Star name for DESIGN.md; two words, an older
+  term), Proofs (reads as proof of concept to software people), Picks (says the decision,
+  not the images), keeping "Styled Shots" (a description, not a name). The user chose
+  Dropshot: the team's "drop" and the brief's "shots" in one word.
+- **Why:** A finished product has a name people can say in Slack. The vocabulary is the
+  team's own (PRODUCT.md), and the mark reuses the page's one meaning for moss rather than
+  adding a colour.
+- **Cost accepted:** `package.json` still says `shots`; the Slack messages and the 401
+  text do not carry the name, since they talk about products. No generated imagery.
+- **Revisit trigger:** A real brand pass, or a second product that needs the name to
+  distinguish it.

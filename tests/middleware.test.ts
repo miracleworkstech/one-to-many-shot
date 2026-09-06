@@ -194,13 +194,13 @@ test("open redirect: x-forwarded-host from the client does not change the Locati
   });
 });
 
-test("matcher excludes _next, favicon.ico and healthz; includes gated app paths", () => {
+test("matcher excludes _next, icon.svg and healthz; includes gated app paths", () => {
   // config.matcher's string is a regex *source*, unanchored: `.test()` on it directly would
   // false-positive on "/_next/static/x.js" (it also matches starting from the later "/static"
   // segment). Anchor at the leading "/" - which every pathname has - to test the same
   // semantics Next's own (anchored) compiled matcher uses.
   const pattern = new RegExp(`^${config.matcher[0]}`);
-  for (const excluded of ["/_next/static/x.js", "/favicon.ico", "/healthz"]) {
+  for (const excluded of ["/_next/static/x.js", "/icon.svg", "/healthz"]) {
     assert.equal(
       pattern.test(excluded),
       false,

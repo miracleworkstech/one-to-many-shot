@@ -1,5 +1,6 @@
 import "./globals.css";
-export const metadata = { title: "Styled Shots" };
+import { APP_NAME } from "@/components/Logo";
+export const metadata = { title: APP_NAME };
 export const viewport = { width: "device-width", initialScale: 1 };
 export default function RootLayout({
   children,

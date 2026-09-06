@@ -30,13 +30,14 @@ import { Spinner, SubmitButton } from "@/components/Pending";
 import { Refresher } from "@/components/Refresher";
 import { Sheet } from "@/components/Sheet";
 import { PRIMARY, QUIET } from "@/components/buttons";
+import { APP_NAME } from "@/components/Logo";
 
 export const dynamic = "force-dynamic";
 
 const ICON = { size: 20, strokeWidth: 1.75, "aria-hidden": true } as const;
 
 /** The tab, the history entry and a screen reader's page list name the product, not the
- *  app: forty review pages must not all be called "Styled Shots". */
+ *  app: forty review pages must not all carry the app's name alone. */
 export async function generateMetadata({
   params,
 }: {
@@ -44,7 +45,7 @@ export async function generateMetadata({
 }) {
   const { sku } = await params;
   const name = productName(sku);
-  return { title: name ? `${name} · Styled Shots` : "Styled Shots" };
+  return { title: name ? `${name} · ${APP_NAME}` : APP_NAME };
 }
 
 export default async function Review({

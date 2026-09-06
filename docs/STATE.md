@@ -5,7 +5,7 @@
 
 ## Phase
 
-**Update 2026-09-06 (latest): PR #20 (D28) approved and merged fast-forward (main at
+**Update 2026-09-06 (latest): PR #21 (`docs/d29-not-built`, from the main checkout) holds D29, the realigned status header, and D30: the app is named Dropshot (`components/Logo.tsx`, `app/icon.svg`, middleware exempts `icon.svg`). Waiting for the user's review. PR #20 (D28) approved and merged fast-forward (main at
 481d1b3, branch and worktree removed). D29 records two tweaks considered and not built: a
 Slack post on pause and worker liveness in `/healthz` (Railway does not poll the
 healthcheck after deploy; neither missing credits nor a dead Luma API is a stall). Next:
