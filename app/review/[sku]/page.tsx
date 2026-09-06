@@ -202,7 +202,13 @@ export default async function Review({
                 className="w-[88%] shrink-0 snap-start sm:w-full"
                 aria-label={`Slide ${i + 1} of ${slides}`}
               >
-                <div className="relative">
+                {/* On a phone the first Approve must be in reach when the page loads: the
+                    4:5 box gives way to the viewport height (about 27rem goes to the
+                    header, idea bar, decision row and bottom bar) instead of pushing the
+                    buttons under the fold. Tall phones see the full-width box; short ones
+                    a smaller one, still 4:5, centred. From sm up the slide is the column
+                    and the 60svh cap on the box does the same job. */}
+                <div className="relative mx-auto max-w-[calc((100svh-27rem)*0.8)] sm:max-w-none">
                   {c.state === "queued" || c.state === "processing" ? (
                     <div
                       role="status"
@@ -330,7 +336,7 @@ export default async function Review({
               >
                 {/* Where the product stands and every follow-up, always the last slide:
                   nothing to hunt for in a menu. Money actions stay one deliberate tap. */}
-                <div className="flex aspect-[4/5] max-h-[60svh] flex-col justify-center rounded-lg border border-stone-300 bg-white p-5 text-base">
+                <div className="mx-auto flex aspect-[4/5] max-h-[60svh] max-w-[calc((100svh-27rem)*0.8)] flex-col justify-center rounded-lg border border-stone-300 bg-white p-5 text-base sm:max-w-none">
                   {endKind === "done" ? (
                     <>
                       <p className="inline-flex items-center gap-2 font-semibold text-stone-900">
