@@ -149,8 +149,10 @@ Where an entry was amended, only the latest state is shown.
 - **Why:** The hand-off is a folder of files whose names must stay meaningful and stable; a
   rename between exports is the "which file is final?" confusion the build exists to remove.
 - **Cost accepted:** Un-approving still renumbers the candidates after it. Two additive
-  columns now live inline in `db.ts`; the third gets a migrations table.
-- **Revisit trigger:** A request for stable numbering, or a third schema change.
+  columns now live inline in `db.ts`; the third gets a migrations table. 2026-09-06: the
+  third (`submitted_at`, `completed_at`, Task 22) also went inline by the user's call; the
+  migrations table moves to the fourth.
+- **Revisit trigger:** A request for stable numbering, or a fourth schema change.
 
 ## D19 — The status page groups products by what happens next (2026-09-04, final form 2026-09-05)
 

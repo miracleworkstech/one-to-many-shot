@@ -151,9 +151,10 @@ async function submitOne(
   try {
     const gid = await submitEdit({ prompt: c.prompt, jpegBase64 });
     // Money is committed here, so cost is recorded here (Global Constraints, D7).
+    // submitted_at: the same statement, so the stamp lands with the money (Task 22).
     db()
       .prepare(
-        `update candidates set state = ${st("processing")}, luma_generation_id = ?, attempts = attempts + 1, cost_usd = ? where id = ?`,
+        `update candidates set state = ${st("processing")}, luma_generation_id = ?, attempts = attempts + 1, cost_usd = ?, submitted_at = datetime('now') where id = ?`,
       )
       .run(gid, env.costPerImage, c.id);
   } catch (e) {
@@ -237,8 +238,11 @@ async function pollOne(c: Candidate): Promise<void> {
       console.warn(`review copy for candidate ${c.id} skipped: ${reason(e)}`);
     }
     db()
-      .prepare(`update candidates set state = ${st("completed")} where id = ?`)
+      .prepare(
+        `update candidates set state = ${st("completed")}, completed_at = datetime('now') where id = ?`,
+      )
       .run(c.id);
+    logCompleted(c.id);
   } catch (e) {
     if (e instanceof LumaRateLimitError) {
       // The generation is already paid for; a 429 must not spend an attempt on it. The
@@ -264,6 +268,30 @@ async function pollOne(c: Candidate): Promise<void> {
     // A paid generation must not be polled forever either: attempts end it too.
     bumpAttempt(c, reason(e));
   }
+}
+
+/** The one `console.log` in the worker (the rest are warn/error). One JSON line per landed
+ *  image; the field names are the contract a Railway log filter matches on:
+ *  `event`, `candidateId`, `batchId`, `sku`, `lumaMs`, `costUsd`. `lumaMs` is
+ *  completed_at - submitted_at computed by SQLite (the same julianday expression as
+ *  lib/analytics.ts: the stamps are SQLite's own datetime('now') strings, so SQLite parses
+ *  them back without a timezone guess in JS). Second resolution, so it is a multiple of
+ *  1000; null for a row stamped before Task 22's columns existed. */
+function logCompleted(id: number) {
+  const r = db()
+    .prepare(
+      `select id as candidateId, batch_id as batchId, sku, cost_usd as costUsd,
+         round((julianday(completed_at) - julianday(submitted_at)) * 86400000) as lumaMs
+       from candidates where id = ?`,
+    )
+    .get(id) as {
+    candidateId: number;
+    batchId: number;
+    sku: string;
+    costUsd: number;
+    lumaMs: number | null;
+  };
+  console.log(JSON.stringify({ event: "candidate_completed", ...r }));
 }
 
 /** pollOne and submitOne never throw, so a rejection here is a bug; log it like tick() does. */

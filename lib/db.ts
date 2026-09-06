@@ -35,7 +35,8 @@ create table if not exists candidates (
   prompt text not null, luma_generation_id text, state text not null default ${st("queued")} check (state in (${list(CANDIDATE_STATES)})),
   shot_idea text,
   cost_usd real not null default 0, failure_reason text, attempts integer not null default 0,
-  decided_by text, created_at text not null default (datetime('now')), decided_at text
+  decided_by text, created_at text not null default (datetime('now')), decided_at text,
+  submitted_at text, completed_at text
 );
 create index if not exists candidates_sku on candidates(sku);
 create index if not exists candidates_state on candidates(state);
@@ -59,8 +60,8 @@ export function db(): Database.Database {
   d.pragma("foreign_keys = ON");
   d.exec(SCHEMA);
   // `create table if not exists` cannot add a column to a database that already exists
-  // (a running deploy's volume). ponytail: two additive columns, inline; a migrations
-  // table the day there is a third one.
+  // (a running deploy's volume). ponytail: three additive changes (four columns), inline
+  // (D12, D17, Task 22); a migrations table at the fourth change.
   const settingsCols = (
     d.prepare("pragma table_info(settings)").all() as { name: string }[]
   ).map((c) => c.name);
@@ -84,6 +85,11 @@ export function db(): Database.Database {
         "update candidates set shot_idea = (select shot_idea from products where products.sku = candidates.sku) where shot_idea is null",
       );
     })();
+  // Task 22: when Luma accepted the job and when the image landed. No backfill: null means
+  // "not yet" or "before this column existed", and every duration query ignores nulls.
+  for (const col of ["submitted_at", "completed_at"])
+    if (!candidateCols.includes(col))
+      d.exec(`alter table candidates add column ${col} text`);
   globalThis.__shotsDb = d;
   return d;
 }

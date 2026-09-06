@@ -151,6 +151,8 @@ npm run dev                      # http://localhost:3000, no ACCESS_TOKEN needed
 npm run check                    # typecheck, lint, format, tests — same as CI and the pre-commit hook
 ```
 
+`/metrics` returns performance JSON (counts, spend, Luma and decision latency percentiles, the last twenty batches with wall clock, images per minute) behind the same team link; the worker also logs one `candidate_completed` JSON line per landed image.
+
 **Deploy (Railway):** new project from this GitHub repo, builder = Dockerfile (`railway.json`). Add a volume mounted at `/data` (scheduled backups need the Pro plan; on Hobby the volume is the only copy, so keep the exports). Set the env vars from `.env.example` (paste the Luma key by hand from your own `.env.local`, never through an AI session). Generate a domain, set `APP_URL` to it, redeploy. `/healthz` is the health check path and is exempt from the access gate.
 
 The access-gate redirect uses `APP_URL` as its origin (not forwarded headers, which a client can fake), so set it to the public domain.

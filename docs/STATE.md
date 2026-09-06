@@ -227,12 +227,11 @@ candidate with no retry and shows `failure.userMessage` on the card.
   user's review. Evaluator PASS → Codex 4 findings (1 blocking: a late photo fetch could
   submit after a sibling's pause; guarded) → evaluator FAIL on one untested branch → P7b
   added → Codex re-check clean. 188 tests. `.prettierignore` excludes `docs/architecture/`.
-- Analytics: **Task 22, brief at `.superpowers/sdd/task-22-brief.md`**, starts from `main`
-  only after #23 merges (both touch `lib/worker.ts`). User's calls: no UI; a gated
-  `/metrics` JSON endpoint plus one JSON log line per completed candidate; the two columns
-  go inline (third additive change, migrations table deferred to the fourth; note in D17).
-  Original note: `submitted_at` and `completed_at` on `candidates`, then batch wall clock,
-  Luma latency and time-to-first-decision in the Spend sheet (APPROACH.md, unit economics).
+- ~~Analytics: Task 22, brief at `.superpowers/sdd/task-22-brief.md`~~ **done on
+  `task/22-analytics-timestamps`**: `submitted_at` and `completed_at` on `candidates`
+  (inline, third additive change, D17 notes the fourth brings a migrations table), a gated
+  `/metrics` JSON endpoint (`lib/analytics.ts` `performance()`), one `candidate_completed`
+  JSON log line per landed image. No UI. Awaiting evaluator, Codex and the user's review.
 
 ## Open items for the user
 

@@ -49,6 +49,10 @@ export interface Candidate {
   decided_by: string | null;
   created_at: string;
   decided_at: string | null;
+  /** SQLite datetime('now') strings (UTC, second resolution); null until the step happens,
+   *  and for rows from before Task 22's columns existed. */
+  submitted_at: string | null;
+  completed_at: string | null;
 }
 
 /** Free-text limits at the trust boundary. They live here, not in `lib/review.ts` or

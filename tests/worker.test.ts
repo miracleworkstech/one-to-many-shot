@@ -143,6 +143,12 @@ test("(1) a submitted candidate is charged at once, then the finished image land
   seedProduct();
   const id = seedCandidate();
   let polls = 0;
+  // Task 22: the completion log line is the worker's only console.log; capture it here only.
+  const logged: string[] = [];
+  const originalLog = console.log;
+  console.log = (line: unknown) => {
+    logged.push(String(line));
+  };
   const restore = stubFetch((url, init) => {
     if (url === PHOTO) return { body: JPEG };
     if (isSubmit(url, init))
@@ -166,6 +172,8 @@ test("(1) a submitted candidate is charged at once, then the finished image land
     assert.equal(c.cost_usd, env.costPerImage);
     assert.equal(c.luma_generation_id, "gen-1");
     assert.equal(c.attempts, 1);
+    assert.notEqual(c.submitted_at, null, "stamped when Luma accepted the job");
+    assert.equal(c.completed_at, null);
 
     const submit = calls.find((x) => isSubmit(x.url, x.init));
     const sent = JSON.parse(String(submit?.init?.body)) as {
@@ -192,8 +200,30 @@ test("(1) a submitted candidate is charged at once, then the finished image land
     assert.equal(c.state, "completed");
     assert.equal(c.cost_usd, env.costPerImage);
     assert.ok(storage.readImage(id), "the image is on disk");
+    assert.notEqual(c.completed_at, null, "stamped when the image landed");
+    // One candidate_completed line, right fields; lumaMs is SQLite's second-resolution
+    // difference of the two stamps, so 0 or 1000 here, never negative.
+    assert.equal(logged.length, 1);
+    const line = JSON.parse(logged[0]) as {
+      event: string;
+      candidateId: number;
+      batchId: number;
+      sku: string;
+      lumaMs: number | null;
+      costUsd: number;
+    };
+    assert.equal(line.event, "candidate_completed");
+    assert.equal(line.candidateId, id);
+    assert.equal(line.batchId, c.batch_id);
+    assert.equal(line.sku, "HG-002");
+    assert.equal(line.costUsd, env.costPerImage);
+    assert.ok(
+      line.lumaMs !== null && line.lumaMs >= 0 && line.lumaMs % 1000 === 0,
+      `lumaMs ${line.lumaMs}`,
+    );
     assert.deepEqual(unexpected, []);
   } finally {
+    console.log = originalLog;
     restore();
   }
 });

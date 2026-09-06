@@ -153,7 +153,7 @@ tap too many, this is the shape to move to, and the server does not change.
 | Parsing notes into rules | value | "Discontinued after spring?" is a question, not a flag. A human reads it at approval. |
 | A spend cap per period or per drop | value | The cap is one lifetime number, $50 by default, which covers the drop, the sixteen existing ideas, a round of retries and most of a full catalog pass. A per-drop cap is one column on `batches`; it earns its place the first time the lifetime number is raised. |
 | Per-drop zips and batch history on the page | time | Both are one query each. Acceptable for v1: the whole-catalog zip and the spend total cover the first drop. |
-| A migrations table | time | Two additive columns live inline; the third schema change gets the table (D17). |
+| A migrations table | time | Three additive changes live inline; the fourth gets the table (D17). |
 | Pruning rejected images | time | Sixty kilobytes a rejection; the volume will not notice this year. |
 | Volume backups | time and money | Scheduled backups are a Railway Pro feature; the app runs on Hobby. Until then the database and images are one disk with no copy. |
 
@@ -167,11 +167,10 @@ tap too many, this is the shape to move to, and the server does not change.
 3. Per-drop zip and a "Batches" line in the spend sheet (the second drop).
 4. A second approver with named magic links (the first time Ellie is on holiday; `/next`
    then becomes a per-reviewer queue).
-5. Product analytics: first two timestamps on `candidates` (submitted, completed) so batch
-   wall clock and Luma latency are read from the Spend sheet instead of a stopwatch, then the
-   queries over tables that already exist (below).
+5. Product analytics beyond `/metrics` and the completion log line: approval rate by idea
+   source and the other queries over tables that already exist (below).
 6. Infrastructure, in this order and only at these triggers: a migrations table at the
-   third schema change (two additive columns live inline today); images to object storage
+   fourth schema change (three additive changes live inline today); images to object storage
    when the storefront wants to hotlink them or the volume passes 60 percent (a one-off
    copy and a swap of the storage module); SQLite to Postgres only if concurrent writers
    ever matter, which at six people they do not; a second instance last, because Railway
@@ -223,13 +222,12 @@ infrastructure. Storage is about 1.5 GB of JPEGs, fine on a volume; the zip stre
 3,000-image download is a 1.5 GB file the web person should never want, which is why
 per-drop zips are on the next list.
 
-**What is not measured yet.** The ledger records when a candidate was created and decided,
-not when Luma accepted it or when the image landed, so the batch timing above came from a
-stopwatch. Two timestamps on `candidates` (submitted, completed) turn the Spend sheet into
-the place these numbers are read from: Luma latency per image, batch wall clock, and time
-from "ready to review" to the first decision. That is the first analytics change on the
-next list, ahead of anything about approval rates, because it is what a throughput
-conversation needs.
+**How these numbers are read now.** The ledger stamps when Luma accepted each job and when
+the image landed, so the batch timing above no longer needs a stopwatch. `/metrics`, behind
+the team link, returns Luma latency per image (p50, p90, max), time from landing to
+decision, wall clock per batch and images per minute as JSON; the worker also logs one
+JSON line per landed image so Railway's log view carries the same numbers. Nothing of this
+is on the status page: it is for whoever is tuning concurrency, not for Ellie.
 
 ## What breaks first under pressure
 
@@ -300,11 +298,13 @@ The gaps, in the order they would hurt:
    line the process can write. An external uptime monitor on `/healthz` (Railway points at
    its Uptime Kuma template) is the only thing that sees that.
 
-**Product analytics.** No events are written and none need to be: every question Maya would
-ask is a query over tables that already exist. What is missing is two timestamps
-(`submitted_at`, `completed_at` on `candidates`) so Luma latency, batch wall clock and time
-from "ready" to the first decision are read from the Spend sheet instead of a stopwatch.
-After that: approval rate by idea source (sheet, suggested, edited) says whether Haiku ideas
+**Product analytics.** No event rows are written to the database and none need to be: every question Maya would
+ask is a query over tables that already exist. Two timestamps on `candidates`
+(`submitted_at` when Luma accepts the job, `completed_at` when the image lands) feed a gated
+`/metrics` JSON endpoint (counts, spend, Luma and decision latency as p50/p90/max, the last
+twenty batches with wall clock, images per minute) and one `candidate_completed` JSON log
+line per landed image, so Luma latency and batch wall clock are read from data instead of a
+stopwatch; nothing on the status page changed. Next: approval rate by idea source (sheet, suggested, edited) says whether Haiku ideas
 earn their keep, which needs the source snapshotted on the candidate beside the idea;
 retries per product and rejection rate per material say where the prompt is weak; products
 stuck in "needs more" for a week say where the idea is wrong. These belong in the Spend
@@ -364,7 +364,7 @@ push to main and restarts on failure behind the health check. Rollback is a rede
 previous image from the Railway dashboard. For a larger team the additions are branch
 protection that requires the check, a staging service with its own volume and a throwaway
 Luma key so a PR can be tried against real generation, Railway preview environments per PR,
-a migrations table before the third schema change, and a post-deploy smoke that opens the
+a migrations table before the fourth schema change, and a post-deploy smoke that opens the
 health check and imports the sample CSV. What I would not add is a release train: one
 process and one database means deploying is cheap and rolling back is cheaper, and the risk
 that matters is a deploy mid-batch, which is a habit, not a pipeline.
