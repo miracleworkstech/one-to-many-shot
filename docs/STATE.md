@@ -16,7 +16,7 @@ Evaluator round 1 FAIL (end card linked to `/next`, which does not exclude the c
 product), fixed; round 2 PASS. **Codex review skipped:** Codex CLI 0.144.4 rejects its
 account's default model (`gpt-6-astra` needs a newer CLI) and `-m gpt-5.4` is refused for
 ChatGPT accounts; update the CLI (`npm i -g @openai/codex`) and run the review on the PR
-diff. PR opened, stop for the user's review. Open item for the user: pin
+diff. PR #20 open, stop for the user's review. Open item for the user: pin
 the team link in the Slack channel (ASSUMPTIONS 20). `node_modules` in the worktree is a
 junction to the main checkout (better-sqlite3 has no prebuild for the local Node 26 and
 there is no Visual Studio; the main checkout's install works).**
