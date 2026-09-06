@@ -29,6 +29,7 @@ import { GenerateProductForm } from "@/components/GenerateProductForm";
 import { Spinner, SubmitButton } from "@/components/Pending";
 import { Refresher } from "@/components/Refresher";
 import { Sheet } from "@/components/Sheet";
+import { SlideArrows } from "@/components/SlideArrows";
 import { PRIMARY, QUIET } from "@/components/buttons";
 import { APP_NAME } from "@/components/Logo";
 
@@ -188,257 +189,265 @@ export default async function Review({
       )}
 
       {(cands.length > 0 || showEnd) && (
-        <ul
-          aria-label="Candidate shots, scroll sideways for more"
-          tabIndex={0}
-          className="-mx-4 mt-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 scroll-px-4 [scrollbar-width:none]"
-        >
-          {cands.map((c, i) => (
-            <li
-              key={c.id}
-              className="w-[88%] shrink-0 snap-start sm:w-full"
-              aria-label={`Slide ${i + 1} of ${slides}`}
-            >
-              <div className="relative">
-                {c.state === "queued" || c.state === "processing" ? (
-                  <div
-                    role="status"
-                    className="breathe flex aspect-[4/5] max-h-[60svh] flex-col items-center justify-center gap-2 rounded-lg bg-stone-200/60 px-4 text-center text-sm text-stone-700"
-                  >
-                    <Spinner className="text-stone-500" />
-                    <span>Generating…</span>
-                    <span className="text-xs text-stone-600">
-                      This page updates itself.
-                    </span>
+        <>
+          <ul
+            id="slides"
+            aria-label="Candidate shots, scroll sideways for more"
+            tabIndex={0}
+            className="-mx-4 mt-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 scroll-px-4 motion-safe:scroll-smooth [scrollbar-width:none]"
+          >
+            {cands.map((c, i) => (
+              <li
+                key={c.id}
+                className="w-[88%] shrink-0 snap-start sm:w-full"
+                aria-label={`Slide ${i + 1} of ${slides}`}
+              >
+                <div className="relative">
+                  {c.state === "queued" || c.state === "processing" ? (
+                    <div
+                      role="status"
+                      className="breathe flex aspect-[4/5] max-h-[60svh] flex-col items-center justify-center gap-2 rounded-lg bg-stone-200/60 px-4 text-center text-sm text-stone-700"
+                    >
+                      <Spinner className="text-stone-500" />
+                      <span>Generating…</span>
+                      <span className="text-xs text-stone-600">
+                        This page updates itself.
+                      </span>
+                    </div>
+                  ) : c.state === "failed" ? (
+                    <div
+                      role="status"
+                      className="flex aspect-[4/5] max-h-[60svh] flex-col justify-center rounded-lg border border-clay/30 bg-clay-tint p-5 text-sm text-stone-900"
+                    >
+                      <p className="inline-flex items-center gap-1.5 font-medium">
+                        <Dot tone="stop" />
+                        This one didn&apos;t come out
+                      </p>
+                      <p className="mt-1">
+                        {friendlyFailure(c.failure_reason)}
+                      </p>
+                      <p className="mt-2 text-stone-700">
+                        {isPhotoProblem(c.failure_reason) ? (
+                          <>
+                            Fix the Photo link for this row in the sheet, then
+                            import the new export from the{" "}
+                            <Link
+                              href="/"
+                              className="-my-3 inline-block py-3 font-medium underline-offset-2 hover:underline"
+                            >
+                              status page
+                            </Link>
+                            .
+                          </>
+                        ) : status === "generating" ? (
+                          "Wait for the one in progress, then try again."
+                        ) : (
+                          "Try again for a fresh set."
+                        )}
+                      </p>
+                    </div>
+                  ) : (
+                    // eslint-disable-next-line @next/next/no-img-element -- served by our own /img route from local disk; next/image would re-encode a file we already sized.
+                    <img
+                      src={`/img/${c.id}`}
+                      alt={`${p.name}: ${p.shot_idea ?? "candidate shot"}`}
+                      // The same 4:5 box as the placeholder and end cards, reserved before
+                      // the bytes arrive, so Approve and Reject never jump under a thumb.
+                      // Only the first slide is on screen at load; the rest fetch as they near.
+                      loading={i === 0 ? "eager" : "lazy"}
+                      decoding="async"
+                      className="block aspect-[4/5] max-h-[60svh] w-full rounded-lg bg-stone-200/60 object-contain"
+                    />
+                  )}
+                  <span className="absolute top-2 left-2 rounded-full bg-stone-900/70 px-2 py-0.5 text-xs font-medium text-white tabular-nums">
+                    {i + 1}/{slides}
+                  </span>
+                </div>
+
+                {c.state === "completed" && (
+                  <div className="mx-auto mt-3 flex max-w-xs gap-2">
+                    {(["approved", "rejected"] as const).map((s) => (
+                      <form key={s} action={decide} className="flex-1">
+                        <input type="hidden" name="id" value={c.id} />
+                        <input type="hidden" name="sku" value={sku} />
+                        <input type="hidden" name="state" value={s} />
+                        <SubmitButton
+                          aria-label={`${s === "approved" ? "Approve" : "Reject"}, slide ${i + 1}`}
+                          label={s === "approved" ? "Approve" : "Reject"}
+                          pendingLabel={
+                            s === "approved" ? "Approving…" : "Rejecting…"
+                          }
+                          className="inline-flex min-h-12 w-full items-center justify-center gap-1.5 rounded-lg border border-stone-300 bg-white px-3 text-base font-medium text-stone-900 transition-colors duration-150 ease-out hover:bg-stone-100 active:bg-stone-200 motion-reduce:transition-none"
+                        />
+                      </form>
+                    ))}
                   </div>
-                ) : c.state === "failed" ? (
-                  <div
-                    role="status"
-                    className="flex aspect-[4/5] max-h-[60svh] flex-col justify-center rounded-lg border border-clay/30 bg-clay-tint p-5 text-sm text-stone-900"
-                  >
-                    <p className="inline-flex items-center gap-1.5 font-medium">
-                      <Dot tone="stop" />
-                      This one didn&apos;t come out
-                    </p>
-                    <p className="mt-1">{friendlyFailure(c.failure_reason)}</p>
-                    <p className="mt-2 text-stone-700">
-                      {isPhotoProblem(c.failure_reason) ? (
+                )}
+
+                {/* Approved: the state is the loud thing, the way to change it is quiet. */}
+                {c.state === "approved" && (
+                  <div className="mt-3 flex flex-col items-center gap-2 text-center">
+                    <p
+                      className={`${justDecided(c.decided_at) ? "approved-in " : ""}inline-flex items-center gap-1.5 py-1 text-sm font-medium text-stone-900`}
+                      aria-label={`Approved, slide ${i + 1}`}
+                    >
+                      <Dot tone="ok" className="dot" />
+                      Approved
+                      {c.decided_at && (
                         <>
-                          Fix the Photo link for this row in the sheet, then
-                          import the new export from the{" "}
-                          <Link
-                            href="/"
-                            className="-my-3 inline-block py-3 font-medium underline-offset-2 hover:underline"
+                          <span aria-hidden="true">·</span>
+                          <time
+                            dateTime={`${c.decided_at.replace(" ", "T")}Z`}
+                            title={`${c.decided_at} UTC`}
+                            className="font-normal"
                           >
-                            status page
-                          </Link>
-                          .
+                            {shortDate(c.decided_at)}
+                          </time>
                         </>
-                      ) : status === "generating" ? (
-                        "Wait for the one in progress, then try again."
-                      ) : (
-                        "Try again for a fresh set."
                       )}
                     </p>
+                    <div className="flex gap-2">
+                      <form action={decide}>
+                        <input type="hidden" name="id" value={c.id} />
+                        <input type="hidden" name="sku" value={sku} />
+                        <input type="hidden" name="state" value="rejected" />
+                        <SubmitButton
+                          className={QUIET}
+                          aria-label={`Reject slide ${i + 1}`}
+                          label="Reject"
+                          pendingLabel="Rejecting…"
+                        />
+                      </form>
+                    </div>
                   </div>
-                ) : (
-                  // eslint-disable-next-line @next/next/no-img-element -- served by our own /img route from local disk; next/image would re-encode a file we already sized.
-                  <img
-                    src={`/img/${c.id}`}
-                    alt={`${p.name}: ${p.shot_idea ?? "candidate shot"}`}
-                    // The same 4:5 box as the placeholder and end cards, reserved before
-                    // the bytes arrive, so Approve and Reject never jump under a thumb.
-                    // Only the first slide is on screen at load; the rest fetch as they near.
-                    loading={i === 0 ? "eager" : "lazy"}
-                    decoding="async"
-                    className="block aspect-[4/5] max-h-[60svh] w-full rounded-lg bg-stone-200/60 object-contain"
-                  />
                 )}
-                <span className="absolute top-2 left-2 rounded-full bg-stone-900/70 px-2 py-0.5 text-xs font-medium text-white tabular-nums">
-                  {i + 1}/{slides}
-                </span>
-              </div>
-
-              {c.state === "completed" && (
-                <div className="mx-auto mt-3 flex max-w-xs gap-2">
-                  {(["approved", "rejected"] as const).map((s) => (
-                    <form key={s} action={decide} className="flex-1">
-                      <input type="hidden" name="id" value={c.id} />
-                      <input type="hidden" name="sku" value={sku} />
-                      <input type="hidden" name="state" value={s} />
-                      <SubmitButton
-                        aria-label={`${s === "approved" ? "Approve" : "Reject"}, slide ${i + 1}`}
-                        label={s === "approved" ? "Approve" : "Reject"}
-                        pendingLabel={
-                          s === "approved" ? "Approving…" : "Rejecting…"
-                        }
-                        className="inline-flex min-h-12 w-full items-center justify-center gap-1.5 rounded-lg border border-stone-300 bg-white px-3 text-base font-medium text-stone-900 transition-colors duration-150 ease-out hover:bg-stone-100 active:bg-stone-200 motion-reduce:transition-none"
-                      />
-                    </form>
-                  ))}
-                </div>
-              )}
-
-              {/* Approved: the state is the loud thing, the way to change it is quiet. */}
-              {c.state === "approved" && (
-                <div className="mt-3 flex flex-col items-center gap-2 text-center">
-                  <p
-                    className={`${justDecided(c.decided_at) ? "approved-in " : ""}inline-flex items-center gap-1.5 py-1 text-sm font-medium text-stone-900`}
-                    aria-label={`Approved, slide ${i + 1}`}
-                  >
-                    <Dot tone="ok" className="dot" />
-                    Approved
-                    {c.decided_at && (
-                      <>
-                        <span aria-hidden="true">·</span>
-                        <time
-                          dateTime={`${c.decided_at.replace(" ", "T")}Z`}
-                          title={`${c.decided_at} UTC`}
-                          className="font-normal"
-                        >
-                          {shortDate(c.decided_at)}
-                        </time>
-                      </>
-                    )}
-                  </p>
-                  <div className="flex gap-2">
-                    <form action={decide}>
-                      <input type="hidden" name="id" value={c.id} />
-                      <input type="hidden" name="sku" value={sku} />
-                      <input type="hidden" name="state" value="rejected" />
-                      <SubmitButton
-                        className={QUIET}
-                        aria-label={`Reject slide ${i + 1}`}
-                        label="Reject"
-                        pendingLabel="Rejecting…"
-                      />
-                    </form>
-                  </div>
-                </div>
-              )}
-            </li>
-          ))}
-          {showEnd && (
-            <li
-              className="w-[88%] shrink-0 snap-start sm:w-full"
-              aria-label={`End, ${slides} of ${slides}`}
-            >
-              {/* Where the product stands and every follow-up, always the last slide:
+              </li>
+            ))}
+            {showEnd && (
+              <li
+                className="w-[88%] shrink-0 snap-start sm:w-full"
+                aria-label={`End, ${slides} of ${slides}`}
+              >
+                {/* Where the product stands and every follow-up, always the last slide:
                   nothing to hunt for in a menu. Money actions stay one deliberate tap. */}
-              <div className="flex aspect-[4/5] max-h-[60svh] flex-col justify-center rounded-lg border border-stone-300 bg-white p-5 text-base">
-                {endKind === "done" ? (
-                  <>
-                    <p className="inline-flex items-center gap-2 font-semibold text-stone-900">
-                      <Check
-                        {...ICON}
-                        className={`${justDone ? "draw " : ""}text-moss`}
-                      />
-                      Done · {approved} approved
-                    </p>
-                    <p className="mt-1 text-sm text-stone-700">
-                      Both are in the download on the status page.
-                    </p>
-                  </>
-                ) : endKind === "photo" ? (
-                  <>
-                    <p className="font-semibold">Nothing to review yet</p>
-                    <p className="mt-1 text-sm text-stone-700">
-                      We couldn&apos;t fetch the product photo. Fix the Photo
-                      link for this row in the sheet, then import the new export
-                      from the status page; the next batch picks it up.
-                    </p>
-                  </>
-                ) : endKind === "generating" ? (
-                  <>
-                    <p className="inline-flex items-center gap-2 font-semibold text-stone-900">
-                      <Spinner className="text-stone-500" />
-                      More on the way
-                    </p>
-                    <p className="mt-1 text-sm text-stone-700">
-                      {approved} of {DONE_AT} approved so far. The new set lands
-                      here on its own.
-                    </p>
-                  </>
-                ) : endKind === "open" ? (
-                  <>
-                    <p className="font-semibold">{toDecide} still to decide</p>
-                    <p className="mt-1 text-sm text-stone-700">
-                      {approved} of {DONE_AT} approved so far. Decide the rest,
-                      or ask for another set.
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <p className="font-semibold">
-                      {approved === 0
-                        ? "Nothing approved yet"
-                        : `${approved} of ${DONE_AT} approved so far`}
-                    </p>
-                    <p className="mt-1 text-sm text-stone-700">
-                      {endKind === "retry"
-                        ? "Say what should change, or ask for another set."
-                        : "Ask for another set."}
-                    </p>
-                  </>
-                )}
-                <div className="mt-4 space-y-2">
-                  {/* The queue, not the catalog. This product is excluded: done with a
+                <div className="flex aspect-[4/5] max-h-[60svh] flex-col justify-center rounded-lg border border-stone-300 bg-white p-5 text-base">
+                  {endKind === "done" ? (
+                    <>
+                      <p className="inline-flex items-center gap-2 font-semibold text-stone-900">
+                        <Check
+                          {...ICON}
+                          className={`${justDone ? "draw " : ""}text-moss`}
+                        />
+                        Done · {approved} approved
+                      </p>
+                      <p className="mt-1 text-sm text-stone-700">
+                        Both are in the download on the status page.
+                      </p>
+                    </>
+                  ) : endKind === "photo" ? (
+                    <>
+                      <p className="font-semibold">Nothing to review yet</p>
+                      <p className="mt-1 text-sm text-stone-700">
+                        We couldn&apos;t fetch the product photo. Fix the Photo
+                        link for this row in the sheet, then import the new
+                        export from the status page; the next batch picks it up.
+                      </p>
+                    </>
+                  ) : endKind === "generating" ? (
+                    <>
+                      <p className="inline-flex items-center gap-2 font-semibold text-stone-900">
+                        <Spinner className="text-stone-500" />
+                        More on the way
+                      </p>
+                      <p className="mt-1 text-sm text-stone-700">
+                        {approved} of {DONE_AT} approved so far. The new set
+                        lands here on its own.
+                      </p>
+                    </>
+                  ) : endKind === "open" ? (
+                    <>
+                      <p className="font-semibold">
+                        {toDecide} still to decide
+                      </p>
+                      <p className="mt-1 text-sm text-stone-700">
+                        {approved} of {DONE_AT} approved so far. Decide the
+                        rest, or ask for another set.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="font-semibold">
+                        {approved === 0
+                          ? "Nothing approved yet"
+                          : `${approved} of ${DONE_AT} approved so far`}
+                      </p>
+                      <p className="mt-1 text-sm text-stone-700">
+                        {endKind === "retry"
+                          ? "Say what should change, or ask for another set."
+                          : "Ask for another set."}
+                      </p>
+                    </>
+                  )}
+                  <div className="mt-4 space-y-2">
+                    {/* The queue, not the catalog. This product is excluded: done with a
                       spare finished card, it is still in the queue, and "next" must move,
                       so the link names the SKU rather than going through /next. */}
-                  {endKind === "done" &&
-                    (nextSku ? (
-                      <Link href={`/review/${nextSku}`} className={PRIMARY}>
-                        Next to decide
-                        <ChevronRight {...ICON} />
-                      </Link>
-                    ) : (
+                    {endKind === "done" &&
+                      (nextSku ? (
+                        <Link href={`/review/${nextSku}`} className={PRIMARY}>
+                          Next to decide
+                          <ChevronRight {...ICON} />
+                        </Link>
+                      ) : (
+                        <Link href="/" className={PRIMARY}>
+                          Back to the drop
+                          <ChevronRight {...ICON} />
+                        </Link>
+                      ))}
+                    {endKind === "photo" && (
                       <Link href="/" className={PRIMARY}>
-                        Back to the drop
+                        Status page
                         <ChevronRight {...ICON} />
                       </Link>
-                    ))}
-                  {endKind === "photo" && (
-                    <Link href="/" className={PRIMARY}>
-                      Status page
-                      <ChevronRight {...ICON} />
+                    )}
+                    {canRetry && endKind !== "done" && endKind !== "photo" && (
+                      <GenerateProductForm
+                        key={`${p.sku}:end-retry`}
+                        sku={p.sku}
+                        kind="retry"
+                        label="Try again"
+                        variant={endKind === "retry" ? "primary" : "quiet"}
+                      />
+                    )}
+                    {canGenerate && endKind !== "photo" && (
+                      <GenerateProductForm
+                        key={`${p.sku}:end-more`}
+                        sku={p.sku}
+                        kind="product"
+                        label={`Generate ${env.candidatesPerProduct} more`}
+                        variant={endKind === "more" ? "primary" : "quiet"}
+                      />
+                    )}
+                    <Link href="#idea" className={`${QUIET} w-full`}>
+                      <Pencil {...ICON} />
+                      Change the idea
                     </Link>
+                  </div>
+                  {ideaNudge && endKind !== "done" && (
+                    <p className="mt-3 inline-flex items-start gap-1.5 text-sm font-medium text-stone-900">
+                      <Dot tone="wait" />
+                      <span>
+                        {rejected.length} rejected so far. Change the idea above
+                        before asking for another set.
+                      </span>
+                    </p>
                   )}
-                  {canRetry && endKind !== "done" && endKind !== "photo" && (
-                    <GenerateProductForm
-                      key={`${p.sku}:end-retry`}
-                      sku={p.sku}
-                      kind="retry"
-                      label="Try again"
-                      variant={endKind === "retry" ? "primary" : "quiet"}
-                    />
-                  )}
-                  {canGenerate && endKind !== "photo" && (
-                    <GenerateProductForm
-                      key={`${p.sku}:end-more`}
-                      sku={p.sku}
-                      kind="product"
-                      label={`Generate ${env.candidatesPerProduct} more`}
-                      variant={endKind === "more" ? "primary" : "quiet"}
-                    />
-                  )}
-                  <Link href="#idea" className={`${QUIET} w-full`}>
-                    <Pencil {...ICON} />
-                    Change the idea
-                  </Link>
                 </div>
-                {ideaNudge && endKind !== "done" && (
-                  <p className="mt-3 inline-flex items-start gap-1.5 text-sm font-medium text-stone-900">
-                    <Dot tone="wait" />
-                    <span>
-                      {rejected.length} rejected so far. Change the idea above
-                      before asking for another set.
-                    </span>
-                  </p>
-                )}
-              </div>
-            </li>
-          )}
-        </ul>
+              </li>
+            )}
+          </ul>
+          {slides > 1 && <SlideArrows listId="slides" />}
+        </>
       )}
 
       {/* The record of what was turned down: folded, wrapping, scales to dozens. */}
