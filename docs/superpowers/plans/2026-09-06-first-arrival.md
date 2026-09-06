@@ -33,4 +33,4 @@ both directions.
 - [x] D28 in DECISIONS.md, ASSUMPTIONS row 20 (team link pinned in the Slack channel),
       STATE.md, this file's boxes.
 - [x] Evaluator (`evaluating-task`, two rounds: FAIL on the end-card self-loop, then PASS).
-- [ ] Codex review (blocked: Codex CLI 0.144.4 is too old for its default model) → PR → stop for review.
+- [x] Codex review (one should-fix taken: the `/next?k=` two-hop middleware test) → PR #20 → stop for review.

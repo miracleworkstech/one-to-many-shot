@@ -13,10 +13,9 @@ links to `/next` and names the action, the review end card offers "Next to decid
 "Back to the drop", the 401 points at the link pinned in Slack, header "CSV" → "Catalog".
 `nextToDecide(except)` lives in `lib/queries.ts`. `npm run check` green (179 tests).
 Evaluator round 1 FAIL (end card linked to `/next`, which does not exclude the current
-product), fixed; round 2 PASS. **Codex review skipped:** Codex CLI 0.144.4 rejects its
-account's default model (`gpt-6-astra` needs a newer CLI) and `-m gpt-5.4` is refused for
-ChatGPT accounts; update the CLI (`npm i -g @openai/codex`) and run the review on the PR
-diff. PR #20 open, stop for the user's review. Open item for the user: pin
+product), fixed; round 2 PASS. Codex (CLI updated to 0.153.4, ran on `gpt-5.3-codex-spark`; the account's default
+model still wants a newer CLI): no blocking issues, one should-fix taken (a middleware test
+for the `/next?k=` two-hop). PR #20 open, stop for the user's review. Open item for the user: pin
 the team link in the Slack channel (ASSUMPTIONS 20). `node_modules` in the worktree is a
 junction to the main checkout (better-sqlite3 has no prebuild for the local Node 26 and
 there is no Visual Studio; the main checkout's install works).**

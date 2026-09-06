@@ -105,6 +105,26 @@ test("correct ?k= on /img/12?k=T&x=1: redirect to /img/12?x=1", () => {
   });
 });
 
+// The Slack deep link's first hop (D28): the token sets the cookie and the path survives,
+// so the second hop is /next itself; the token never reaches the route or the Location.
+test("the Slack link /next?k=T: 401 bare, then redirect to /next with the cookie", () => {
+  withToken(() => {
+    assert.equal(middleware(req("http://localhost:3000/next")).status, 401);
+    const res = middleware(req("http://localhost:3000/next?k=secret-token"));
+    assert.equal(res.status, 307);
+    const location = new URL(res.headers.get("location")!);
+    assert.equal(location.pathname, "/next");
+    assert.equal(location.search, "");
+    assert.match(res.headers.get("set-cookie") ?? "", /k=secret-token/);
+    const hop2 = middleware(
+      req("http://localhost:3000/next", {
+        headers: { cookie: "k=secret-token" },
+      }),
+    );
+    assert.equal(hop2.status, 200);
+  });
+});
+
 test("correct cookie on /export/zip: passes through", () => {
   withToken(() => {
     const res = middleware(
