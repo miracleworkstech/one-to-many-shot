@@ -6,3 +6,4 @@ dist
 data
 *.md
 package-lock.json
+docs/architecture/
