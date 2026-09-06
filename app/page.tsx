@@ -275,10 +275,19 @@ export default async function Home({
 
   return (
     <main className="mx-auto max-w-2xl px-4 pt-3 pb-10">
-      <header className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <h1 className="text-xl font-semibold">Styled shots</h1>
+      {/* One block for what this is (title, then the line under it), and one row for the
+          two header controls: stacked on a phone so every left edge is the page's, side by
+          side from sm up. Nothing wraps into the gap between title and explainer. */}
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-xl font-semibold">Styled shots</h1>
+          <p className="mt-1 max-w-prose text-sm text-stone-600">
+            Shot ideas from the catalog sheet, made into images by Luma. Approve
+            the ones that match.
+          </p>
+        </div>
         {total > 0 && (
-          <div className="ml-auto flex items-center gap-2 [anchor-name:--sheet]">
+          <div className="flex shrink-0 items-center gap-2 [anchor-name:--sheet]">
             <button type="button" popoverTarget="csv" className={QUIET}>
               Catalog
               <ChevronDown {...ICON} className="text-stone-500" />
@@ -341,13 +350,9 @@ export default async function Home({
           </div>
         )}
       </header>
-      <p className="text-sm text-stone-600">
-        Shot ideas from the catalog sheet, made into images by Luma. Approve the
-        ones that match.
-      </p>
 
       {total > 0 && (
-        <div className="mt-4">
+        <div className="mt-6">
           <p className="flex flex-wrap items-center gap-x-4 gap-y-1 font-medium text-stone-900 tabular-nums">
             <span className="inline-flex items-center gap-1.5">
               <StateDot tone="ok" />
