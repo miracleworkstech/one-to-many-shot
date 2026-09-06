@@ -28,7 +28,7 @@ export async function notifyIfBatchReady() {
     .get() as { skus: number; maxId: number };
   if (!ready.skus || ready.maxId <= last_notified_id) return;
   await notifySlack(
-    `${ready.skus} product${ready.skus === 1 ? "" : "s"} ready to review: ${env.appUrl}/?k=${env.accessToken}`,
+    `${ready.skus} product${ready.skus === 1 ? " has" : "s have"} new shots to approve or reject: ${env.appUrl}/next?k=${env.accessToken}`,
   );
   // ponytail: the watermark moves even if Slack was down (notifySlack swallows), so a lost
   // ping is not retried. The images are on the status page either way.

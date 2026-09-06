@@ -5,7 +5,23 @@
 
 ## Phase
 
-**Update 2026-09-05 (latest): Task 19 (D27) on `task/19-audit-p2`, rebased onto main
+**Update 2026-09-06 (latest): Task 20 (D28) on `task/20-first-arrival`, a worktree at
+`../lumalabs-task20` off main (08f4785, #19 merged): the `/impeccable onboard` + `clarify`
+journey review. A permanent purpose line under the status heading, `app/next/route.ts`
+(redirect to the first product needing a decision, else `/#decide`), the Slack message
+links to `/next` and names the action, the review end card offers "Next to decide" or
+"Back to the drop", the 401 points at the link pinned in Slack, header "CSV" → "Catalog".
+`nextToDecide(except)` lives in `lib/queries.ts`. `npm run check` green (179 tests).
+Evaluator round 1 FAIL (end card linked to `/next`, which does not exclude the current
+product), fixed; round 2 PASS. **Codex review skipped:** Codex CLI 0.144.4 rejects its
+account's default model (`gpt-6-astra` needs a newer CLI) and `-m gpt-5.4` is refused for
+ChatGPT accounts; update the CLI (`npm i -g @openai/codex`) and run the review on the PR
+diff. PR opened, stop for the user's review. Open item for the user: pin
+the team link in the Slack channel (ASSUMPTIONS 20). `node_modules` in the worktree is a
+junction to the main checkout (better-sqlite3 has no prebuild for the local Node 26 and
+there is no Visual Studio; the main checkout's install works).**
+
+**Update 2026-09-05: Task 19 (D27) on `task/19-audit-p2`, rebased onto main
 after #18 merged: the four P2 findings of `/impeccable audit` (15/20). Sheets are dialogs
 that take focus (`components/Sheet.tsx`), review pages are titled by product, the worker
 keeps a 1024 px review copy of every image (`lib/images.ts`, sharp declared) that `/img`

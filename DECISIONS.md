@@ -673,3 +673,29 @@ now. The lint exception for plain anchors is removed.
   `/img/[id]` makes a missing review copy on the first request (candidates from before
   D27, or a resize the worker could not do) instead of serving the 2048 px original for
   good; an original that will not decode is served as-is with a warning.
+
+## D28 — First arrival: a purpose line, a `/next` deep link, "Next to decide" (2026-09-06)
+
+- **Decision:** From an `/impeccable onboard` and `clarify` review of the Slack-to-review
+  journey. The status page carries one permanent line under its heading saying what the
+  app is ("Shot ideas from the catalog sheet, made into images by Luma. Approve the ones
+  that match."). A new `/next` route redirects to the first product needing a decision, in
+  the status page's list order, or to the queue heading when nothing does. The Slack batch
+  message links to `/next?k=…` and names the action ("12 products have new shots to approve
+  or reject"). On the review end card, a settled product offers "Next to decide" (via
+  `/next`, excluding itself) or "Back to the drop" when the queue is empty. The 401 body
+  points at the link pinned in Slack instead of naming people. The header's "CSV" button
+  reads "Catalog".
+- **Alternatives:** Linking Slack to the first SKU (stale by the time it is tapped, and
+  then Next walks the catalog). Linking to `/#decide` (the queue is already first and open;
+  near-zero gain). A first-visit-only purpose line with a cookie (state for one sentence).
+  An onboarding tour or welcome screen (PRODUCT.md: nothing to learn).
+- **Why:** "Obvious on first use" (PRODUCT.md) for someone arriving from a Slack invite
+  with no meeting behind them, evaluators included. The batch message promises products to
+  review, so the tap should land on one. The review loop should be one gesture, and the
+  catalog order is not the reviewer's order.
+- **Cost accepted:** Two redirects on the Slack tap (the gate, then the route). `/next`
+  and the done end card read the whole overview (about 300 rows) to find one SKU. One more
+  line above the drop bar on every load.
+- **Revisit trigger:** Per-user links or accounts (ASSUMPTIONS 1) would make `/next` a
+  per-reviewer queue. A second approver makes "first in the queue" a race worth a lock.

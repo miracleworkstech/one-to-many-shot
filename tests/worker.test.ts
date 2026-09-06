@@ -582,8 +582,11 @@ test("(11) one Slack message per settled batch", async () => {
     seedCandidate({ sku: "HG-002", state: "completed" });
     await notifyIfBatchReady();
     assert.equal(posts.length, 1);
-    assert.match(posts[0] ?? "", /1 product ready to review/);
-    assert.match(posts[0] ?? "", /https:\/\/shots.example.test\/\?k=t0ken/);
+    assert.match(
+      posts[0] ?? "",
+      /1 product has new shots to approve or reject/,
+    );
+    assert.match(posts[0] ?? "", /https:\/\/shots.example.test\/next\?k=t0ken/);
 
     await notifyIfBatchReady();
     assert.equal(posts.length, 1, "nothing new completed");
@@ -591,7 +594,10 @@ test("(11) one Slack message per settled batch", async () => {
     seedCandidate({ sku: "HG-003", state: "completed" });
     await notifyIfBatchReady();
     assert.equal(posts.length, 2);
-    assert.match(posts[1] ?? "", /2 products ready to review/);
+    assert.match(
+      posts[1] ?? "",
+      /2 products have new shots to approve or reject/,
+    );
 
     seedCandidate({ sku: "HG-002", state: "queued" });
     seedCandidate({ sku: "HG-002", state: "completed" });

@@ -11,7 +11,8 @@ delete process.env.ANTHROPIC_API_KEY;
 const { db } = await import("../lib/db.ts");
 const { parseCatalog } = await import("../lib/catalog.ts");
 const { importCatalogRows } = await import("../lib/import.ts");
-const { overview, productDetail } = await import("../lib/queries.ts");
+const { overview, productDetail, nextToDecide } =
+  await import("../lib/queries.ts");
 
 after(() => {
   db().close();
@@ -137,4 +138,32 @@ test("productName: the name for a known SKU, null otherwise", async () => {
   const { productName } = await import("../lib/queries.ts");
   assert.equal(productName("HG-008"), "Salt + Pepper Cellar Set");
   assert.equal(productName("NOPE-1"), null);
+});
+
+test("nextToDecide: the first queued SKU in list order, null when nothing needs a decision", () => {
+  // HG-008 sorts first but is idea_ready; HG-002 has a completed candidate to decide.
+  assert.equal(nextToDecide(), "HG-002");
+  const d = db();
+  // All rejected is "needs more": still the reviewer's to act on, so still first.
+  d.prepare("update candidates set state='rejected' where sku='HG-002'").run();
+  assert.equal(nextToDecide(), "HG-002");
+  // The reviewer is already on HG-002: "next" must not point back at it.
+  assert.equal(nextToDecide("HG-002"), null);
+  // HG-002 becomes done with a spare finished card, HG-008 (first in list order) gets a
+  // card to decide. The Slack link goes to HG-008; from HG-008's end card, next is HG-002
+  // (done, but that spare card is still a decision); from HG-002's own end card, HG-008.
+  const b = d
+    .prepare("insert into batches (kind) values ('product')")
+    .run().lastInsertRowid;
+  const ins = d.prepare(
+    "insert into candidates (sku, batch_id, prompt, state) values (?, ?, 'p', ?)",
+  );
+  for (const state of ["approved", "approved", "completed"])
+    ins.run("HG-002", b, state);
+  ins.run("HG-008", b, "completed");
+  assert.equal(nextToDecide(), "HG-008");
+  assert.equal(nextToDecide("HG-008"), "HG-002");
+  assert.equal(nextToDecide("HG-002"), "HG-008");
+  d.prepare("delete from candidates").run();
+  assert.equal(nextToDecide(), null);
 });

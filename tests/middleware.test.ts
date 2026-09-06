@@ -52,7 +52,7 @@ test("no cookie and no ?k=: 401 with the team-link message", async () => {
   assert.equal(res.status, 401);
   assert.equal(
     await res.text(),
-    "This page needs the team link. Ask Maya or Ellie for it.",
+    "This page needs the team link. Open it from the link pinned in Slack.",
   );
 });
 

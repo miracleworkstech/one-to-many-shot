@@ -7,7 +7,7 @@ import {
   ChevronRight,
   Pencil,
 } from "lucide-react";
-import { productDetail, productName } from "@/lib/queries";
+import { nextToDecide, productDetail, productName } from "@/lib/queries";
 import {
   STATUS_LABEL,
   STATUS_TONE,
@@ -89,6 +89,7 @@ export default async function Review({
       .at(-1) ?? null,
   );
   const showEnd = !!p.shot_idea && all.length > 0;
+  const nextSku = endKind === "done" ? nextToDecide(p.sku) : null;
   const meta = [p.color, p.material, p.price].filter(Boolean).join(" · ");
   const slides = cands.length + (showEnd ? 1 : 0);
   const ideaNudge = needsNewIdea(rejected.length, env.candidatesPerProduct);
@@ -380,12 +381,21 @@ export default async function Review({
                   </>
                 )}
                 <div className="mt-4 space-y-2">
-                  {endKind === "done" && next && (
-                    <Link href={`/review/${next}`} className={PRIMARY}>
-                      Next product
-                      <ChevronRight {...ICON} />
-                    </Link>
-                  )}
+                  {/* The queue, not the catalog. This product is excluded: done with a
+                      spare finished card, it is still in the queue, and "next" must move,
+                      so the link names the SKU rather than going through /next. */}
+                  {endKind === "done" &&
+                    (nextSku ? (
+                      <Link href={`/review/${nextSku}`} className={PRIMARY}>
+                        Next to decide
+                        <ChevronRight {...ICON} />
+                      </Link>
+                    ) : (
+                      <Link href="/" className={PRIMARY}>
+                        Back to the drop
+                        <ChevronRight {...ICON} />
+                      </Link>
+                    ))}
                   {endKind === "photo" && (
                     <Link href="/" className={PRIMARY}>
                       Status page

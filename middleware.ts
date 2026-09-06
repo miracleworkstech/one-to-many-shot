@@ -26,7 +26,7 @@ export function middleware(req: NextRequest) {
   }
   if (req.cookies.get("k")?.value === token) return NextResponse.next();
   return new NextResponse(
-    "This page needs the team link. Ask Maya or Ellie for it.",
+    "This page needs the team link. Open it from the link pinned in Slack.",
     { status: 401 },
   );
 }

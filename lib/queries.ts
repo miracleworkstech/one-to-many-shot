@@ -33,6 +33,23 @@ export function overview() {
   return { rows, counts, pausedReason: paused_reason };
 }
 
+/** Anything a reviewer can act on, whatever the lifecycle status says: a product with a
+ *  second batch in flight still has its first candidates to decide, and a done product
+ *  with a spare finished candidate still owes a decision on money already spent. */
+export const needsDecision = (r: { toDecide: number; status: ProductStatus }) =>
+  r.toDecide > 0 || r.status === "needs_more";
+
+/** The first product in the queue, in the status page's list order, for the Slack deep
+ *  link and the review page's "Next to decide". `except` is the product the reviewer is
+ *  already on: a done product with a spare finished card is still in the queue, and "next"
+ *  must not point back at it. `null` when nothing else needs a decision. */
+export function nextToDecide(except?: string): string | null {
+  return (
+    overview().rows.find((r) => needsDecision(r) && r.p.sku !== except)?.p
+      .sku ?? null
+  );
+}
+
 /** One product's review screen: the product, its candidates newest first, the neighbours
  *  in the same priority order the list page uses, and where this SKU sits in that order
  *  (`position` of `total`, for the Prev/Next bar). `null` when the SKU is unknown. */

@@ -6,7 +6,7 @@ import {
   Download,
   Gauge,
 } from "lucide-react";
-import { overview } from "@/lib/queries";
+import { needsDecision, overview } from "@/lib/queries";
 import { spendSummary } from "@/lib/analytics";
 import { pageOf, pageParam } from "@/lib/paging";
 import {
@@ -51,11 +51,6 @@ type Row = {
 };
 /** Flat query string, first value of a repeated key, for the pagers' links. */
 type Params = Record<string, string>;
-
-/** Anything a reviewer can act on, whatever the lifecycle status says: a product with a
- *  second batch in flight still has its first candidates to decide, and a done product
- *  with a spare finished candidate still owes a decision on money already spent. */
-const needsDecision = (r: Row) => r.toDecide > 0 || r.status === "needs_more";
 
 /** The one fact a row carries beside the name: what is waiting on the reviewer, or how
  *  far the product is from done. Nothing for the passive states; the name is enough. */
@@ -285,7 +280,7 @@ export default async function Home({
         {total > 0 && (
           <div className="ml-auto flex items-center gap-2 [anchor-name:--sheet]">
             <button type="button" popoverTarget="csv" className={QUIET}>
-              CSV
+              Catalog
               <ChevronDown {...ICON} className="text-stone-500" />
             </button>
             {/* The sheet's two directions: the updated export out, a new export in. */}
@@ -346,6 +341,10 @@ export default async function Home({
           </div>
         )}
       </header>
+      <p className="text-sm text-stone-600">
+        Shot ideas from the catalog sheet, made into images by Luma. Approve the
+        ones that match.
+      </p>
 
       {total > 0 && (
         <div className="mt-4">
