@@ -178,56 +178,38 @@ tap too many, this is the shape to move to, and the server does not change.
 
 ## Unit economics
 
-Measured on the live deploy, two runs: one product on 2026-09-04 (estimate and actual
-agreed at $0.09) and a ten-product batch on 2026-09-06, triggered and reviewed from a
-phone.
+Measured live: one product on 2026-09-04 (estimate and actual both $0.09) and a ten-product
+batch on 2026-09-06, triggered and reviewed from a phone.
 
-| Quantity | Value | Source |
-|---|---|---|
-| Luma cost per image | $0.0434 | Luma pricing, matched by the ledger |
-| Cost per product (two candidates) | $0.09 | live, estimate and actual agreed |
-| A ten-product batch, twenty images | 5 min 20 s from tap to the last candidate in review | live, concurrency 4 |
-| Throughput at concurrency 4 | just under 4 images a minute | derived from the batch |
-| Haiku suggestions per import | under a cent for 40 rows | one chunked call |
-| Railway service and volume | about $5 a month | Railway Hobby pricing |
+| Quantity | Value |
+|---|---|
+| Luma, per image | $0.0434 |
+| Per product, two candidates | $0.09 |
+| Ten products, twenty images | 5 min 20 s tap to last candidate, concurrency 4 |
+| Throughput at concurrency 4 | just under 4 images a minute |
+| Haiku ideas per import | under a cent |
+| Railway, per month | about $5 |
 
-**One approved image** costs `0.0434 × candidates generated ÷ candidates approved` in dollars.
-The Spend sheet computes that from the ledger as `costPerApproved` and `approvalRate`, and
-the number to quote is whatever it says after the sixteen sheet ideas have been reviewed;
-until then the honest figure is a bound: between $0.04 (every candidate approved) and
-$0.13 (one in three). In minutes: about one of Maya's per import, about fifteen seconds of
-Ellie's per candidate (assumed, not yet timed), and about sixteen seconds of wall clock per
-image at concurrency four. The 40-product drop is eighty images in two batches (the
-in-flight cap is forty), so about 22 minutes of generation and about 20 minutes of Ellie's
-thumb, spread across her day.
+**One approved image** costs `0.0434 × generated ÷ approved`. The Spend sheet computes it from
+the ledger; until the first sixteen sheet ideas are reviewed the honest figure is a bound,
+$0.04 (every candidate approved) to $0.13 (one in three). In minutes: about one of Maya's
+per import, about fifteen seconds of Ellie's per candidate (assumed), sixteen seconds of
+wall clock per image. The drop is eighty images in two batches (the in-flight cap is
+forty): about 22 minutes of generation, about 20 minutes of Ellie's thumb.
 
-| Scale | Products | One pass | Generation | Ellie's review | Notes |
-|---|---|---|---|---|---|
-| The drop | 40 | $3.50 | 22 min | 20 min | two batches |
-| The catalog | 300 | $26 | 2.7 h | 2.5 h | half the default spend cap |
-| 10× | 3,000 | $260 | 27 h | 25 h | attention and throughput, both ceilings |
+| Scale | Products | One pass | Generation | Review |
+|---|---|---|---|---|
+| The drop | 40 | $3.50 | 22 min | 20 min |
+| The catalog | 300 | $26 | 2.7 h | 2.5 h |
+| 10× | 3,000 | $260 | 27 h | 25 h |
 
-**At 10× the catalog** the code holds and four knobs move. The spend cap is lifetime, $50
-by default, so it must be raised (an environment variable and a restart). The in-flight cap
-sets batch size, so a 3,000-product pass is 150 batches. Throughput is set by
-`LUMA_CONCURRENCY`, four today; Luma's own limit is the ceiling, and the worker already
-backs off on a rate limit, so raising it is a variable, not code. Beyond that the worker
-has two places to earn time: it polls, downloads and resizes each finished image in series
-before it submits the next, so a freed slot waits for a download; and it submits in
-series, so four submissions are four round trips. Both are a `Promise.all`. The status page
-pages six rows a group, so the Done group needs search before it needs a database. Ellie's
-25 hours per pass is the real limit: at that scale the product needs a second approver and
-a "good enough" rule (approve the first candidate that passes) more than it needs any
-infrastructure. Storage is about 1.5 GB of JPEGs, fine on a volume; the zip streams, so a
-3,000-image download is a 1.5 GB file the web person should never want, which is why
-per-drop zips are on the next list.
-
-**How these numbers are read now.** The ledger stamps when Luma accepted each job and when
-the image landed, so the batch timing above no longer needs a stopwatch. `/metrics`, behind
-the team link, returns Luma latency per image (p50, p90, max), time from landing to
-decision, wall clock per batch and images per minute as JSON; the worker also logs one
-JSON line per landed image so Railway's log view carries the same numbers. Nothing of this
-is on the status page: it is for whoever is tuning concurrency, not for Ellie.
+**At 10×** the code holds and the knobs move: the lifetime spend cap ($50 default), the
+in-flight cap (batch size), `LUMA_CONCURRENCY` (throughput, bounded by Luma's rate limit).
+The real limit is Ellie's 25 hours per pass, which wants a second approver and a "good
+enough" rule before it wants any infrastructure. Storage is about 1.5 GB, fine on a volume;
+the whole-catalog zip becomes a per-drop zip. Latency and throughput are read from
+`/metrics` (behind the team link) and from one JSON log line per landed image, not from a
+stopwatch.
 
 ## What breaks first under pressure
 
@@ -261,110 +243,62 @@ In the order I expect to hear about them.
 
 ## Operating it
 
-What exists, then the gaps and what closes each. None of the additions are built; each is
-named with its trigger so the interview can argue about the order.
+None of the additions below are built. Each is named with the trigger that makes it worth
+doing.
 
-**Logging and error monitoring.** Observability is minimal by design at six users and one
-process, and this is the section that says how minimal.
+**Logging and monitoring.** Today: one log line per event that matters (worker paused with
+its typed reason, a tick that threw, a rate limit, a failed download, a Slack or suggestion
+or export failure), readable in Railway's log view; a paused banner with a Resume button on
+the status page; a health check that gates each deploy and a startup that exits on a
+missing variable. The gaps, in the order they would hurt:
 
-What is covered today:
+1. Nobody is told. A pause is seen only by someone who opens the page. Railway log alerts
+   on the paused and tick-error lines, or a post to the existing Slack webhook.
+2. Logs are prose. One JSON line per tick outcome so an alert can match on a code.
+3. No request logging. Railway's HTTP metrics first; a request id in action logs after.
+4. No exception tracker. Worth a day the first time an error repeats across users.
+5. Nothing outside the process. An external uptime monitor on `/healthz`.
 
-- The worker logs one line per event that matters: paused (with the typed reason), a tick
-  that threw, a Luma rate limit, a download that came back non-200, a review copy that
-  could not be made. Slack, the suggestion call and the export each log their own failure.
-  Twelve lines in total, all readable in Railway's log view.
-- Every Luma response maps to a typed code, so a log line and the banner say the same thing
-  in the same words.
-- The status page is the alerting surface: a paused worker shows its reason and a Resume
-  button under the drop bar; a failed candidate shows its reason on its card.
-- The health check gates each deploy, and a startup with a missing variable exits 1 so
-  Railway restarts instead of serving 500s.
+**Product analytics.** No event rows; every question is a query over existing tables.
+`/metrics` and the per-image log line already give Luma latency, decision latency, batch
+wall clock and images per minute. Next, as lines in the Spend sheet, not a dashboard:
+approval rate by idea source (needs the source snapshotted on the candidate), retries per
+product, rejection rate per material, products stuck in "needs more".
 
-The gaps, in the order they would hurt:
+**Security.** Today: one token in an httpOnly cookie, every route gated, redirects built
+from the configured origin, photo fetches refused into private address space, upload and
+photo size caps, CSV formulas neutralised, no names in the UI. Next: per-person links (also
+the audit trail), a rate limit on import and generate, token rotation that regenerates the
+exports.
 
-1. **Nobody is told.** A pause, a tick error or a Slack failure is visible only to someone
-   who opens the page or the log view. Close it with Railway log alerts on the paused and
-   tick-error lines, or a post to the existing Slack webhook from the same two places.
-2. **Logs are prose, not fields.** A line reads well and greps badly. One JSON line per tick
-   outcome (`code`, `candidateId`, `batchId`, `ms`) is the change that lets an alert match on
-   a code rather than a phrase, and it is a prerequisite for the first gap.
-3. **No request logging.** A slow or failing page is invisible unless a person reports it.
-   Railway's HTTP metrics cover status codes and latency per route without code; a
-   request-id in each server action's log line ties a user's report to the log.
-4. **No exception tracker.** Errors in server actions surface to the user as a message and
-   to nobody else. Sentry or the like is a day's work and earns its place the first time an
-   error repeats across users; until then the log is enough.
-5. **Nothing outside the process.** A container that stops taking traffic is caught by no
-   line the process can write. An external uptime monitor on `/healthz` (Railway points at
-   its Uptime Kuma template) is the only thing that sees that.
+**Scaling.** Ceiling named: six people, 300 products, drops of forty, one process, one
+volume. In order, each at its trigger:
 
-**Product analytics.** No event rows are written to the database and none need to be: every question Maya would
-ask is a query over tables that already exist. Two timestamps on `candidates`
-(`submitted_at` when Luma accepts the job, `completed_at` when the image lands) feed a gated
-`/metrics` JSON endpoint (counts, spend, Luma and decision latency as p50/p90/max, the last
-twenty batches with wall clock, images per minute) and one `candidate_completed` JSON log
-line per landed image, so Luma latency and batch wall clock are read from data instead of a
-stopwatch; nothing on the status page changed. Next: approval rate by idea source (sheet, suggested, edited) says whether Haiku ideas
-earn their keep, which needs the source snapshotted on the candidate beside the idea;
-retries per product and rejection rate per material say where the prompt is weak; products
-stuck in "needs more" for a week say where the idea is wrong. These belong in the Spend
-sheet as a handful of lines, not on a dashboard, because the dashboard is what this team
-already stopped opening.
+1. Knobs: concurrency, in-flight cap, spend cap. All environment variables.
+2. Prune rejected images past 60 percent of the volume.
+3. Images to object storage when the storefront wants to hotlink or the volume fills. One
+   copy job and a swap of the storage module; also what frees the volume for step 5.
+4. SQLite to Postgres only for concurrent writers from more than one process. Migrations
+   table first, then the driver.
+5. A second instance, after 3 and 4, with the worker's single-flight lock moved into the
+   database. For this customer, never.
 
-**Security.** Today: one token, httpOnly cookie, secure on https, every route gated, redirects
-built from the configured origin so forwarded headers cannot forge them, photo fetches
-refused into private address space with redirects followed at most three hops, uploads
-capped at 2 MB and photos at 15 MB, CSV formulas neutralised on export, no names in the UI.
-Next: per-person links, which is also the audit trail; a rate limit on the import and
-generate actions, because they are the two that cost money or CPU and the token is shared;
-a token rotation routine that regenerates the exports, because the CSV carries the key.
+The step this order refuses early is the database: Postgres first buys nothing for a year
+and adds a vendor for a team with no engineer.
 
-**Scaling.** The ceiling is named, not guessed: six people, about 300 products, drops of
-forty, one process, one volume. Each step below is taken only at its trigger, and the
-order is set by what each step unblocks.
+**CI/CD.** Today: a pre-commit hook and GitHub Actions both run typecheck, lint, format and
+tests (Actions adds the production build); every task went branch, evaluator, Codex, human
+PR review; Railway builds the Dockerfile on every push to main; rollback is a redeploy of
+the previous image. For a larger team: branch protection on the check, a staging service
+with its own volume and a throwaway Luma key, preview environments per PR, a migrations
+table before the fourth schema change, a post-deploy smoke that imports the sample CSV. Not
+a release train: with one process and one database, deploying is cheap and rolling back is
+cheaper.
 
-1. **Knobs, no code.** `LUMA_CONCURRENCY` sets throughput and is bounded by Luma's rate
-   limit, which the worker already backs off on; `MAX_IMAGES_IN_FLIGHT` sets batch size;
-   `MAX_TOTAL_SPEND_USD` is the budget. All three are environment variables. Trigger: the
-   first drop that feels slow, or the first refusal that was not wanted.
-2. **Worker parallelism.** The poll loop downloads and resizes finished images in series,
-   and submits in series, so a freed slot waits for a download and four submissions are
-   four round trips. Both become a `Promise.all`; the SQLite writes stay serial because
-   the process is single-threaded and better-sqlite3 is synchronous. Trigger: concurrency
-   raised and the batch still slower than Luma's own latency times the wave count.
-3. **Volume hygiene.** Rejected images stay on disk at about sixty kilobytes each plus a
-   review copy; the volume is 5 GB on Hobby. Prune rejections older than thirty days when
-   the volume passes 60 percent. Trigger: the volume metric in Railway.
-4. **Images to object storage** (R2 or S3). Why this before the database: images are the
-   bytes, the database is kilobytes; a volume cannot attach to a second instance, so the
-   images must leave it before anything else can scale; and the storefront wanting to
-   hotlink an approved image needs a public URL the app does not have to serve. Every disk
-   read and write already goes through one storage module, so this is a one-off copy job
-   and a swap of that module. Trigger: a hotlink request, or the volume past 60 percent
-   after pruning.
-5. **SQLite to Postgres.** Why this late: the write load is one worker and six people, and
-   SQLite in WAL mode serialises writes without anyone noticing at that rate. Postgres is
-   needed only for concurrent writers from more than one process, which is step 6. Nothing
-   in the schema assumes SQLite except the inline column additions, so this is a migrations
-   table first, then a driver swap. Trigger: a second process, or a second team.
-6. **A second instance.** Only possible after steps 4 and 5, and only needed if the process
-   is the bottleneck, which at this scale it is not. The worker's single-flight lock is
-   in-process; two instances need it in the database (a row lock on `settings`) so two
-   workers cannot submit the same queued candidate and pay twice. Trigger: headcount that
-   makes one process implausible, which for this customer is never.
+## Running it
 
-The step this order refuses to take early is the database. Moving to Postgres first would
-buy nothing for a year and cost a managed service, a migration and a second vendor for a
-team with no engineer on staff.
-
-**CI/CD.** Today: a pre-commit hook runs typecheck, lint, format and tests; GitHub Actions
-runs the same plus a production build on every push and PR; every task was a branch, an
-evaluator pass, a Codex review and a human PR review; Railway builds the Dockerfile on every
-push to main and restarts on failure behind the health check. Rollback is a redeploy of the
-previous image from the Railway dashboard. For a larger team the additions are branch
-protection that requires the check, a staging service with its own volume and a throwaway
-Luma key so a PR can be tried against real generation, Railway preview environments per PR,
-a migrations table before the fourth schema change, and a post-deploy smoke that opens the
-health check and imports the sample CSV. What I would not add is a release train: one
-process and one database means deploying is cheap and rolling back is cheaper, and the risk
-that matters is a deploy mid-batch, which is a habit, not a pipeline.
+`npm install && npm run prepare && npm run dev` on http://localhost:3000; `npm run check`
+is what the hook and CI run. Variables are listed in `.env.example`. Production is the
+Dockerfile on Railway with a volume at `/data`, `APP_URL` set to the public origin and
+`ACCESS_TOKEN` minting the team link; `/healthz` is the health check and `/metrics` the
+performance JSON, both documented above.
