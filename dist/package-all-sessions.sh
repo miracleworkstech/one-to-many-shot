@@ -48,18 +48,21 @@ ran_any=0
 sanitize_path() { printf '%s' "$1" | sed 's|/|-|g; s|_|-|g; s| |-|g'; }
 SANITIZED_SEARCH="$(sanitize_path "$SEARCH_ROOT")"
 CLAUDE_ROOT="$HOME/.claude/projects"
+# Windows: sessions record cwd as C:\Users\..., not /c/Users/... (see win-cwd.sh).
+. "$(dirname "$0")/win-cwd.sh"
 
 # Claude: look for any project dir whose sanitized name matches SEARCH_ROOT or a
 # subpath under it (candidate may run Claude from <repo>/subfolder).
 claude_found=0
 if [ -d "$CLAUDE_ROOT" ]; then
     shopt -s nullglob
-    for dir in "$CLAUDE_ROOT/$SANITIZED_SEARCH" "$CLAUDE_ROOT/$SANITIZED_SEARCH"-*; do
+    for dir in "$CLAUDE_ROOT/$SANITIZED_SEARCH" "$CLAUDE_ROOT/$SANITIZED_SEARCH"-* "$CLAUDE_ROOT/$WIN_SANITIZED" "$CLAUDE_ROOT/$WIN_SANITIZED"-*; do
         [ -d "$dir" ] || continue
         # Use grep rather than rg here — rg isn't reliably on candidate PATH
         # when submit.sh shells out, and when rg was missing every cwd check
         # silently failed and we reported no sessions found.
-        if grep -r -E -q "\"cwd\":\"$SEARCH_ROOT(/[^\"]*)?\"" "$dir" 2>/dev/null; then
+        if grep -r -E -q "\"cwd\":\"$SEARCH_ROOT(/[^\"]*)?\"" "$dir" 2>/dev/null ||
+            grep -r -F -q "\"cwd\":\"$WIN_JSON" "$dir" 2>/dev/null; then
             claude_found=1
             break
         fi

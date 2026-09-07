@@ -22,6 +22,8 @@ OUTPUT_FILE="$OUTPUT_DIR/claude-sessions-$TIMESTAMP.tar.gz"
 sanitize_path() { printf '%s' "$1" | sed 's|/|-|g; s|_|-|g; s| |-|g'; }
 SANITIZED="$(sanitize_path "$SEARCH_ROOT")"
 PROJECTS_ROOT="$HOME/.claude/projects"
+# Windows: sessions record cwd as C:\Users\..., not /c/Users/... (see win-cwd.sh).
+. "$(dirname "$0")/win-cwd.sh"
 
 if [ ! -d "$PROJECTS_ROOT" ]; then
     echo "No Claude projects directory at $PROJECTS_ROOT"
@@ -33,7 +35,7 @@ fi
 # Then filter by actual cwd content so unrelated sibling repos with a shared
 # prefix don't get packaged.
 shopt -s nullglob
-candidates=("$PROJECTS_ROOT/$SANITIZED" "$PROJECTS_ROOT/$SANITIZED"-*)
+candidates=("$PROJECTS_ROOT/$SANITIZED" "$PROJECTS_ROOT/$SANITIZED"-* "$PROJECTS_ROOT/$WIN_SANITIZED" "$PROJECTS_ROOT/$WIN_SANITIZED"-*)
 shopt -u nullglob
 
 # Use grep (universally available) instead of rg. The previous version used
@@ -44,7 +46,8 @@ shopt -u nullglob
 matching=()
 for dir in "${candidates[@]}"; do
     [ -d "$dir" ] || continue
-    if grep -r -E -q "\"cwd\":\"$SEARCH_ROOT(/[^\"]*)?\"" "$dir" 2>/dev/null; then
+    if grep -r -E -q "\"cwd\":\"$SEARCH_ROOT(/[^\"]*)?\"" "$dir" 2>/dev/null ||
+        grep -r -F -q "\"cwd\":\"$WIN_JSON" "$dir" 2>/dev/null; then
         matching+=("$dir")
     fi
 done

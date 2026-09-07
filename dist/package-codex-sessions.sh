@@ -36,7 +36,12 @@ trap 'rm -f "$MATCH_FILE" "$LIST_FILE"' EXIT
 # submit.sh shells out, and the previous version silently failed.
 # grep -E doesn't support \s; substitute [[:space:]]* for portability.
 PATTERN="\"cwd\":[[:space:]]*\"$SEARCH_ROOT(/[^\"]*)?\""
-grep -r -l -E "$PATTERN" "$SESSIONS_DIR" >"$MATCH_FILE" || true
+# Windows: sessions record cwd as C:\Users\..., not /c/Users/... (see win-cwd.sh).
+. "$(dirname "$0")/win-cwd.sh"
+{
+    grep -r -l -E "$PATTERN" "$SESSIONS_DIR"
+    grep -r -l -F "$WIN_JSON" "$SESSIONS_DIR"
+} 2>/dev/null | sort -u >"$MATCH_FILE" || true
 
 if [ ! -s "$MATCH_FILE" ]; then
     echo "No Codex sessions found for $SEARCH_ROOT"
