@@ -1,0 +1,229 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Dropshot End to End",
+    "output": "flow-workflow.html",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "maya",
+        "label": "Maya's side",
+        "focus": [
+          "import",
+          "ideas",
+          "generate",
+          "export"
+        ],
+        "note": "The sheet goes in, a tap starts a round, the files come out."
+      },
+      {
+        "id": "machine",
+        "label": "The machine in between",
+        "focus": [
+          "generate",
+          "worker",
+          "luma",
+          "slack"
+        ],
+        "note": "Queued rows become Luma jobs; one Slack message when the round settles."
+      },
+      {
+        "id": "ellie",
+        "label": "Ellie's side",
+        "focus": [
+          "slack",
+          "review",
+          "export"
+        ],
+        "note": "The link lands on the first product to decide; her tap is the decision."
+      }
+    ]
+  },
+  "lanes": [
+    {
+      "id": "maya",
+      "label": "Maya, at a desk"
+    },
+    {
+      "id": "server",
+      "label": "Dropshot server"
+    },
+    {
+      "id": "outside",
+      "label": "Outside the container"
+    },
+    {
+      "id": "ellie",
+      "label": "Ellie, on her phone"
+    }
+  ],
+  "phases": [
+    {
+      "id": "in",
+      "label": "Sheet in",
+      "fromCol": 0,
+      "toCol": 1
+    },
+    {
+      "id": "make",
+      "label": "Make the shots",
+      "fromCol": 2,
+      "toCol": 3,
+      "variant": "emphasis"
+    },
+    {
+      "id": "decide",
+      "label": "Decide and deliver",
+      "fromCol": 4,
+      "toCol": 5
+    }
+  ],
+  "mainPath": [
+    "import",
+    "ideas",
+    "generate",
+    "worker",
+    "slack",
+    "review",
+    "export"
+  ],
+  "nodes": [
+    {
+      "id": "import",
+      "lane": "maya",
+      "col": 0,
+      "type": "frontend",
+      "label": "Upload CSV",
+      "sublabel": "upsert by SKU"
+    },
+    {
+      "id": "ideas",
+      "lane": "server",
+      "col": 1,
+      "type": "backend",
+      "label": "Suggest ideas",
+      "sublabel": "blank rows only",
+      "tag": "Haiku"
+    },
+    {
+      "id": "generate",
+      "lane": "maya",
+      "col": 2,
+      "type": "frontend",
+      "label": "Generate",
+      "sublabel": "a batch, next N ready"
+    },
+    {
+      "id": "worker",
+      "lane": "server",
+      "col": 3,
+      "type": "backend",
+      "label": "Worker",
+      "sublabel": "submit, poll, save",
+      "tag": "every 5 s"
+    },
+    {
+      "id": "luma",
+      "lane": "outside",
+      "col": 3,
+      "type": "external",
+      "label": "Luma",
+      "sublabel": "uni-1 image edit",
+      "tag": "paid"
+    },
+    {
+      "id": "slack",
+      "lane": "outside",
+      "col": 4,
+      "type": "external",
+      "label": "Slack message",
+      "sublabel": "one per round"
+    },
+    {
+      "id": "review",
+      "lane": "ellie",
+      "col": 4,
+      "type": "frontend",
+      "label": "Decide",
+      "sublabel": "approve or reject"
+    },
+    {
+      "id": "export",
+      "lane": "maya",
+      "col": 5,
+      "type": "frontend",
+      "label": "Download",
+      "sublabel": "zip + updated CSV"
+    }
+  ],
+  "edges": [
+    {
+      "from": "import",
+      "to": "ideas",
+      "label": "24 blank rows"
+    },
+    {
+      "from": "ideas",
+      "to": "generate",
+      "label": "kept or edited"
+    },
+    {
+      "from": "generate",
+      "to": "worker",
+      "label": "queued rows",
+      "variant": "emphasis"
+    },
+    {
+      "from": "worker",
+      "to": "luma",
+      "label": "edit, poll, download",
+      "variant": "emphasis"
+    },
+    {
+      "from": "worker",
+      "to": "slack",
+      "label": "round settled"
+    },
+    {
+      "from": "slack",
+      "to": "review",
+      "label": "link to /next"
+    },
+    {
+      "from": "review",
+      "to": "export",
+      "label": "approved",
+      "variant": "emphasis"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "In",
+      "items": [
+        "Same nine columns as the export; a re-import updates ideas and never touches an approval",
+        "Sheet ideas are kept as written; suggestions are labelled and free until generated",
+        "A note like \"do this one first\" sets priority"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Make",
+      "items": [
+        "Two candidates per product, priority first, inside the in-flight and spend caps",
+        "The worker polls because the Agents API has no callbacks",
+        "Images are copied out on completion; Luma's URLs expire in an hour"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Out",
+      "items": [
+        "One Slack message per settled round, never one per image",
+        "A product is done at two approved images",
+        "Files named like HG-002-morning-kitchen-01.jpg; the CSV carries status and links"
+      ]
+    }
+  ]
+}

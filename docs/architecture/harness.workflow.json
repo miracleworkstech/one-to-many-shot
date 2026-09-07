@@ -1,0 +1,204 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "How Each Task Shipped",
+    "output": "harness-workflow.html",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "build",
+        "label": "Build and evaluate",
+        "focus": [
+          "plan",
+          "impl",
+          "eval"
+        ],
+        "note": "An implementer writes, an evaluator mutation-tests, two rounds at most."
+      },
+      {
+        "id": "checks",
+        "label": "Third check and PR",
+        "focus": [
+          "eval",
+          "codex",
+          "pr"
+        ],
+        "note": "Codex reviews the diff before the PR exists; CI runs the same check as the hook."
+      },
+      {
+        "id": "gate",
+        "label": "The last gate",
+        "focus": [
+          "pr",
+          "review"
+        ],
+        "note": "I review every PR and merge fast-forward; nothing starts until I say go."
+      }
+    ]
+  },
+  "lanes": [
+    {
+      "id": "me",
+      "label": "Me"
+    },
+    {
+      "id": "agents",
+      "label": "Claude Code subagents"
+    },
+    {
+      "id": "codex",
+      "label": "Codex"
+    },
+    {
+      "id": "github",
+      "label": "GitHub"
+    }
+  ],
+  "phases": [
+    {
+      "id": "p-plan",
+      "label": "Plan",
+      "fromCol": 0,
+      "toCol": 0
+    },
+    {
+      "id": "p-build",
+      "label": "Build + evaluate",
+      "fromCol": 1,
+      "toCol": 2,
+      "variant": "emphasis"
+    },
+    {
+      "id": "p-check",
+      "label": "Check + ship",
+      "fromCol": 3,
+      "toCol": 5
+    }
+  ],
+  "mainPath": [
+    "plan",
+    "impl",
+    "eval",
+    "codex",
+    "pr",
+    "review"
+  ],
+  "nodes": [
+    {
+      "id": "plan",
+      "lane": "me",
+      "col": 0,
+      "type": "frontend",
+      "label": "Plan a task",
+      "sublabel": "one branch each"
+    },
+    {
+      "id": "impl",
+      "lane": "agents",
+      "col": 1,
+      "type": "backend",
+      "label": "Implementer",
+      "sublabel": "code + tests, no commit"
+    },
+    {
+      "id": "eval",
+      "lane": "agents",
+      "col": 2,
+      "type": "security",
+      "label": "Evaluator",
+      "sublabel": "mutation tests",
+      "tag": "2 rounds max"
+    },
+    {
+      "id": "codex",
+      "lane": "codex",
+      "col": 3,
+      "type": "external",
+      "label": "Codex review",
+      "sublabel": "the diff, read only"
+    },
+    {
+      "id": "pr",
+      "lane": "github",
+      "col": 4,
+      "type": "cloud",
+      "label": "PR to main",
+      "sublabel": "CI runs npm run check"
+    },
+    {
+      "id": "review",
+      "lane": "me",
+      "col": 5,
+      "type": "frontend",
+      "label": "My review",
+      "sublabel": "last gate, then merge",
+      "tag": "stop and wait"
+    }
+  ],
+  "edges": [
+    {
+      "from": "plan",
+      "to": "impl",
+      "label": "brief + invariants"
+    },
+    {
+      "from": "impl",
+      "to": "eval",
+      "label": "diff"
+    },
+    {
+      "from": "eval",
+      "to": "codex",
+      "label": "PASS",
+      "variant": "emphasis"
+    },
+    {
+      "from": "codex",
+      "to": "pr",
+      "label": "findings fixed"
+    },
+    {
+      "from": "pr",
+      "to": "review",
+      "label": "check green",
+      "variant": "emphasis"
+    },
+    {
+      "from": "eval",
+      "to": "impl",
+      "label": "FAIL, once",
+      "variant": "security",
+      "role": "return"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Who does what",
+      "items": [
+        "I plan, decide, and review; the agents write and test",
+        "The evaluator follows a project skill: mutation testing, interface and invariant checks, nine anti-patterns",
+        "Codex is a third, independent read of the diff"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "The rules",
+      "items": [
+        "Two evaluator rounds at most; a third means the plan is wrong",
+        "The pre-commit hook and CI run the same typecheck, lint, format and tests; never bypassed",
+        "Merge is fast-forward after my approval; the next task waits for my go"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "What it caught",
+      "items": [
+        "Poll before submit, so a dead account never spends another cent",
+        "The review carousel re-sorting under a thumb",
+        "A late photo fetch that could submit after a sibling's pause"
+      ]
+    }
+  ]
+}

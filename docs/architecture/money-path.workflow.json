@@ -1,0 +1,247 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Money Path Gates",
+    "output": "money-path-workflow.html",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "txn",
+        "label": "One transaction",
+        "focus": [
+          "tap",
+          "read",
+          "skip",
+          "inflight",
+          "spend",
+          "write"
+        ],
+        "note": "Everything between the tap and the rows happens in one SQLite transaction."
+      },
+      {
+        "id": "refusals",
+        "label": "Refusals",
+        "focus": [
+          "inflight",
+          "spend",
+          "refused"
+        ],
+        "note": "Past either cap nothing is written, and the reason is a sentence on the page."
+      },
+      {
+        "id": "handoff",
+        "label": "Hand-off to the worker",
+        "focus": [
+          "write",
+          "worker"
+        ],
+        "note": "The rows carry their cost; the next tick picks them up."
+      }
+    ]
+  },
+  "lanes": [
+    {
+      "id": "page",
+      "label": "Status page"
+    },
+    {
+      "id": "txn",
+      "label": "enqueue: one SQLite transaction"
+    },
+    {
+      "id": "worker",
+      "label": "Worker"
+    },
+    {
+      "id": "refusal",
+      "label": "Refused",
+      "variant": "exception"
+    }
+  ],
+  "phases": [
+    {
+      "id": "ask",
+      "label": "Ask",
+      "fromCol": 0,
+      "toCol": 0
+    },
+    {
+      "id": "gates",
+      "label": "Admission control",
+      "fromCol": 1,
+      "toCol": 4,
+      "variant": "security"
+    },
+    {
+      "id": "commit",
+      "label": "Commit",
+      "fromCol": 5,
+      "toCol": 5,
+      "variant": "emphasis"
+    }
+  ],
+  "groups": [
+    {
+      "id": "caps",
+      "label": "Two caps",
+      "lane": "txn",
+      "fromCol": 3,
+      "toCol": 4,
+      "variant": "security"
+    }
+  ],
+  "mainPath": [
+    "tap",
+    "read",
+    "skip",
+    "inflight",
+    "spend",
+    "write",
+    "worker"
+  ],
+  "nodes": [
+    {
+      "id": "tap",
+      "lane": "page",
+      "col": 0,
+      "type": "frontend",
+      "label": "Generate",
+      "sublabel": "a batch of N"
+    },
+    {
+      "id": "read",
+      "lane": "txn",
+      "col": 1,
+      "type": "database",
+      "label": "Read state",
+      "sublabel": "in flight, spent"
+    },
+    {
+      "id": "skip",
+      "lane": "txn",
+      "col": 2,
+      "type": "backend",
+      "label": "Skip busy",
+      "sublabel": "work already running"
+    },
+    {
+      "id": "inflight",
+      "lane": "txn",
+      "col": 3,
+      "type": "security",
+      "label": "In-flight cap",
+      "sublabel": "40 images at once"
+    },
+    {
+      "id": "spend",
+      "lane": "txn",
+      "col": 4,
+      "type": "security",
+      "label": "Spend cap",
+      "sublabel": "$50 lifetime"
+    },
+    {
+      "id": "write",
+      "lane": "txn",
+      "col": 5,
+      "type": "database",
+      "label": "Write rows",
+      "sublabel": "batch + candidates",
+      "tag": "commit"
+    },
+    {
+      "id": "worker",
+      "lane": "worker",
+      "col": 5,
+      "type": "backend",
+      "label": "Next tick",
+      "sublabel": "submit to Luma"
+    },
+    {
+      "id": "refused",
+      "lane": "refusal",
+      "col": 4,
+      "type": "security",
+      "label": "Refused",
+      "sublabel": "nothing written"
+    }
+  ],
+  "edges": [
+    {
+      "from": "tap",
+      "to": "read",
+      "label": "one tap",
+      "variant": "emphasis"
+    },
+    {
+      "from": "read",
+      "to": "skip"
+    },
+    {
+      "from": "skip",
+      "to": "inflight",
+      "label": "planned = N × 2"
+    },
+    {
+      "from": "inflight",
+      "to": "spend",
+      "label": "under"
+    },
+    {
+      "from": "spend",
+      "to": "write",
+      "label": "under",
+      "variant": "emphasis"
+    },
+    {
+      "from": "write",
+      "to": "worker",
+      "label": "queued",
+      "variant": "emphasis"
+    },
+    {
+      "from": "inflight",
+      "to": "refused",
+      "label": "over",
+      "variant": "security",
+      "role": "error"
+    },
+    {
+      "from": "spend",
+      "to": "refused",
+      "label": "over",
+      "variant": "security",
+      "role": "error"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "amber",
+      "title": "Why one transaction",
+      "items": [
+        "Two taps at the same moment cannot both slip under a cap",
+        "A refusal or a skip leaves nothing behind: no batch, no rows, no cost",
+        "The estimate is planned images × $0.0434, never shown on the button"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "The refusals",
+      "items": [
+        "In flight: \"40 at once is the limit, so this batch has to wait\"",
+        "Spend: \"This batch would go past the spending budget, so nothing was started\"",
+        "Both name the setting, so the fix is a variable, not a tap"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "After commit",
+      "items": [
+        "Cost is on the row at submission, so a failure still counts",
+        "The worker polls before it submits: out of credits pauses it before it spends",
+        "Budget, auth and forbidden pause; a rate limit backs off; the rest cost an attempt"
+      ]
+    }
+  ]
+}
