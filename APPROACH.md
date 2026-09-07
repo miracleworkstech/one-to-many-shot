@@ -178,38 +178,41 @@ tap too many, this is the shape to move to, and the server does not change.
 
 ## Unit economics
 
-Measured live: one product on 2026-09-04 (estimate and actual both $0.09) and a ten-product
-batch on 2026-09-06, triggered and reviewed from a phone.
+Read from `/metrics` on the live deploy on 2026-09-07 after a clean import of twenty
+products, a ten-product batch and one per-product generation, all reviewed from a phone.
+Concurrency 8, the parallel worker (Task 21).
 
 | Quantity | Value |
 |---|---|
 | Luma, per image | $0.0434 |
 | Per product, two candidates | $0.09 |
-| Ten products, twenty images | 5 min 20 s tap to last candidate, concurrency 4 |
-| Throughput at concurrency 4 | just under 4 images a minute |
+| Approved | 20 of 22 (91 percent) |
+| Cost per approved image | $0.048 |
+| Luma latency per image | p50 63 s, p90 68 s, max 73 s |
+| Ten products, twenty images | 2 min 14 s tap to last landing, about 9 images a minute |
+| The same batch shape at concurrency 4, serial worker (2026-09-06) | 5 min 20 s |
 | Haiku ideas per import | under a cent |
 | Railway, per month | about $5 |
 
-**One approved image** costs `0.0434 × generated ÷ approved`. The Spend sheet computes it from
-the ledger; until the first sixteen sheet ideas are reviewed the honest figure is a bound,
-$0.04 (every candidate approved) to $0.13 (one in three). In minutes: about one of Maya's
-per import, about fifteen seconds of Ellie's per candidate (assumed), sixteen seconds of
-wall clock per image. The drop is eighty images in two batches (the in-flight cap is
-forty): about 22 minutes of generation, about 20 minutes of Ellie's thumb.
+**One approved image** is `0.0434 × generated ÷ approved`, $0.048 at the measured rate. That
+rate is one reviewer on a first pass and will fall as Ellie gets pickier; at one in three
+it is $0.13. In minutes: about one of Maya's per import; the median candidate was decided
+about four minutes after it landed, in one sitting, so call it fifteen seconds of Ellie's
+attention per image once she is in the queue; and Luma sets the floor at about a minute
+per image, which concurrency divides. The drop is eighty images in two batches (the
+in-flight cap is forty): about 9 minutes of generation, about 20 minutes of Ellie's thumb.
 
-| Scale | Products | One pass | Generation | Review |
+| Scale | Products | One pass | Generation at 8 | Review |
 |---|---|---|---|---|
-| The drop | 40 | $3.50 | 22 min | 20 min |
-| The catalog | 300 | $26 | 2.7 h | 2.5 h |
-| 10× | 3,000 | $260 | 27 h | 25 h |
+| The drop | 40 | $3.50 | 9 min | 20 min |
+| The catalog | 300 | $26 | 1.1 h | 2.5 h |
+| 10× | 3,000 | $260 | 11 h | 25 h |
 
 **At 10×** the code holds and the knobs move: the lifetime spend cap ($50 default), the
-in-flight cap (batch size), `LUMA_CONCURRENCY` (throughput, bounded by Luma's rate limit).
-The real limit is Ellie's 25 hours per pass, which wants a second approver and a "good
-enough" rule before it wants any infrastructure. Storage is about 1.5 GB, fine on a volume;
-the whole-catalog zip becomes a per-drop zip. Latency and throughput are read from
-`/metrics` (behind the team link) and from one JSON log line per landed image, not from a
-stopwatch.
+in-flight cap (batch size), `LUMA_CONCURRENCY` (throughput, bounded by Luma's rate limit,
+which the worker backs off on). The real limit is Ellie's 25 hours per pass, which wants a
+second approver and a "good enough" rule before it wants any infrastructure. Storage is
+about 1.5 GB, fine on a volume; the whole-catalog zip becomes a per-drop zip.
 
 ## What breaks first under pressure
 
