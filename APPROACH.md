@@ -180,7 +180,7 @@ tap too many, this is the shape to move to, and the server does not change.
 
 Read from `/metrics` on the live deploy on 2026-09-07 after a clean import of twenty
 products, a ten-product batch and one per-product generation, all reviewed from a phone.
-Concurrency 8, the parallel worker (Task 21).
+Concurrency 12, the parallel worker (Task 21).
 
 | Quantity | Value |
 |---|---|
@@ -202,7 +202,7 @@ attention per image once she is in the queue; and Luma sets the floor at about a
 per image, which concurrency divides. The drop is eighty images in two batches (the
 in-flight cap is forty): about 9 minutes of generation, about 20 minutes of Ellie's thumb.
 
-| Scale | Products | One pass | Generation at 8 | Review |
+| Scale | Products | One pass | Generation at 12 | Review |
 |---|---|---|---|---|
 | The drop | 40 | $3.50 | 9 min | 20 min |
 | The catalog | 300 | $26 | 1.1 h | 2.5 h |
