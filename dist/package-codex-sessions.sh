@@ -67,6 +67,7 @@ done <"$MATCH_FILE"
 sort -u "$LIST_FILE" -o "$LIST_FILE"
 
 echo "Packaging Codex sessions for $SEARCH_ROOT..."
-tar -czvf "$OUTPUT_FILE" -C "$CODEX_HOME" -T "$LIST_FILE"
+# --force-local: on Windows the output path starts with C:, which GNU tar would read as a host.
+tar --force-local -czvf "$OUTPUT_FILE" -C "$CODEX_HOME" -T "$LIST_FILE"
 
 echo "Created: $OUTPUT_FILE"

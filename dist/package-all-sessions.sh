@@ -85,7 +85,8 @@ fi
 
 # Codex: sessions are JSONL with "cwd" — match SEARCH_ROOT or subpaths.
 # grep -E doesn't support \s; substitute [[:space:]]* for portability.
-if grep -r -E -q "\"cwd\":[[:space:]]*\"$SEARCH_ROOT(/[^\"]*)?\"" "$CODEX_HOME/sessions" 2>/dev/null; then
+if grep -r -E -q "\"cwd\":[[:space:]]*\"$SEARCH_ROOT(/[^\"]*)?\"" "$CODEX_HOME/sessions" 2>/dev/null ||
+    grep -r -F -q "$WIN_JSON" "$CODEX_HOME/sessions" 2>/dev/null; then
     ran_any=1
     if [ -x "$CODEX_SCRIPT" ]; then
         echo "Running Codex session packager..."

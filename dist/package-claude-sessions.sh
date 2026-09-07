@@ -65,6 +65,7 @@ for d in "${matching[@]}"; do
     rels+=("./$(basename "$d")")
 done
 
-tar -czvf "$OUTPUT_FILE" -C "$PROJECTS_ROOT" "${rels[@]}"
+# --force-local: on Windows the output path starts with C:, which GNU tar would read as a host.
+tar --force-local -czvf "$OUTPUT_FILE" -C "$PROJECTS_ROOT" "${rels[@]}"
 
 echo "Created: $OUTPUT_FILE"
