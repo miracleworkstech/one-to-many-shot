@@ -202,17 +202,17 @@ export default async function Review({
                 className="w-[88%] shrink-0 snap-start sm:w-full"
                 aria-label={`Slide ${i + 1} of ${slides}`}
               >
-                {/* On a phone the first Approve must be in reach when the page loads: the
-                    4:5 box gives way to the viewport height (about 27rem goes to the
-                    header, idea bar, decision row and bottom bar) instead of pushing the
-                    buttons under the fold. Tall phones see the full-width box; short ones
-                    a smaller one, still 4:5, centred. From sm up the slide is the column
-                    and the 60svh cap on the box does the same job. */}
-                <div className="relative mx-auto max-w-[calc((100svh-27rem)*0.8)] sm:max-w-none">
+                {/* One square box for every card (A11: Luma returns 1:1), sized here on the
+                    wrapper, whose width is auto, so a height cap shrinks it and keeps it
+                    square and centred. On a phone the first Approve must be in reach when
+                    the page loads: the box gives way to the viewport height (about 24rem
+                    goes to the header, idea bar, decision row and bottom bar). From sm up
+                    the 60svh cap does the same job. */}
+                <div className="relative mx-auto aspect-square max-h-[calc(100svh-24rem)] sm:max-h-[60svh]">
                   {c.state === "queued" || c.state === "processing" ? (
                     <div
                       role="status"
-                      className="breathe flex aspect-[4/5] max-h-[60svh] flex-col items-center justify-center gap-2 rounded-lg bg-stone-200/60 px-4 text-center text-sm text-stone-700"
+                      className="breathe flex size-full flex-col items-center justify-center gap-2 rounded-lg bg-stone-200/60 px-4 text-center text-sm text-stone-700"
                     >
                       <Spinner className="text-stone-500" />
                       <span>Generating…</span>
@@ -223,7 +223,7 @@ export default async function Review({
                   ) : c.state === "failed" ? (
                     <div
                       role="status"
-                      className="flex aspect-[4/5] max-h-[60svh] flex-col justify-center rounded-lg border border-clay/30 bg-clay-tint p-5 text-sm text-stone-900"
+                      className="flex size-full flex-col justify-center rounded-lg border border-clay/30 bg-clay-tint p-5 text-sm text-stone-900"
                     >
                       <p className="inline-flex items-center gap-1.5 font-medium">
                         <Dot tone="stop" />
@@ -257,12 +257,12 @@ export default async function Review({
                     <img
                       src={`/img/${c.id}`}
                       alt={`${p.name}: ${p.shot_idea ?? "candidate shot"}`}
-                      // The same 4:5 box as the placeholder and end cards, reserved before
-                      // the bytes arrive, so Approve and Reject never jump under a thumb.
+                      // Fills the wrapper's square, reserved before the bytes arrive, so
+                      // Approve and Reject never jump under a thumb.
                       // Only the first slide is on screen at load; the rest fetch as they near.
                       loading={i === 0 ? "eager" : "lazy"}
                       decoding="async"
-                      className="block aspect-[4/5] max-h-[60svh] w-full rounded-lg bg-stone-200/60 object-contain"
+                      className="block size-full rounded-lg bg-stone-200/60 object-contain"
                     />
                   )}
                   <span className="absolute top-2 left-2 rounded-full bg-stone-900/70 px-2 py-0.5 text-xs font-medium text-white tabular-nums">
@@ -335,8 +335,11 @@ export default async function Review({
                 aria-label={`End, ${slides} of ${slides}`}
               >
                 {/* Where the product stands and every follow-up, always the last slide:
-                  nothing to hunt for in a menu. Money actions stay one deliberate tap. */}
-                <div className="mx-auto flex aspect-[4/5] max-h-[60svh] max-w-[calc((100svh-27rem)*0.8)] flex-col justify-center rounded-lg border border-stone-300 bg-white p-5 text-base sm:max-w-none">
+                  nothing to hunt for in a menu. Money actions stay one deliberate tap.
+                  Capped by width, not height, unlike the image boxes: the same square
+                  on an empty card, but a max-height would clamp the automatic minimum
+                  and let a tall retry card's buttons overflow instead of growing. */}
+                <div className="mx-auto flex aspect-square max-w-[calc(100svh-24rem)] flex-col justify-center rounded-lg border border-stone-300 bg-white p-5 text-base sm:max-w-[60svh]">
                   {endKind === "done" ? (
                     <>
                       <p className="inline-flex items-center gap-2 font-semibold text-stone-900">
@@ -479,7 +482,7 @@ export default async function Review({
                   <img
                     src={`/img/${c.id}`}
                     alt=""
-                    className="aspect-[4/5] w-full rounded-lg bg-stone-200/60 object-cover"
+                    className="aspect-square w-full rounded-lg bg-stone-200/60 object-cover"
                   />
                 </button>
                 {/* The action lives here, not under every thumbnail: it appears only when
