@@ -20,6 +20,8 @@ import { ImportForm } from "@/components/ImportForm";
 import { GenerateForm } from "@/components/GenerateForm";
 import { StateDot, type Tone } from "@/components/StateDot";
 import { Sheet } from "@/components/Sheet";
+import { Refresher } from "@/components/Refresher";
+import { Spinner } from "@/components/Pending";
 import { resumeWorker } from "@/lib/actions/generate";
 import { env } from "@/lib/env";
 import { PRIMARY, QUIET } from "@/components/buttons";
@@ -272,6 +274,7 @@ export default async function Home({
       byStatus.set(r.status, [...(byStatus.get(r.status) ?? []), r]);
   const ready = byStatus.get("idea_ready") ?? [];
   const done = byStatus.get("done") ?? [];
+  const generating = byStatus.get("generating") ?? [];
   const toGo = total - done.length - queue.length;
 
   return (
@@ -376,6 +379,12 @@ export default async function Home({
                 Nothing to decide
               </span>
             )}
+            {generating.length > 0 && (
+              <span className="inline-flex items-center gap-1.5 text-stone-700">
+                <Spinner className="text-stone-500" />
+                {generating.length} generating
+              </span>
+            )}
             {toGo > 0 && <span className="text-stone-600">{toGo} to go</span>}
           </p>
           <div className="mt-2">
@@ -390,6 +399,10 @@ export default async function Home({
           </div>
         </div>
       )}
+
+      {/* While a batch is in flight the page re-fetches itself, so products move from
+          Generating to the queue as their images land; it stops when nothing is in flight. */}
+      {generating.length > 0 && <Refresher />}
 
       {pausedReason && (
         <div className="mt-4 rounded-lg border border-ochre/40 bg-ochre-tint p-3 text-sm text-stone-900">
@@ -464,7 +477,9 @@ export default async function Home({
                 label={STATUS_LABEL[s]}
                 tone={STATUS_TONE[s]}
                 rows={byStatus.get(s) ?? []}
-                open={false}
+                // Generating opens on its own: it is the feedback after a batch, and its
+                // rows leave for the queue one by one as the page refreshes.
+                open={s === "generating"}
                 params={params}
               />
             ) : null,

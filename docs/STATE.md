@@ -233,6 +233,13 @@ candidate with no retry and shows `failure.userMessage` on the card.
   `/metrics` JSON endpoint (`lib/analytics.ts` `performance()`), one `candidate_completed`
   JSON log line per landed image. No UI. Awaiting evaluator, Codex and the user's review.
 
+- Review cards and status feedback, 2026-09-07, on `fix/review-card-fit` (off main after
+  PR #24): every card box is square (A11: Luma returns 1:1; the 4:5 box left grey bands and
+  a narrower end card), sized on the wrapper so a height cap keeps it square and centred;
+  the status page shows "N generating" with a spinner, opens the Generating group and
+  re-fetches itself (the existing `Refresher`) while a batch is in flight. Not pushed;
+  awaiting the user's review.
+
 ## Open items for the user
 
 - Railway: variables and domain set by the user 2026-09-04 (the connector's write actions are
