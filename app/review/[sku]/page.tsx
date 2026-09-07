@@ -335,8 +335,11 @@ export default async function Review({
                 aria-label={`End, ${slides} of ${slides}`}
               >
                 {/* Where the product stands and every follow-up, always the last slide:
-                  nothing to hunt for in a menu. Money actions stay one deliberate tap. */}
-                <div className="mx-auto flex aspect-square max-h-[calc(100svh-24rem)] flex-col justify-center rounded-lg border border-stone-300 bg-white p-5 text-base sm:max-h-[60svh]">
+                  nothing to hunt for in a menu. Money actions stay one deliberate tap.
+                  Capped by width, not height, unlike the image boxes: the same square
+                  on an empty card, but a max-height would clamp the automatic minimum
+                  and let a tall retry card's buttons overflow instead of growing. */}
+                <div className="mx-auto flex aspect-square max-w-[calc(100svh-24rem)] flex-col justify-center rounded-lg border border-stone-300 bg-white p-5 text-base sm:max-w-[60svh]">
                   {endKind === "done" ? (
                     <>
                       <p className="inline-flex items-center gap-2 font-semibold text-stone-900">

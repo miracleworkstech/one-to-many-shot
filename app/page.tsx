@@ -274,7 +274,11 @@ export default async function Home({
       byStatus.set(r.status, [...(byStatus.get(r.status) ?? []), r]);
   const ready = byStatus.get("idea_ready") ?? [];
   const done = byStatus.get("done") ?? [];
-  const generating = byStatus.get("generating") ?? [];
+  // Off every row, not the group map: a product with one image landed and one still in
+  // flight is "generating" but sits in the queue, and it must keep the page refreshing.
+  // ponytail: a done product with a spare set in flight is "done" to the ladder and is
+  // not counted; count in-flight candidates in overview() if that ever matters.
+  const generating = rows.filter((r) => r.status === "generating");
   const toGo = total - done.length - queue.length;
 
   return (
@@ -359,7 +363,12 @@ export default async function Home({
 
       {total > 0 && (
         <div className="mt-6">
-          <p className="flex flex-wrap items-center gap-x-4 gap-y-1 font-medium text-stone-900 tabular-nums">
+          {/* A live region: while a batch is in flight the page refreshes itself and these
+              counts move, so a screen reader hears the line change and hears it settle. */}
+          <p
+            role="status"
+            className="flex flex-wrap items-center gap-x-4 gap-y-1 font-medium text-stone-900 tabular-nums"
+          >
             <span className="inline-flex items-center gap-1.5">
               <StateDot tone="ok" />
               {done.length} of {total} done
