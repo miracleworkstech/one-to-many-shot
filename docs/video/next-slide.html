@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>What I'd do next</title>
+    <style>
+      :root {
+        --bg: #0b0f14;
+        --panel: #111823;
+        --line: #1f2a38;
+        --text: #e6edf3;
+        --muted: #8b98a8;
+        --moss: #7fb69a;
+        --clay: #d98b6c;
+        --ochre: #d9b46c;
+      }
+      html,
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font:
+          22px/1.35 ui-monospace,
+          "JetBrains Mono",
+          Consolas,
+          monospace;
+      }
+      .slide {
+        width: 1920px;
+        height: 1080px;
+        box-sizing: border-box;
+        padding: 72px 96px;
+        display: flex;
+        flex-direction: column;
+        gap: 32px;
+      }
+      h1 {
+        font-size: 44px;
+        margin: 0;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+      }
+      h1 span {
+        color: var(--muted);
+        font-weight: 400;
+      }
+      .groups {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 28px;
+        flex: 1;
+      }
+      .group {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 26px 28px;
+        display: flex;
+        flex-direction: column;
+      }
+      .group h2 {
+        font-size: 20px;
+        margin: 0 0 18px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        display: inline-block;
+      }
+      .eng .dot {
+        background: var(--moss);
+      }
+      .prod .dot {
+        background: var(--ochre);
+      }
+      .scale .dot {
+        background: var(--clay);
+      }
+      .row {
+        border-top: 1px solid var(--line);
+        padding: 18px 0;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 6px;
+      }
+      .row:last-child {
+        padding-bottom: 0;
+      }
+      .what {
+        font-size: 24px;
+        font-weight: 600;
+      }
+      .when {
+        color: var(--muted);
+        font-size: 19px;
+      }
+      .when b {
+        color: var(--text);
+        font-weight: 500;
+      }
+      .change {
+        font-size: 19px;
+      }
+      .foot {
+        color: var(--muted);
+        font-size: 19px;
+        display: flex;
+        justify-content: space-between;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="slide">
+      <h1>What I'd do next <span>· each at its trigger, none before</span></h1>
+
+      <div class="groups">
+        <section class="group eng">
+          <h2><i class="dot"></i>Engineering first</h2>
+          <div class="row">
+            <div class="what">Backup</div>
+            <div class="when">
+              Trigger: <b>now</b>. The volume is the only copy of every
+              approval.
+            </div>
+            <div class="change">
+              Nightly copy of the database and approved images to object
+              storage. Until then, export after every round.
+            </div>
+          </div>
+          <div class="row">
+            <div class="what">Tell someone when the worker pauses</div>
+            <div class="when">
+              Trigger: <b>the first pause nobody noticed for a day</b>.
+            </div>
+            <div class="change">
+              A post to the existing Slack webhook, or a Railway log alert on
+              the paused line. Ten lines.
+            </div>
+          </div>
+          <div class="row">
+            <div class="what">Structured logs and an uptime check</div>
+            <div class="when">
+              Trigger: <b>the first time the container stops taking traffic</b>.
+            </div>
+            <div class="change">
+              One JSON line per tick outcome so an alert can match a code. An
+              external monitor on /healthz.
+            </div>
+          </div>
+        </section>
+
+        <section class="group prod">
+          <h2><i class="dot"></i>Product next</h2>
+          <div class="row">
+            <div class="what">A per-drop spend cap</div>
+            <div class="when">
+              Trigger: <b>the first time the lifetime cap is raised</b>.
+            </div>
+            <div class="change">
+              One column on batches. The lifetime cap stays as the outer bound.
+            </div>
+          </div>
+          <div class="row">
+            <div class="what">A second approver</div>
+            <div class="when">
+              Trigger: <b>the first time Ellie is away</b>, or the drop lands
+              all at once.
+            </div>
+            <div class="change">
+              Named links per person; decided_by already exists. /next becomes a
+              per-reviewer queue.
+            </div>
+          </div>
+          <div class="row">
+            <div class="what">Analytics in the Spend sheet</div>
+            <div class="when">Trigger: <b>the second drop</b>.</div>
+            <div class="change">
+              Approval rate by idea source, rejection rate by material, retries
+              per product. Queries over tables that exist.
+            </div>
+          </div>
+        </section>
+
+        <section class="group scale">
+          <h2><i class="dot"></i>Scale, only at its trigger</h2>
+          <div class="row">
+            <div class="what">Images to object storage</div>
+            <div class="when">
+              Trigger: <b>the storefront wants to hotlink</b>, or the volume
+              passes 60 percent.
+            </div>
+            <div class="change">
+              One copy job and a swap of the storage module.
+            </div>
+          </div>
+          <div class="row">
+            <div class="what">SQLite to Postgres</div>
+            <div class="when">
+              Trigger: <b>a second process writing</b>. At six people, never.
+            </div>
+            <div class="change">Migrations table first, then the driver.</div>
+          </div>
+          <div class="row">
+            <div class="what">A second instance</div>
+            <div class="when">
+              Trigger: <b>after the two above</b>. Railway volumes cannot attach
+              to replicas.
+            </div>
+            <div class="change">
+              The worker's single-flight lock moves into the database.
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="foot">
+        <span
+          >One process, one volume, six people, 300 products, drops of 40.</span
+        >
+        <span>Dropshot</span>
+      </div>
+    </div>
+  </body>
+</html>

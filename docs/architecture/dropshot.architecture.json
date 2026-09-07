@@ -1,0 +1,339 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Dropshot Runtime Architecture",
+    "output": "dropshot-architecture.html",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "primary-path",
+        "label": "Generate a batch",
+        "focus": [
+          "team",
+          "gate",
+          "web",
+          "enqueue",
+          "db",
+          "worker",
+          "luma"
+        ],
+        "note": "One tap on the status page becomes queued rows, then paid Luma work, inside the caps."
+      },
+      {
+        "id": "money-path",
+        "label": "Money path",
+        "focus": [
+          "enqueue",
+          "db",
+          "worker",
+          "luma"
+        ],
+        "note": "Admission control in one SQLite transaction; a single-flight worker submits, polls, pauses on budget."
+      },
+      {
+        "id": "boundaries",
+        "label": "Trust boundaries",
+        "focus": [
+          "team",
+          "gate",
+          "web",
+          "photos",
+          "luma",
+          "claude",
+          "slack"
+        ],
+        "note": "One shared token guards every route; four outbound calls leave the container."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "team",
+      "type": "external",
+      "label": "Team",
+      "sublabel": "phone / browser",
+      "pos": [
+        40,
+        300
+      ],
+      "size": [
+        130,
+        62
+      ]
+    },
+    {
+      "id": "gate",
+      "type": "security",
+      "label": "Token gate",
+      "sublabel": "middleware.ts",
+      "tag": "cookie k",
+      "pos": [
+        230,
+        300
+      ],
+      "size": [
+        130,
+        62
+      ]
+    },
+    {
+      "id": "web",
+      "type": "frontend",
+      "label": "Status + Review",
+      "sublabel": "Next.js App Router",
+      "pos": [
+        420,
+        300
+      ],
+      "size": [
+        130,
+        62
+      ]
+    },
+    {
+      "id": "enqueue",
+      "type": "backend",
+      "label": "Admission control",
+      "sublabel": "lib/enqueue.ts",
+      "tag": "in-flight + spend caps",
+      "pos": [
+        610,
+        300
+      ],
+      "size": [
+        130,
+        62
+      ]
+    },
+    {
+      "id": "db",
+      "type": "database",
+      "label": "SQLite",
+      "sublabel": "WAL on /data",
+      "pos": [
+        800,
+        300
+      ],
+      "size": [
+        130,
+        62
+      ]
+    },
+    {
+      "id": "worker",
+      "type": "backend",
+      "label": "Generation worker",
+      "sublabel": "in-process interval",
+      "tag": "single flight",
+      "pos": [
+        990,
+        300
+      ],
+      "size": [
+        130,
+        62
+      ]
+    },
+    {
+      "id": "luma",
+      "type": "external",
+      "label": "Luma Agents API",
+      "sublabel": "uni-1 image edit",
+      "tag": "paid",
+      "pos": [
+        1180,
+        300
+      ],
+      "size": [
+        130,
+        62
+      ]
+    },
+    {
+      "id": "claude",
+      "type": "external",
+      "label": "Claude Haiku",
+      "sublabel": "suggested ideas",
+      "pos": [
+        420,
+        160
+      ],
+      "size": [
+        130,
+        62
+      ]
+    },
+    {
+      "id": "photos",
+      "type": "external",
+      "label": "Customer photo host",
+      "sublabel": "CSV image links",
+      "pos": [
+        990,
+        160
+      ],
+      "size": [
+        130,
+        62
+      ]
+    },
+    {
+      "id": "slack",
+      "type": "external",
+      "label": "Slack",
+      "sublabel": "incoming webhook",
+      "pos": [
+        1180,
+        450
+      ],
+      "size": [
+        130,
+        62
+      ]
+    },
+    {
+      "id": "images",
+      "type": "database",
+      "label": "Image volume",
+      "sublabel": "/data original + review",
+      "pos": [
+        800,
+        450
+      ],
+      "size": [
+        130,
+        62
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Railway service: one Node process, one volume",
+      "wraps": [
+        "gate",
+        "web",
+        "enqueue",
+        "db",
+        "worker",
+        "images"
+      ],
+      "pad": 20
+    }
+  ],
+  "connections": [
+    {
+      "id": "team-link",
+      "from": "team",
+      "to": "gate",
+      "label": "HTTPS, team link",
+      "variant": "emphasis",
+      "labelDy": 55
+    },
+    {
+      "id": "gate-pass",
+      "from": "gate",
+      "to": "web",
+      "label": "cookie k",
+      "variant": "security",
+      "labelDy": 55
+    },
+    {
+      "id": "trigger",
+      "from": "web",
+      "to": "enqueue",
+      "label": "Generate a batch",
+      "variant": "emphasis",
+      "labelDy": 55
+    },
+    {
+      "id": "insert",
+      "from": "enqueue",
+      "to": "db",
+      "label": "queued rows, one txn",
+      "variant": "emphasis",
+      "labelDy": 55
+    },
+    {
+      "id": "pick-up",
+      "from": "db",
+      "to": "worker",
+      "label": "tick: submit, poll",
+      "variant": "emphasis",
+      "labelDy": 55
+    },
+    {
+      "id": "generate",
+      "from": "worker",
+      "to": "luma",
+      "label": "edit + status",
+      "variant": "emphasis",
+      "labelDy": 55
+    },
+    {
+      "id": "suggest",
+      "from": "web",
+      "to": "claude",
+      "label": "on import",
+      "variant": "dashed",
+      "labelDy": -30
+    },
+    {
+      "id": "fetch-photo",
+      "from": "worker",
+      "to": "photos",
+      "label": "fetch source photo",
+      "variant": "dashed"
+    },
+    {
+      "id": "notify",
+      "from": "worker",
+      "to": "slack",
+      "label": "one post per batch",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "left"
+    },
+    {
+      "id": "save",
+      "from": "worker",
+      "to": "images",
+      "label": "save JPEGs",
+      "fromSide": "bottom",
+      "toSide": "top"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Primary path",
+      "items": [
+        "Maya taps Generate a batch on the status page",
+        "enqueue makes two candidates per ready product, priority first, in one transaction",
+        "The worker submits to Luma, polls (no callbacks), saves JPEGs to the volume",
+        "One Slack post per settled batch, linking to the first product to decide"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Money and state",
+      "items": [
+        "Refused past 40 images in flight or $50 lifetime spend, reason in plain words",
+        "Cost recorded at submission; pauses on budget, auth, forbidden; five attempts",
+        "Four tables; images kept twice: original for export, small copy for the phone",
+        "One instance, no backup on Hobby; scale order: object storage, Postgres, replica"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Trust boundaries and outside calls",
+      "items": [
+        "One shared token as a cookie on every route except /healthz; redirects use APP_URL",
+        "Photo fetch refuses private address space; secrets only from the environment",
+        "Luma: paid, polled, typed errors. Claude Haiku: one call per import, template fallback",
+        "Slack webhook skipped if unset; customer photos fetched with a browser user agent"
+      ]
+    }
+  ]
+}
