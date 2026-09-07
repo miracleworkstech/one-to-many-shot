@@ -237,8 +237,9 @@ candidate with no retry and shows `failure.userMessage` on the card.
   PR #24): every card box is square (A11: Luma returns 1:1; the 4:5 box left grey bands and
   a narrower end card), sized on the wrapper so a height cap keeps it square and centred;
   the status page shows "N generating" with a spinner, opens the Generating group and
-  re-fetches itself (the existing `Refresher`) while a batch is in flight. Not pushed;
-  awaiting the user's review.
+  re-fetches itself (the existing `Refresher`) while a batch is in flight. Evaluator
+  PASS, Codex direct run (the rescue subagent's CLI launch failed with "Access is
+  denied"; `codex exec` from the shell worked), three findings fixed. **Merged as PR #26.**
 
 ## Open items for the user
 
