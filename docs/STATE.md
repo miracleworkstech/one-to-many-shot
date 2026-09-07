@@ -5,6 +5,25 @@
 
 ## Phase
 
+**Update 2026-09-07 (latest): everything but the video is merged; main at ab647d2 (PR #25).
+Remaining deliverable: `video.md` (the placeholder). Merged this pass, in order: PR #22 (docs:
+APPROACH.md written from what shipped, DECISIONS.md pruned to 14 consequential entries with
+original numbers, D6 amended for no backups on Hobby, spend cap default 50), PR #23 (Task 21,
+parallel worker), PR #24 (Task 22 `/metrics` + log line, batch-count input fix, carousel
+arrows, phone fold fix, docs cut to the points, README back to the brief), PR #26 (another
+session: square review cards, batch-in-flight status view), PR #25 (unit economics from the
+live `/metrics` run). 197 tests. Video prep: the volume was wiped by the user on 2026-09-07,
+slice 1 of the catalog imported (20 products: the 16 with sheet ideas plus HG-001, 003, 004,
+006), a ten-product batch and one per-product generation run and reviewed; `/metrics` read
+20 of 22 approved, $0.048 per approved image, Luma p50 63 s, twenty images in 2 min 14 s at
+`LUMA_CONCURRENCY` 12 (5 min 20 s at 4 with the serial worker). CSV slices for the recording
+are in `docs/video/csv/` (untracked, user's folder, README inside): slice 2 plants a 404
+photo on HG-013 for the failure card at zero cost, slice 3 re-imports HG-002 with a changed
+idea for the re-import rule. Next action: record the video, paste the link in `video.md`,
+run `./submit.sh`. Small follow-up if wanted: `imagesPerMinute` in `performance()` spans
+the whole ledger, so idle gaps between batches drag it down (4.4 reported against 9 per
+batch); summing images over summed batch wall clocks fixes it, five lines and a test.**
+
 **Update 2026-09-06 (latest): PR #21 (`docs/d29-not-built`, from the main checkout) holds D29, the realigned status header, and D30: the app is named Dropshot (`components/Logo.tsx`, `app/icon.svg`, middleware exempts `icon.svg`). Waiting for the user's review. PR #20 (D28) approved and merged fast-forward (main at
 481d1b3, branch and worktree removed). D29 records two tweaks considered and not built: a
 Slack post on pause and worker liveness in `/healthz` (Railway does not poll the
@@ -150,7 +169,9 @@ candidate with no retry and shows `failure.userMessage` on the card.
 | 15 Review flow (D25) | merged (#14, main eca9b61) | | plan `docs/superpowers/plans/2026-09-05-review-carousel-stability.md`; evaluator PASS (3/3 mutants, 2 fixed), Codex 5 findings fixed (in-flight read off candidates, no Generate on the photo card, ring-only pulse, two doc slips) |
 | 16 Copy (D26) | merged into task/15 only; landing via PR #18 | task/18-land-copy-and-nav | `/impeccable clarify`: refusals, "on the way", download not export, status-page links; copy only, check green, no evaluator round |
 | 17 Navigation flicker, replaying marks, static ring (D24 amended) | merged into task/16 only; landing via PR #18 | task/18-land-copy-and-nav | `next/link` back, cross-fade removed, marks gated on `justDecided`, ring turns; check green |
-| 9 Final docs, video, submit | not started | | |
+| 9 Final docs, video, submit | docs done (PRs #22, #24, #25) | ab647d2 | APPROACH.md filled and cut to the points; DECISIONS.md pruned; README is the brief only; video.md still the placeholder; submit not run |
+| 21 Worker parallelism | merged | PR #23 | poll and submit waves via Promise.allSettled through pollOne/submitOne; guard after the photo await (Codex blocking); Math.max on concurrent 429s; deterministic timing test; evaluator PASS → Codex 4 → evaluator FAIL on one untested branch → P7b → Codex clean; 188 tests |
+| 22 Metrics endpoint, input fix, carousel arrows, fold fix | merged | PR #24 | `submitted_at`/`completed_at` (third inline change; migrations table at the fourth, D17), `performance()`, gated `/metrics`, `candidate_completed` log line; batch-count field clearable with Generate off while invalid; `SlideArrows` from sm up; slide box capped by viewport height on phones; evaluator PASS (2 test gaps closed), Codex 3 should-fix taken; 197 tests |
 | 10 Review page layout (Impeccable) | merged in #11 | | init + critique (26/40) + layout, quieter, harden; Codex 4 findings fixed; D18. PRODUCT.md and .impeccable/ added |
 | 13 Status page hierarchy, then three zones (D22), then bolder (D23) | merged in #12 | | plan `docs/superpowers/plans/2026-09-05-status-hierarchy.md` + amendment; critique 25 → 27/40; rebuilt after the user's review: Needs a decision as a plain section (P0: toDecide > 0 stays in the queue), Next batch, folded passive states, Approved images with Download + CSV, header sheets for Import and Spend (running total); evaluator PASS (6/6 mutants, 2 non-blocking fixed); Codex 2 findings fixed (queue wins over Done, empty batches dropped in SQL) |
 | 11 Status page layout (Impeccable) | merged in #12 (main 3f18a6b) | | grouped by next action, counts in headings, generate inside Ready, spend behind a disclosure; D19 |
@@ -221,34 +242,26 @@ candidate with no retry and shows `failure.userMessage` on the card.
 - Slack incoming webhook: created and set on the Railway service by the user 2026-09-04;
   one message per settled batch confirmed live.
 
-## Follow-ups agreed 2026-09-06, to do after the docs pass
+## Follow-ups
 
-- Worker throughput: **done as Task 21, PR #23** (`task/21-worker-parallel`), waiting for the
-  user's review. Evaluator PASS → Codex 4 findings (1 blocking: a late photo fetch could
-  submit after a sibling's pause; guarded) → evaluator FAIL on one untested branch → P7b
-  added → Codex re-check clean. 188 tests. `.prettierignore` excludes `docs/architecture/`.
-- ~~Analytics: Task 22, brief at `.superpowers/sdd/task-22-brief.md`~~ **done on
-  `task/22-analytics-timestamps`**: `submitted_at` and `completed_at` on `candidates`
-  (inline, third additive change, D17 notes the fourth brings a migrations table), a gated
-  `/metrics` JSON endpoint (`lib/analytics.ts` `performance()`), one `candidate_completed`
-  JSON log line per landed image. No UI. Awaiting evaluator, Codex and the user's review.
-
-- Review cards and status feedback, 2026-09-07, on `fix/review-card-fit` (off main after
-  PR #24): every card box is square (A11: Luma returns 1:1; the 4:5 box left grey bands and
-  a narrower end card), sized on the wrapper so a height cap keeps it square and centred;
-  the status page shows "N generating" with a spinner, opens the Generating group and
-  re-fetches itself (the existing `Refresher`) while a batch is in flight. Evaluator
-  PASS, Codex direct run (the rescue subagent's CLI launch failed with "Access is
-  denied"; `codex exec` from the shell worked), three findings fixed. **Merged as PR #26.**
+- Worker throughput: done, Task 21, PR #23 merged.
+- Analytics: done, Task 22, PR #24 merged; numbers in APPROACH.md via PR #25.
+- Review cards and status feedback (other session): done, PR #26 merged.
+- Open, small: `imagesPerMinute` over summed batch wall clocks instead of the ledger span
+  (`lib/analytics.ts` `performance()`, one test in `tests/analytics.test.ts`).
+- Open, product: per-drop zip; second approver; approval rate by idea source (needs the
+  source snapshotted on the candidate). All in APPROACH.md's next list.
 
 ## Open items for the user
 
 - Railway: variables and domain set by the user 2026-09-04 (the connector's write actions are
   blocked by the session's permission classifier; reads work). Backups: none on Hobby (D6
   amendment); the exports are the copy until Pro or a nightly copy job.
-- `MAX_TOTAL_SPEND_USD` default raised to 50 in code and `.env.example` (2026-09-06); set
-  it to 50 on the Railway service too, or the deploy keeps the value set there.
-- Railway account confirmed.
+- Railway service variables as of 2026-09-07: `LUMA_CONCURRENCY` 12 (user's call), spend
+  cap 50. The volume holds the 2026-09-07 clean run (20 products, 22 candidates, 20 approved).
+- Record the video; paste the link in `video.md`; run `./submit.sh`.
+- Slack invite link in APPROACH.md expires by Slack's default after 30 days; set it to never
+  expire or note in the submission that a fresh one is available.
 
 ## Resume checklist for a fresh session
 
