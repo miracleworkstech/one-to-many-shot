@@ -390,11 +390,23 @@ export default async function Review({
                           ? "Nothing approved yet"
                           : `${approved} of ${DONE_AT} approved so far`}
                       </p>
-                      <p className="mt-1 text-sm text-stone-700">
-                        {endKind === "retry"
-                          ? "Say what should change, or ask for another set."
-                          : "Ask for another set."}
-                      </p>
+                      {ideaNudge ? (
+                        // The nudge is the subtitle here, not a fourth block under the
+                        // buttons: the retry card has to fit the same square as an image.
+                        <p className="mt-1 inline-flex items-start gap-1.5 text-sm font-medium text-stone-900">
+                          <Dot tone="wait" />
+                          <span>
+                            {rejected.length} rejected so far. Change the idea
+                            above before asking for another set.
+                          </span>
+                        </p>
+                      ) : (
+                        <p className="mt-1 text-sm text-stone-700">
+                          {endKind === "retry"
+                            ? "Say what should change, or ask for another set."
+                            : "Ask for another set."}
+                        </p>
+                      )}
                     </>
                   )}
                   <div className="mt-4 space-y-2">
@@ -428,29 +440,40 @@ export default async function Review({
                         variant={endKind === "retry" ? "primary" : "quiet"}
                       />
                     )}
-                    {canGenerate && endKind !== "photo" && (
-                      <GenerateProductForm
-                        key={`${p.sku}:end-more`}
-                        sku={p.sku}
-                        kind="product"
-                        label={`Generate ${env.candidatesPerProduct} more`}
-                        variant={endKind === "more" ? "primary" : "quiet"}
-                      />
-                    )}
-                    <Link href="#idea" className={`${QUIET} w-full`}>
-                      <Pencil {...ICON} />
-                      Change the idea
-                    </Link>
+                    {/* Beside the retry form these two share a row, so the card with a
+                        note input still fits the square. Alone they stack as before. */}
+                    <div
+                      className={
+                        canRetry && endKind !== "done" && endKind !== "photo"
+                          ? "grid grid-cols-2 gap-2"
+                          : "space-y-2"
+                      }
+                    >
+                      {canGenerate && endKind !== "photo" && (
+                        <GenerateProductForm
+                          key={`${p.sku}:end-more`}
+                          sku={p.sku}
+                          kind="product"
+                          label={`Generate ${env.candidatesPerProduct} more`}
+                          variant={endKind === "more" ? "primary" : "quiet"}
+                        />
+                      )}
+                      <Link href="#idea" className={`${QUIET} w-full`}>
+                        <Pencil {...ICON} />
+                        Change the idea
+                      </Link>
+                    </div>
                   </div>
-                  {ideaNudge && endKind !== "done" && (
-                    <p className="mt-3 inline-flex items-start gap-1.5 text-sm font-medium text-stone-900">
-                      <Dot tone="wait" />
-                      <span>
-                        {rejected.length} rejected so far. Change the idea above
-                        before asking for another set.
-                      </span>
-                    </p>
-                  )}
+                  {ideaNudge &&
+                    (endKind === "open" || endKind === "generating") && (
+                      <p className="mt-3 inline-flex items-start gap-1.5 text-sm font-medium text-stone-900">
+                        <Dot tone="wait" />
+                        <span>
+                          {rejected.length} rejected so far. Change the idea
+                          above before asking for another set.
+                        </span>
+                      </p>
+                    )}
                 </div>
               </li>
             )}

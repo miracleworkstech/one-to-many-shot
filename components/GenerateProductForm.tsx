@@ -35,18 +35,16 @@ export function GenerateProductForm({
       <input type="hidden" name="sku" value={sku} />
       <input type="hidden" name="kind" value={kind} />
       {kind === "retry" && (
-        <>
-          <label htmlFor={noteId} className="block text-stone-700">
-            What should change?
-          </label>
-          <input
-            id={noteId}
-            name="note"
-            maxLength={MAX_IDEA_CHARS}
-            placeholder="Warmer light, less clutter…"
-            className="min-h-11 w-full rounded-lg border border-stone-300 bg-white px-3 text-base placeholder:text-stone-600"
-          />
-        </>
+        // The prompt is the card's own subtitle ("Say what should change"); a visible label
+        // here made the end card outgrow its square on a phone. The name stays for readers.
+        <input
+          id={noteId}
+          name="note"
+          aria-label="What should change?"
+          maxLength={MAX_IDEA_CHARS}
+          placeholder="What should change? Warmer light, less clutter…"
+          className="min-h-11 w-full rounded-lg border border-stone-300 bg-white px-3 text-base placeholder:text-stone-600"
+        />
       )}
       <button
         disabled={isPending}
